@@ -15,19 +15,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: PHP lint and style check
+  quality:
+    name: PHP lint, audit, static analysis and style
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          tools: php-cs-fixer
+          tools: composer
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-quality-php-8.4-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-quality-php-8.4-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: PHP syntax check
         shell: bash
@@ -44,7 +58,14 @@ jobs:
             php -l "$file"
           done
 
-      - name: PHP-CS-Fixer dry run
-        run: |
-          php-cs-fixer fix src --rules=@PSR12 --path-mode=intersection --dry-run --diff --using-cache=no
-          php-cs-fixer fix tests --rules=@PSR12 --path-mode=intersection --dry-run --diff --using-cache=no
+      - name: Composer security audit
+        run: composer audit --abandoned=fail
+
+      - name: PHP-CS-Fixer check
+        run: composer format:check
+
+      - name: Rector check
+        run: composer rector:check
+
+      - name: PHPStan analysis
+        run: composer stan
