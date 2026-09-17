@@ -32,6 +32,22 @@ jobs:
             exit 1
           fi
 
+      - name: Verify required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(git rev-list -n 1 "$GITHUB_REF")"
+
+          for workflow in "PHP Test Matrix" "PHP Quality Gate" "CodeQL Security Analysis" "Deep QA"; do
+            conclusion="$(gh run list --repo "${{ github.repository }}" --workflow "$workflow" --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion // ""')"
+            if [ "$conclusion" != "success" ]; then
+              echo "$workflow has not passed for $sha: $conclusion"
+              exit 1
+            fi
+          done
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
