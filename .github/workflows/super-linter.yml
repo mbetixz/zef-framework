@@ -46,4 +46,5 @@ jobs:
 
       - name: PHP-CS-Fixer dry run
         run: |
-          php-cs-fixer fix src tests --rules=@PSR12 --dry-run --diff --using-cache=no
+          php-cs-fixer fix src --rules=@PSR12 --dry-run --diff --using-cache=no
+          php-cs-fixer fix tests --rules=@PSR12 --dry-run --diff --using-cache=no
