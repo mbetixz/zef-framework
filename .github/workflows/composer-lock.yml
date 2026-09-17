@@ -30,7 +30,17 @@ jobs:
           tools: composer
 
       - name: Resolve dependencies
-        run: composer update --prefer-dist --no-interaction --no-progress
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -f composer.lock ]; then
+            composer update --prefer-dist --no-interaction --no-progress
+          elif ! composer validate --strict; then
+            composer update --prefer-dist --no-interaction --no-progress
+          else
+            echo "composer.lock is already synchronized with composer.json."
+          fi
 
       - name: Commit composer.lock
         uses: stefanzweifel/git-auto-commit-action@v7
