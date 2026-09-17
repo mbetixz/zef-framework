@@ -1,0 +1,46 @@
+name: Lint Code Base
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  run-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lint Code Base
+        uses: super-linter/super-linter@v5
+        env:
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: "main"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # ============================================================
+          # KONFIGURASI KUSTOM UTAMA
+          # ============================================================
+          
+          # 1. Lokasi folder tempat kamu menyimpan aturan/ruleset kustom
+          LINTER_RULES_PATH: .github/linters
+
+          # 2. Aktifkan Linter Khusus PHP
+          VALIDATE_PHP_BUILTIN: true      # Cek sintaks bawaan PHP
+          VALIDATE_PHP_CODESNIFFER: true # Cek standar koding (baca file .phpcs.xml)
+          VALIDATE_PHP_CS_FIXER: true    # Cek gaya penulisan (baca file .php-cs-fixer.php)
+
+          # 3. Matikan Bahasa Lain (Agar pindaian cepat & fokus ke PHP saja)
+          VALIDATE_JAVASCRIPT_ES: false
+          VALIDATE_TYPESCRIPT_ES: false
+          VALIDATE_HTML: false
+          VALIDATE_CSS: false
+          VALIDATE_PYTHON: false
+          VALIDATE_BASH: false
+
+          # 4. Abaikan folder otomatis/library agar tidak di-lint
+          FILTER_REGEX_EXCLUDE: '.*(vendor/|node_modules/|storage/).*'
