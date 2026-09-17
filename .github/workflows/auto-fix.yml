@@ -18,18 +18,19 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          tools: php-cs-fixer
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Run PHP-CS-Fixer
-        run: |
-          php-cs-fixer fix src --rules=@PSR12 --path-mode=intersection --using-cache=no
-          php-cs-fixer fix tests --rules=@PSR12 --path-mode=intersection --using-cache=no
+        run: composer format
 
       - name: Commit changes automatically
         uses: stefanzweifel/git-auto-commit-action@v7
