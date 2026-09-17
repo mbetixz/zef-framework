@@ -72,3 +72,6 @@ jobs:
 
       - name: PHPStan analysis
         run: composer stan
+
+      - name: Deptrac architecture analysis
+        run: composer deptrac
