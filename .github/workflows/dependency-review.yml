@@ -1,0 +1,19 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
