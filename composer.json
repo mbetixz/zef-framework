@@ -31,7 +31,7 @@
         "rector:check": "rector process --dry-run --no-progress-bar",
         "stan": "phpstan analyse --configuration=phpstan.neon.dist",
         "docs": "phpdoc run -d src -t build/docs",
-        "audit": "composer audit --abandoned=fail"
+        "audit": "composer audit --locked --abandoned=fail"
     },
     "keywords": [
         "php",
