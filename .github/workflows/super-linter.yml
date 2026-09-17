@@ -2,42 +2,38 @@ name: Lint Code Base
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
 
-env:
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   run-lint:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Lint Code Base
-        # Gunakan v7 (versi stabil terbaru)
+      - name: Lint PHP
         uses: super-linter/super-linter@v7
         env:
-          VALIDATE_ALL_CODEBASE: false
           DEFAULT_BRANCH: "main"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
 
-          # Linter PHP
+          # PHP only. Do not mix VALIDATE=true and VALIDATE=false.
           VALIDATE_PHP_BUILTIN: true
           VALIDATE_PHP_CODESNIFFER: true
           VALIDATE_PHP_CS_FIXER: true
 
-          # Matikan linter bahasa lain
-          VALIDATE_JAVASCRIPT_ES: false
-          VALIDATE_TYPESCRIPT_ES: false
-          VALIDATE_HTML: false
-          VALIDATE_CSS: false
-          VALIDATE_PYTHON: false
-          VALIDATE_BASH: false
-
-          # Exclude folder vendor/storage
-          FILTER_REGEX_EXCLUDE: '.*(vendor/|node_modules/|storage/).*'
+          FILTER_REGEX_EXCLUDE: ".*(vendor/|node_modules/|storage/|\.php-cs-fixer\.cache).*"
