@@ -2,28 +2,36 @@ name: Auto Fix Code Style
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-fix-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   php-cs-fixer:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: "8.4"
           tools: php-cs-fixer
 
       - name: Run PHP-CS-Fixer
         run: |
-          php-cs-fixer fix src --rules=@PSR12
-          php-cs-fixer fix tests --rules=@PSR12
-
+          php-cs-fixer fix src tests --rules=@PSR12 --using-cache=no
 
       - name: Commit changes automatically
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "style: auto fix coding standards via PHP-CS-Fixer"
+          file_pattern: "src/**/*.php tests/**/*.php"
