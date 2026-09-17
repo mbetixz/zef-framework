@@ -18,7 +18,10 @@ jobs:
           tools: php-cs-fixer
 
       - name: Run PHP-CS-Fixer
-        run: php-cs-fixer fix src tests --rules=@PSR12
+        run: |
+          php-cs-fixer fix src --rules=@PSR12
+          php-cs-fixer fix tests --rules=@PSR12
+
 
       - name: Commit changes automatically
         uses: stefanzweifel/git-auto-commit-action@v5
