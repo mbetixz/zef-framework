@@ -1,4 +1,4 @@
-name: Lint Code Base
+name: PHP Quality Gate
 
 on:
   push:
@@ -11,29 +11,39 @@ permissions:
   contents: read
 
 concurrency:
-  group: lint-${{ github.ref }}
+  group: quality-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  run-lint:
+  lint:
+    name: PHP lint and style check
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          fetch-depth: 0
+          php-version: "8.4"
+          tools: php-cs-fixer
 
-      - name: Lint PHP
-        uses: super-linter/super-linter@v7
-        env:
-          DEFAULT_BRANCH: "main"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: true
+      - name: PHP syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find src tests -type f -name "*.php" -print 2>/dev/null || true)
 
-          # PHP only. Do not mix VALIDATE=true and VALIDATE=false.
-          VALIDATE_PHP_BUILTIN: true
-          VALIDATE_PHP_CODESNIFFER: true
-          VALIDATE_PHP_CS_FIXER: true
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No PHP source/test files found."
+            exit 0
+          fi
 
-          FILTER_REGEX_EXCLUDE: ".*(vendor/|node_modules/|storage/|\.php-cs-fixer\.cache).*"
+          for file in "${files[@]}"; do
+            php -l "$file"
+          done
+
+      - name: PHP-CS-Fixer dry run
+        run: |
+          php-cs-fixer fix src tests --rules=@PSR12 --dry-run --diff --using-cache=no
