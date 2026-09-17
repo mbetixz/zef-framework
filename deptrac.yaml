@@ -1,0 +1,12 @@
+deptrac:
+  paths:
+    - ./src
+
+  layers:
+    - name: Core
+      collectors:
+        - type: className
+          regex: '^Zef\\App\\.*'
+
+  ruleset:
+    Core: ~
