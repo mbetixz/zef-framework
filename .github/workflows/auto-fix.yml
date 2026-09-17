@@ -1,0 +1,26 @@
+name: Auto Fix Code Style
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  php-cs-fixer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: php-cs-fixer
+
+      - name: Run PHP-CS-Fixer
+        run: php-cs-fixer fix src tests --rules=@PSR12
+
+      - name: Commit changes automatically
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto fix coding standards via PHP-CS-Fixer"
