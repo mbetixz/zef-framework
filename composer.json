@@ -11,7 +11,10 @@
         "phpdocumentor/shim": "^3.10",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^10.0",
-        "rector/rector": "^2.6"
+        "rector/rector": "^2.6",
+        "qossmic/deptrac-shim": "^4.0",
+        "infection/infection": "^0.30",
+        "phpbench/phpbench": "^1.4"
     },
     "config": {
         "allow-plugins": {
@@ -31,7 +34,11 @@
         "rector:check": "rector process --dry-run --no-progress-bar",
         "stan": "phpstan analyse --configuration=phpstan.neon.dist",
         "docs": "phpdoc run -d src -t build/docs",
-        "audit": "composer audit --locked --abandoned=fail"
+        "audit": "composer audit --locked --abandoned=fail",
+        "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress",
+        "mutation": "infection --threads=max --min-msi=70 --min-covered-msi=80",
+        "mutation:ci": "infection --threads=max --min-msi=70 --min-covered-msi=80 --logger-github-actions",
+        "bench": "phpbench run --progress=none"
     },
     "keywords": [
         "php",
