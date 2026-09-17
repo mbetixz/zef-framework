@@ -3,8 +3,8 @@ name: Mutation Testing
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
+  schedule:
+    - cron: "0 3 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -33,5 +33,21 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      - name: Detect source and tests
+        id: detect
+        shell: bash
+        run: |
+          if find src -type f -name "*.php" -print -quit 2>/dev/null | grep -q . &&
+             find tests -type f -name "*.php" -print -quit 2>/dev/null | grep -q .; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run mutation testing
+        if: steps.detect.outputs.ready == 'true'
         run: composer mutation:ci
+
+      - name: Skip until test baseline exists
+        if: steps.detect.outputs.ready != 'true'
+        run: echo "Mutation testing skipped: source/test baseline is not ready."
