@@ -28,7 +28,8 @@ jobs:
 
       - name: Run PHP-CS-Fixer
         run: |
-          php-cs-fixer fix src tests --rules=@PSR12 --using-cache=no
+          php-cs-fixer fix src --rules=@PSR12 --using-cache=no
+          php-cs-fixer fix tests --rules=@PSR12 --using-cache=no
 
       - name: Commit changes automatically
         uses: stefanzweifel/git-auto-commit-action@v7
