@@ -1,0 +1,95 @@
+name: Deep QA
+
+on:
+  workflow_run:
+    workflows:
+      - "PHP Test Matrix"
+      - "PHP Quality Gate"
+      - "CodeQL Security Analysis"
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: read
+
+concurrency:
+  group: deep-qa-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
+
+    steps:
+      - name: Verify required workflows for commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required=(
+            "PHP Test Matrix"
+            "PHP Quality Gate"
+            "CodeQL Security Analysis"
+          )
+
+          for workflow in "${required[@]}"; do
+            conclusion="$(gh run list --repo "${{ github.repository }}"               --workflow "$workflow"               --commit "$SHA"               --limit 1               --json conclusion               --jq '.[0].conclusion // ""')"
+
+            if [ "$conclusion" != "success" ]; then
+              echo "::notice::$workflow is not successful yet: $conclusion"
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "All required CI workflows passed for $SHA."
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        if: steps.gate.outputs.ready == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: pcov
+          tools: composer
+
+      - name: Install dependencies
+        if: steps.gate.outputs.ready == 'true'
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Mutation testing
+        if: steps.gate.outputs.ready == 'true'
+        run: composer mutation:ci
+
+      - name: Detect benchmarks
+        if: steps.gate.outputs.ready == 'true'
+        id: bench
+        shell: bash
+        run: |
+          if find tests/Benchmark -type f -name "*.php" -print -quit 2>/dev/null | grep -q .; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: PHPBench
+        if: steps.gate.outputs.ready == 'true' && steps.bench.outputs.ready == 'true'
+        run: composer bench
