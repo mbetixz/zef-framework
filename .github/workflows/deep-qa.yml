@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: deep-qa-${{ github.event.workflow_run.head_sha || github.sha }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   gate:
@@ -26,7 +26,7 @@ jobs:
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_branch == 'main'
       )
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       ready: ${{ steps.gate.outputs.ready }}
 
