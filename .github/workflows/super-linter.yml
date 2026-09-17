@@ -59,7 +59,10 @@ jobs:
           done
 
       - name: Composer security audit
-        run: composer audit --abandoned=fail
+        run: composer audit --locked --abandoned=fail
+
+      - name: Composer platform requirements
+        run: composer check-platform-reqs
 
       - name: PHP-CS-Fixer check
         run: composer format:check
