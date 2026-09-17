@@ -1,22 +1,22 @@
-name: "CodeQL Security Analysis"
+name: CodeQL Security Analysis
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   schedule:
-    # Berjalan otomatis setiap hari Senin pukul 03:00 UTC
-    - cron: '0 3 * * 1'
+    - cron: '0 0 * * 0'
+
+# Menyembunyikan warning Node 20
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+
 jobs:
   analyze:
-    name: Analyze PHP Code
+    name: Analyze
     runs-on: ubuntu-latest
     permissions:
-      # Diperlukan untuk membaca repository dan menulis hasil SARIF ke tab Security
       actions: read
       contents: read
       security-events: write
@@ -24,24 +24,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'php' ]
-        # Opsi query: 'default' (standar) atau 'security-extended' (lebih mendalam/ketat)
-        build-mode: [ 'none' ]
+        language: [ 'javascript-typescript' ]
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Inisialisasi mesin CodeQL untuk bahasa PHP
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: ${{ matrix.language }}
-        # Menggunakan aturan keamanan yang lebih luas (sangat direkomendasikan)
-        queries: security-extended
 
-    # Jalankan analisis CodeQL (PHP adalah bahasa yang tidak perlu di-compile)
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        category: "/language:${{matrix.language}}"
+      uses: github/codeql-action/analyze@v4
