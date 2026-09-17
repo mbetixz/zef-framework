@@ -1,7 +1,8 @@
 {
     "name": "mbetixz/zef-framework",
-    "description": "Zef Framework",
+    "description": "ZEF Framework",
     "type": "project",
+    "license": "MIT",
     "require": {
         "php": "^8.4"
     },
