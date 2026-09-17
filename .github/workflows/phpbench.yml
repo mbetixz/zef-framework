@@ -1,0 +1,51 @@
+name: PHPBench Performance
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phpbench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: PHPBench
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Detect benchmarks
+        id: detect
+        shell: bash
+        run: |
+          if find tests/Benchmark -type f -name "*.php" -print -quit 2>/dev/null | grep -q .; then
+            echo "has_benchmarks=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_benchmarks=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run PHPBench
+        if: steps.detect.outputs.has_benchmarks == 'true'
+        run: composer bench
+
+      - name: Skip until benchmarks exist
+        if: steps.detect.outputs.has_benchmarks != 'true'
+        run: echo "No tests/Benchmark benchmarks yet; benchmark gate skipped."
