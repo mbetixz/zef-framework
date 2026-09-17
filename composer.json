@@ -32,5 +32,9 @@
         "stan": "phpstan analyse --configuration=phpstan.neon.dist",
         "docs": "phpdoc run -d src -t build/docs",
         "audit": "composer audit --abandoned=fail"
-    }
+    },
+    "keywords": [
+        "php",
+        "framework"
+    ]
 }
