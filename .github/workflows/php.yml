@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -28,7 +28,7 @@ jobs:
           php-version: "8.4"
           tools: composer
 
-      - name: Validate composer.json and composer.lock
+      - name: Validate composer.json
         run: composer validate --strict
 
       - name: Cache Composer dependencies
@@ -40,7 +40,7 @@ jobs:
             ${{ runner.os }}-php-8.4-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-suggest
+        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Run test suite
         run: composer test
