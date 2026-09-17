@@ -1,0 +1,39 @@
+name: Composer Lock Bootstrap
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "composer.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: composer-lock
+  cancel-in-progress: true
+
+jobs:
+  lock:
+    name: Resolve and commit composer.lock
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Resolve dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Commit composer.lock
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore: update composer.lock"
+          file_pattern: "composer.lock"
