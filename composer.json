@@ -12,13 +12,14 @@
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^10.0",
         "rector/rector": "^2.6",
-        "qossmic/deptrac-shim": "^4.0",
         "infection/infection": "^0.30",
-        "phpbench/phpbench": "^1.4"
+        "phpbench/phpbench": "^1.4",
+        "deptrac/deptrac": "^4.7"
     },
     "config": {
         "allow-plugins": {
-            "phpdocumentor/shim": true
+            "phpdocumentor/shim": true,
+            "infection/extension-installer": true
         }
     },
     "autoload": {
