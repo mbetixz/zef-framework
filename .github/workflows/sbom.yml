@@ -19,6 +19,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Prepare SBOM output directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          test -d build
+
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@v0
         with:
