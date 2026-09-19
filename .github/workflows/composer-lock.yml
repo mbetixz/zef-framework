@@ -7,24 +7,31 @@ on:
       - "composer.json"
   workflow_dispatch:
 
+# Baseline: no workflow-level write authority. Only the commit job may write.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: composer-lock
   cancel-in-progress: true
 
 jobs:
-  lock:
-    name: Resolve and commit composer.lock
+  # Read-only resolution job. Dependency resolution NEVER runs with write authority:
+  # the privileged commit job below runs no Composer command at all.
+  resolve:
+    name: Resolve composer.lock (read-only)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      needed: ${{ steps.decide.outputs.needed }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: "8.4"
           tools: composer
@@ -35,15 +42,58 @@ jobs:
           set -euo pipefail
 
           if [ ! -f composer.lock ]; then
+            echo "No composer.lock present; resolving fresh."
             composer update --prefer-dist --no-interaction --no-progress
           elif ! composer validate --strict; then
+            echo "composer.lock is out of sync with composer.json; re-resolving."
             composer update --prefer-dist --no-interaction --no-progress
           else
             echo "composer.lock is already synchronized with composer.json."
           fi
 
+      - name: Detect lockfile diff
+        id: decide
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- composer.lock; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Lockfile unchanged; nothing to commit."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "Lockfile changed; handing off to the privileged commit job."
+          fi
+
+      - name: Upload resolved lockfile
+        if: steps.decide.outputs.needed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: composer-lock-resolved
+          path: composer.lock
+          if-no-files-found: error
+
+  # Privileged job: limited to composer.lock, explicit dependency on the read-only job.
+  commit:
+    name: Commit composer.lock
+    needs: resolve
+    if: needs.resolve.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Download resolved lockfile
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: composer-lock-resolved
+          path: .
+
       - name: Commit composer.lock
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           commit_message: "chore: update composer.lock"
           file_pattern: "composer.lock"
