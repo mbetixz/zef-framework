@@ -94,11 +94,11 @@ jobs:
           if-no-files-found: error
 
       # Keyless provenance attestation: signed via GitHub Actions OIDC.
-      # No long-lived signing key is used. Non-blocking so that release
-      # semantics are unchanged if attestations are unavailable.
+      # No long-lived signing key is used. Blocking: if the attestation cannot
+      # be persisted the release fails, so a provenance regression cannot pass
+      # silently.
       - name: Attest build provenance (keyless, OIDC)
         id: attest
-        continue-on-error: true
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: zef-framework-${{ github.ref_name }}.tar.gz
