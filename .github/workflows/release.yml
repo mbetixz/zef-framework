@@ -65,9 +65,18 @@ jobs:
       - name: Install production dependencies
         run: composer install --no-dev --prefer-dist --no-interaction --no-progress
 
+      # The archive is written outside the working tree: writing it inside the
+      # tree made tar read its own output ("file changed as we read it", exit 1).
+      # It is then moved in, so the checksum, upload, attest and publish steps
+      # keep operating on the same relative path as before.
       - name: Create source artifact
+        shell: bash
         run: |
-          tar --exclude-vcs --exclude=build -czf "zef-framework-${GITHUB_REF_NAME}.tar.gz" .
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/zef-framework-${GITHUB_REF_NAME}.tar.gz"
+          tar --exclude-vcs --exclude=build -czf "$archive" .
+          mv "$archive" "zef-framework-${GITHUB_REF_NAME}.tar.gz"
+          ls -l "zef-framework-${GITHUB_REF_NAME}.tar.gz"
 
       - name: Generate SHA-256 checksum
         run: |
