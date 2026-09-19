@@ -6,19 +6,25 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+# Baseline: no workflow-level write authority. Only the publish job may write.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  release:
+  # Read-only build job. Produces the source artifact plus a SHA-256 checksum.
+  build:
+    name: Build release artifact
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
 
@@ -49,7 +55,7 @@ jobs:
           done
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: "8.4"
           tools: composer
@@ -61,8 +67,55 @@ jobs:
         run: |
           tar --exclude-vcs --exclude=build -czf "zef-framework-${GITHUB_REF_NAME}.tar.gz" .
 
+      - name: Generate SHA-256 checksum
+        run: |
+          sha256sum "zef-framework-${GITHUB_REF_NAME}.tar.gz" > "zef-framework-${GITHUB_REF_NAME}.tar.gz.sha256"
+          echo "--- release integrity ---"
+          cat "zef-framework-${GITHUB_REF_NAME}.tar.gz.sha256"
+
+      - name: Upload release artifact and checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-artifacts-${{ github.ref_name }}
+          path: |
+            zef-framework-*.tar.gz
+            zef-framework-*.tar.gz.sha256
+          if-no-files-found: error
+
+      # Keyless provenance attestation: signed via GitHub Actions OIDC.
+      # No long-lived signing key is used. Non-blocking so that release
+      # semantics are unchanged if attestations are unavailable.
+      - name: Attest build provenance (keyless, OIDC)
+        id: attest
+        continue-on-error: true
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: zef-framework-${{ github.ref_name }}.tar.gz
+
+  # Privileged publish job: only publishes the verified artifact.
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifact and checksum
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-artifacts-${{ github.ref_name }}
+          path: .
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          gh release create "${GITHUB_REF_NAME}"             "zef-framework-${GITHUB_REF_NAME}.tar.gz"             --generate-notes             --verify-tag
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" \
+            "zef-framework-${GITHUB_REF_NAME}.tar.gz" \
+            "zef-framework-${GITHUB_REF_NAME}.tar.gz.sha256" \
+            --generate-notes \
+            --verify-tag

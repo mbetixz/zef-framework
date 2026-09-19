@@ -5,23 +5,30 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# Baseline: no workflow-level write authority. Only the final job may write.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: auto-fix-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  php-cs-fixer:
+  # Read-only analysis job: runs Composer and the formatter, holds no write token.
+  detect:
+    name: Detect style drift (read-only)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
           php-version: "8.4"
           tools: composer
@@ -32,8 +39,52 @@ jobs:
       - name: Run PHP-CS-Fixer
         run: composer format
 
+      - name: Determine whether a change exists
+        id: diff
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- src tests; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No style drift detected in src/ or tests/."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Style drift detected; handing off to the privileged commit job."
+          fi
+
+      - name: Upload formatted files
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: php-cs-fixer-output
+          path: |
+            src/**/*.php
+            tests/**/*.php
+          if-no-files-found: error
+
+  # Privileged job: commits ONLY the verified formatter output.
+  # It runs no Composer install and no arbitrary dependency resolution.
+  commit:
+    name: Commit style fixes
+    needs: detect
+    if: needs.detect.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Download formatted files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: php-cs-fixer-output
+          path: .
+
       - name: Commit changes automatically
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           commit_message: "style: auto fix coding standards via PHP-CS-Fixer"
           file_pattern: "src/**/*.php tests/**/*.php"
