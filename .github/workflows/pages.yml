@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
-      - name: Generate phpDocumentor documentation
+      - name: Generate API documentation (Doctum)
         run: composer docs
 
       - name: Configure GitHub Pages
