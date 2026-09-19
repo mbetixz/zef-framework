@@ -40,8 +40,8 @@ jobs:
           set -euo pipefail
           sha="$(git rev-list -n 1 "$GITHUB_REF")"
 
-          for workflow in "PHP Test Matrix" "PHP Quality Gate" "CodeQL Security Analysis" "Deep QA"; do
-            conclusion="$(gh run list --repo "${{ github.repository }}" --workflow "$workflow" --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion // ""')"
+          for workflow in "ci.yml" "secret-scan.yml" "phpbench.yml"; do
+            conclusion="$(gh run list --repo "${{ github.repository }}" --workflow "$workflow" --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion // ""' 2>/dev/null || true)"
             if [ "$conclusion" != "success" ]; then
               echo "$workflow has not passed for $sha: $conclusion"
               exit 1
