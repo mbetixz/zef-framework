@@ -52,10 +52,9 @@ jobs:
           if-no-files-found: error
 
       # Keyless SBOM attestation via GitHub Actions OIDC (no long-lived key).
-      # Non-blocking so the existing SBOM gate semantics are unchanged when
-      # attestations are unavailable for the repository.
+      # Blocking: if the attestation cannot be persisted the run fails, so an
+      # attestation regression cannot pass silently.
       - name: Attest SBOM (keyless, OIDC)
-        continue-on-error: true
         uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2.4.0
         with:
           subject-path: build/sbom.cdx.json
