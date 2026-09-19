@@ -1,0 +1,39 @@
+# Konfigurasi Release Drafter.
+# Memperbaiki kegagalan 8/8 run: release-drafter@v6 gagal karena
+# "Configuration file .github/release-drafter.yml is not found".
+# File ini WAJIB berada di default branch.
+
+name-template: "v$NEXT_PATCH_VERSION"
+tag-template: "v$NEXT_PATCH_VERSION"
+
+categories:
+  - title: "Features"
+    labels: ["feature", "enhancement"]
+  - title: "Bug Fixes"
+    labels: ["fix", "bugfix", "bug"]
+  - title: "Security"
+    labels: ["security"]
+  - title: "Maintenance"
+    labels: ["chore", "maintenance", "dependencies"]
+  - title: "Documentation"
+    labels: ["documentation", "docs"]
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&'
+
+no-changes-template: "- Tidak ada perubahan."
+
+template: |
+  ## Perubahan
+
+  $CHANGES
+
+  **Perubahan penuh**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$NEXT_PATCH_VERSION
+
+autolabeler:
+  - label: "documentation"
+    files: ["*.md", "docs/**"]
+  - label: "dependencies"
+    files: ["composer.json", "composer.lock"]
+  - label: "security"
+    files: ["SECURITY.md", ".github/workflows/secret-scan.yml"]
