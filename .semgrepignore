@@ -1,0 +1,17 @@
+# Paths excluded from Semgrep analysis for this repository.
+#
+# NOTE: committing this file REPLACES Semgrep's built-in default ignore list, so
+# every path that must stay unscanned has to be listed explicitly here. That is
+# deliberate: it makes the excluded set reviewable in the pull request instead of
+# depending on a tool default that can change between releases.
+#
+# `tests/`, `scripts/` and `tools/` are deliberately NOT listed. They are analysed
+# as well, but their findings are reported instead of blocking. The reasoning is
+# in docs/security/php-sast.md.
+.git/
+vendor/
+build/
+dist/
+node_modules/
+.phpunit.cache/
+.php-cs-fixer.cache/
