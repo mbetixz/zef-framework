@@ -1,0 +1,16 @@
+{
+    "$comment": "Time-boxed allowlist for abandoned Composer packages. Every entry MUST carry an 'expires' date (YYYY-MM-DD). scripts/ci/assert-abandoned-policy.php fails the build when an entry is past its expiry, and also fails for any abandoned package that is NOT listed here.",
+    "policy": {
+        "owner": "Repo maintainer",
+        "review_by": "2027-03-31",
+        "rationale": "Abandoned packages are tolerated only when (1) they are dev-only, (2) no replacement exists, and (3) an explicit expiry forces a re-review. Production/runtime dependencies are never allowed to be abandoned."
+    },
+    "allowed": [
+        {
+            "name": "doctrine/annotations",
+            "reason": "Transitive dev-only dependency of phpbench/phpbench (^1.4 resolves to 1.7.0, the latest release, which requires doctrine/annotations ^2.0). Packagist suggests no replacement. Not present in any runtime code path.",
+            "introduced_by": "phpbench/phpbench",
+            "expires": "2027-03-31"
+        }
+    ]
+}

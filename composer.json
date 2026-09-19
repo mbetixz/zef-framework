@@ -19,6 +19,9 @@
     "config": {
         "allow-plugins": {
             "infection/extension-installer": true
+        },
+        "audit": {
+            "abandoned": "report"
         }
     },
     "autoload": {
@@ -34,10 +37,10 @@
         "rector:check": "rector process --dry-run --no-progress-bar",
         "stan": "phpstan analyse --configuration=phpstan.neon.dist",
         "docs": "@php vendor/bin/doctum.php update doctum.php --no-progress",
-        "audit": "composer audit --locked --abandoned=fail",
+        "audit": "php scripts/ci/assert-abandoned-policy.php",
         "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress",
         "mutation": "infection --threads=max --min-msi=70 --min-covered-msi=80",
-        "mutation:ci": "infection --threads=max --min-msi=70 --min-covered-msi=80 --logger-github-actions",
+        "mutation:ci": "infection --threads=max --min-msi=70 --min-covered-msi=80 --logger-github",
         "bench": "phpbench run --progress=none"
     },
     "keywords": [

@@ -107,7 +107,7 @@ jobs:
           done
 
       - name: Composer security audit
-        run: composer audit --locked --abandoned=fail
+        run: composer run audit
 
       - name: Composer platform requirements
         run: composer check-platform-reqs
