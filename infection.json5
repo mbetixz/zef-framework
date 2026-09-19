@@ -1,0 +1,16 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "testFramework": "phpunit",
+    "tmpDir": "build/infection/tmp",
+    "logs": {
+        "text": "build/infection/infection.log",
+        "summary": "build/infection/summary.log",
+        "json": "build/infection/infection.json"
+    },
+    "mutators": {
+        "@default": true
+    }
+}
