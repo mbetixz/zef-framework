@@ -15,9 +15,13 @@ concurrency:
 jobs:
   sbom:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for keyless (OIDC) SBOM attestation
+      attestations: write # required to persist the attestation to the attestation store
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Prepare SBOM output directory
         shell: bash
@@ -27,15 +31,31 @@ jobs:
           test -d build
 
       - name: Generate CycloneDX SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
           path: .
           format: cyclonedx-json
           output-file: build/sbom.cdx.json
 
+      - name: Verify SBOM artifact is present and non-empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/sbom.cdx.json
+          echo "SBOM bytes: $(wc -c < build/sbom.cdx.json)"
+
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: zef-sbom-${{ github.sha }}
           path: build/sbom.cdx.json
           if-no-files-found: error
+
+      # Keyless SBOM attestation via GitHub Actions OIDC (no long-lived key).
+      # Blocking: if the attestation cannot be persisted the run fails, so an
+      # attestation regression cannot pass silently.
+      - name: Attest SBOM (keyless, OIDC)
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2.4.0
+        with:
+          subject-path: build/sbom.cdx.json
+          sbom-path: build/sbom.cdx.json
