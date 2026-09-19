@@ -1,0 +1,180 @@
+name: PHP SAST
+
+# Security-oriented source-code analysis for the PHP code in this repository.
+# Scope, pinning, severity policy and the relationship to the other gates are
+# documented in docs/security/php-sast.md — read it before changing this file.
+#
+# This workflow deliberately:
+#   * requires no repository secret and no PAT (Semgrep CE runs offline),
+#   * uses the `pull_request` trigger only (never the write-context variant),
+#   * grants write authority to no job (only security-events: write on this job,
+#     which is required solely to publish SARIF into code scanning),
+#   * never modifies source code.
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Baseline: this workflow only reads the checked-out tree. The sole write grant
+# is job-level and scoped to publishing SARIF.
+permissions:
+  contents: read
+
+concurrency:
+  group: php-sast-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned analysis inputs. Every value below is immutable on purpose: a security
+  # gate whose ruleset or engine can change without a reviewable commit is not a
+  # gate. Upgrades are deliberate pull requests (see docs/security/php-sast.md).
+  #
+  # Engine: semgrep/semgrep 1.177.0, pinned by registry digest (not by tag).
+  SEMGREP_IMAGE: semgrep/semgrep@sha256:acaac22ffc7b7cc5926de0751b223bce0b2491c33d18422fa72f632c78d81198
+  # Human-readable engine version that the digest above corresponds to.
+  SEMGREP_VERSION: 1.177.0
+  # Ruleset: semgrep/semgrep-rules commit 40b8c63f, plus the sha256 of the tarball
+  # for that exact commit, which is verified below before anything is executed.
+  RULES_SHA: 40b8c63f75dc7c22c8a77482d73bfb864b146f7e
+  RULES_TARBALL_SHA256: b7e483abf001c405a3e908251ff66cb198a26702aff5fe4c5f0c4b2fffec4919
+
+jobs:
+  php-sast:
+    name: PHP SAST (Semgrep)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Fetch and verify the pinned Semgrep ruleset
+        # Fail-closed: if the ruleset cannot be fetched, or its bytes are not the
+        # ones this workflow was reviewed against, the job stops here rather than
+        # producing a silent zero-finding pass.
+        run: |
+          set -euo pipefail
+          tarball="${RUNNER_TEMP}/semgrep-rules.tar.gz"
+          curl -sSL --fail --retry 3 --retry-delay 2 \
+            -o "${tarball}" \
+            "https://codeload.github.com/semgrep/semgrep-rules/tar.gz/${RULES_SHA}"
+          echo "${RULES_TARBALL_SHA256}  ${tarball}" | sha256sum --check --strict
+          mkdir -p "${RUNNER_TEMP}/rules"
+          tar -xzf "${tarball}" -C "${RUNNER_TEMP}/rules" --strip-components=1
+          test -d "${RUNNER_TEMP}/rules/php/lang/security"
+          echo "Ruleset ${RULES_SHA} verified (sha256 matches the pinned digest)."
+
+      - name: Scan production PHP source (blocking)
+        # src/**/ is the merge-blocking set: the pinned baseline scan of main found
+        # zero findings here, so ERROR-level findings block without false-positive
+        # friction. No suppression is applied to make this pass.
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "${PWD}:/src:ro" \
+            -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}:/out" \
+            "${SEMGREP_IMAGE}" \
+            semgrep scan \
+              --config=/rules/php/lang/security \
+              --config=/rules/php/lang/security/injection \
+              --config=/rules/php/lang/security/audit \
+              --metrics=off \
+              --disable-version-check \
+              --severity ERROR \
+              --error \
+              --sarif \
+              --output=/out/sast-src.sarif \
+              /src/src
+
+      - name: Scan tests and tooling PHP (report-only)
+        # Analysed on purpose — this code runs with repository credentials on CI and
+        # on developer machines. It is reported through code scanning but does not
+        # block, because these trees have not been triaged yet and an untriaged red
+        # gate is how reviewers learn to bypass a gate.
+        run: |
+          set -euo pipefail
+          targets=""
+          for d in tests scripts tools; do
+            if [ -d "${PWD}/${d}" ]; then targets="${targets} /src/${d}"; fi
+          done
+          if [ -z "${targets}" ]; then
+            echo "No tests/scripts/tools PHP directories present; nothing to report."
+            : > "${RUNNER_TEMP}/sast-tests.sarif"
+            exit 0
+          fi
+          docker run --rm \
+            -v "${PWD}:/src:ro" \
+            -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}:/out" \
+            "${SEMGREP_IMAGE}" \
+            semgrep scan \
+              --config=/rules/php/lang/security \
+              --config=/rules/php/lang/security/injection \
+              --config=/rules/php/lang/security/audit \
+              --metrics=off \
+              --disable-version-check \
+              --severity WARNING \
+              --sarif \
+              --output=/out/sast-tests.sarif \
+              ${targets}
+
+      - name: Upload SARIF (production source)
+        # Best-effort publication only. The blocking decision is made by the exit
+        # code of the scan above, never by code scanning being available.
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: ${{ runner.temp }}/sast-src.sarif
+          category: php-sast-source
+
+      - name: Upload SARIF (tests and tooling)
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: ${{ runner.temp }}/sast-tests.sarif
+          category: php-sast-tests
+
+      - name: Job summary
+        if: always()
+        # Informational only. This step must never decide the outcome of the gate, so
+        # it explicitly cannot fail the job: an auxiliary command returning non-zero
+        # on a zero-finding SARIF would otherwise turn a clean analysis red.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          count_matches() {
+            # Semgrep emits valid SARIF with an empty results array when a scan finds
+            # nothing, so a no-match grep is the expected case, not an error.
+            local n
+            n=$(grep -o '"ruleId"' "$1" 2>/dev/null | wc -l | tr -d ' ') || n=0
+            printf '%s' "${n:-0}"
+          }
+          {
+            echo "### PHP SAST (Semgrep)"
+            echo ""
+            echo "- engine: semgrep ${SEMGREP_VERSION} (image pinned by digest)"
+            echo "- engine digest: \`${SEMGREP_IMAGE##*@}\`"
+            echo "- ruleset commit: \`${RULES_SHA}\`"
+            echo "- production source threshold: ERROR severity (blocking)"
+            for pair in "sast-src.sarif=production (blocking)" "sast-tests.sarif=tests and tooling (report-only)"; do
+              f="${RUNNER_TEMP}/${pair%%=*}"
+              label="${pair##*=}"
+              if [ -s "${f}" ]; then
+                n=$(count_matches "${f}")
+              else
+                n="n/a"
+              fi
+              echo "- ${label}: ${n} finding(s)"
+            done
+            echo ""
+            echo "Findings are published to code scanning under the categories"
+            echo "\`php-sast-source\` and \`php-sast-tests\`. See docs/security/php-sast.md."
+          } >> "${GITHUB_STEP_SUMMARY}"
