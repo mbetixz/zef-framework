@@ -113,6 +113,15 @@ jobs:
       contents: write
 
     steps:
+      # gh release create needs a git work tree to resolve the repository
+      # (without it: "fatal: not a git repository"). Same pinned SHA as the
+      # build job; full history so --generate-notes and --verify-tag always
+      # have the refs they need.
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+
       - name: Download release artifact and checksum
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
