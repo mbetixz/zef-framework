@@ -2,7 +2,11 @@
 #
 # STATUS: newly added, OBSERVE-ONLY development tooling.
 # ---------------------------------------------------------------------------
-#   - NOT wired into CI. NOT a required status check. No workflow references it.
+#   - This FILE is not read by any workflow: mago.toml configures the Mago CLI when
+#     a human runs it locally, and no CI job loads it.
+#   - Mago itself IS now provisioned in CI: .github/workflows/mago-preflight.yml
+#     seeds and digest-verifies the 1.49.0 binary and runs it only as an ADVISORY
+#     signal. That job is NOT a required status check and cannot block a merge.
 #   - Existing tooling is unchanged and remains authoritative:
 #       PHPStan       (composer script "stan")        -> static analysis
 #       PHP-CS-Fixer  (composer scripts "format*")    -> formatting / style
