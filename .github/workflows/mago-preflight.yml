@@ -88,7 +88,7 @@ env:
   # sha256 of mago-1.49.0-x86_64-unknown-linux-gnu.tar.gz, corroborated from two
   # independent sources: the release API per-asset `digest` and a local re-hash
   # of an actual download.
-  MAGO_TARBALL_SHA256: "32248cbd418fa88522bcacdee8591f5a35cf25db11045f70cefe8b7cdde424ef"
+  MAGO_TARBALL_SHA256: "819a531f8dcb9eec18f32c2f93bb8b4ec73e35d94956134447e15d0063a0833e"
   # sha256 of the `mago` ELF extracted from that verified tarball (30,359,864
   # bytes). Pinning the inner artifact as well means a release whose tarball was
   # left intact but whose binary was swapped would still be caught.
