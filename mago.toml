@@ -1,6 +1,6 @@
 # Mago — PHP toolchain (linter, formatter, static analyzer), written in Rust.
 #
-# STATUS: newly added, OBSERVEONLY development tooling.
+# STATUS: newly added, OBSERVE-ONLY development tooling.
 # ---------------------------------------------------------------------------
 #   - NOT wired into CI. NOT a required status check. No workflow references it.
 #   - Existing tooling is unchanged and remains authoritative:
@@ -9,11 +9,11 @@
 #       Rector        (composer scripts "rector*")    -> automated refactoring
 #       Deptrac       (composer script "deptrac")     -> architecture boundaries
 #       Semgrep       (.github/workflows/php-sast.yml)-> security SAST
-#      PHPUnit / Infection / PHPBench                -> tests / mutation / perf
+#       PHPUnit / Infection / PHPBench                -> tests / mutation / perf
 #   - Mago REPLACES NONE of them. It is an additional, secondary signal only.
 #   - This file is intentionally minimal: no rule overrides, no baselines,
 #     no suppressions. Nothing has been tuned to make Mago report "clean".
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # PHP target mirrors composer.json `require.php` = "^8.4".
 # Source paths mirror phpstan.neon.dist (`paths: src, tests`) and
 # .php-cs-fixer.dist.php (which also excludes vendor and build).
