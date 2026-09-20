@@ -14,7 +14,8 @@
         "rector/rector": "^2.6",
         "infection/infection": "^0.30",
         "phpbench/phpbench": "^1.4",
-        "deptrac/deptrac": "^4.7"
+        "deptrac/deptrac": "^4.7",
+        "carthage-software/mago": "1.49.0"
     },
     "config": {
         "allow-plugins": {
@@ -41,7 +42,13 @@
         "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress",
         "mutation": "infection --threads=max --min-msi=70 --min-covered-msi=80",
         "mutation:ci": "infection --threads=max --min-msi=70 --min-covered-msi=80 --logger-github",
-        "bench": "phpbench run --progress=none"
+        "bench": "phpbench run --progress=none",
+        "format:local": "php-cs-fixer fix",
+        "format:check:local": "php-cs-fixer check --diff",
+        "format:check:staged": "bash scripts/dev/php-cs-fixer-staged.sh",
+        "mago": "mago analyze",
+        "mago:lint": "mago lint",
+        "mago:format:check": "mago format --check"
     },
     "keywords": [
         "php",

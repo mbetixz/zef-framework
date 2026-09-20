@@ -1,0 +1,38 @@
+# Mago — PHP toolchain (linter, formatter, static analyzer), written in Rust.
+#
+# STATUS: newly added, OBSERVE-ONLY development tooling.
+# ---------------------------------------------------------------------------
+#   - This FILE is not read by any workflow: mago.toml configures the Mago CLI when
+#     a human runs it locally, and no CI job loads it.
+#   - Mago itself IS now provisioned in CI: .github/workflows/mago-preflight.yml
+#     seeds and digest-verifies the 1.49.0 binary and runs it only as an ADVISORY
+#     signal. That job is NOT a required status check and cannot block a merge.
+#   - Existing tooling is unchanged and remains authoritative:
+#       PHPStan       (composer script "stan")        -> static analysis
+#       PHP-CS-Fixer  (composer scripts "format*")    -> formatting / style
+#       Rector        (composer scripts "rector*")    -> automated refactoring
+#       Deptrac       (composer script "deptrac")     -> architecture boundaries
+#       Semgrep       (.github/workflows/php-sast.yml)-> security SAST
+#       PHPUnit / Infection / PHPBench                -> tests / mutation / perf
+#   - Mago REPLACES NONE of them. It is an additional, secondary signal only.
+#   - This file is intentionally minimal: no rule overrides, no baselines,
+#     no suppressions. Nothing has been tuned to make Mago report "clean".
+# ---------------------------------------------------------------------------
+# PHP target mirrors composer.json `require.php` = "^8.4".
+# Source paths mirror phpstan.neon.dist (`paths: src, tests`) and
+# .php-cs-fixer.dist.php (which also excludes vendor and build).
+
+php-version = "8.4.0"
+
+[source]
+paths = ["src", "tests"]
+# `includes` is symbol-discovery only (it does not add files to the analysis
+# scope). Composer's vendor tree is where third-party class definitions live.
+includes = ["vendor"]
+excludes = ["build"]
+
+[linter]
+# Start from Mago's built-in defaults. No rule enabled/disabled/retuned yet.
+
+[analyzer]
+# Start from Mago's built-in defaults. No rule enabled/disabled/retuned yet.
