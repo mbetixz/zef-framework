@@ -103,7 +103,7 @@ env:
   #
   # Exact release to be provisioned (not a caret range). Quoted so YAML cannot
   # reinterpret it.
-  MAGO_VERSION: "1.49.0"
+  MAGO_VERSION: "1.50.0"
   # Release asset triple for the runner. `ubuntu-24.04` is glibc x86_64. The
   # wrapper derives this from detect_linux_libc(), so a musl or arm64 runner
   # needs its own triple AND its own digests.
