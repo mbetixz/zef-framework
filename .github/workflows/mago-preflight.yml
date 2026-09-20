@@ -1,21 +1,44 @@
-name: Mago Preflight (advisory)
+name: Mago Quality Gate (blocking)
 
-# ADVISORY WORKFLOW - READ BEFORE CHANGING.
+# BLOCKING WORKFLOW - PROMOTED FROM ADVISORY - READ BEFORE CHANGING.
 # ---------------------------------------------------------------------------
 # This workflow exists to give fast, cheap, early feedback on a pull request,
 # and to let a provisioning change be verified on demand via workflow_dispatch.
-# It is deliberately NOT a gate:
+# PROMOTION HISTORY (owner decision). This workflow was introduced as an
+# ADVISORY, non-blocking collector. It has since been promoted to a BLOCKING
+# quality gate. The three claims below are what that promotion replaced; they are
+# recorded rather than deleted because each one is the only thing that explains a
+# design choice that survives further down.
 #
-#   * It is NOT in the required status check list on `main`. The six required
-#     contexts are "PHP lint, audit, static analysis and style", "Analyze
-#     (actions)", dependency-review, gitleaks, PHPBench and "Build API
-#     documentation" - Mago is none of them. Adding it there requires an owner
-#     decision plus an audit of Mago's real findings.
-#   * `scripts/ci/mago-preflight.sh` is written to always exit 0 (`set -uo
-#     pipefail` deliberately without `-e`, plus a final `exit 0`), and THAT is
-#     now the only thing making the collection step non-blocking. The job-level
-#     `continue-on-error: true` that used to sit beside it has been REMOVED; see
-#     the note inside the job for why. A Mago wobble still cannot block a merge.
+#   WAS: "It is deliberately NOT a gate: it is NOT in the required status check
+#        list on `main` ... Adding it there requires an owner decision plus an
+#        audit of Mago's real findings."
+#   NOW: the owner decision was taken and the audit was performed against the
+#        real tree - `mago analyze`, `mago lint` and `mago format --check` each
+#        measured 0 issues on `main`. "Mago Quality Gate" is registered in the
+#        required status check list on `main`, so a failure here blocks a merge.
+#        The rest of that list is untouched: the six pre-existing contexts are
+#        preserved and Mago is added as the seventh.
+#
+#   WAS: "`scripts/ci/mago-preflight.sh` is written to always exit 0 (`set -uo
+#        pipefail` deliberately without `-e`, plus a final `exit 0`), and THAT is
+#        now the only thing making the collection step non-blocking."
+#   NOW: the script exits 1 whenever the Mago signal is not measured clean. The
+#        `set -uo pipefail`-without-`-e` idiom is RETAINED but its role inverted:
+#        it now exists to finish the report before failing, not to prevent
+#        failure. The final `exit 0` is replaced by a fail-closed decision block.
+#
+#   WAS: "A Mago wobble still cannot block a merge."
+#   NOW: a Mago failure does block a merge - that is the point of the promotion,
+#        and it is why the admin-bypass procedure documented in the header of
+#        `scripts/ci/mago-preflight.sh` matters. A failure caused by provisioning
+#        or network rather than by the changed code must be bypassed through a
+#        named, logged admin action, never by weakening the check.
+#
+# Still true, and deliberately unchanged:
+#   * The job-level `continue-on-error: true` is ABSENT and must never come back.
+#     It was removed while this workflow was still advisory; it rewrote a failing
+#     job's conclusion to success, which would now silently neutralise the gate.
 #   * It publishes nothing: `permissions: contents: read`, and no step commits,
 #     pushes or opens anything. The pre-seed step below does create files, but
 #     only inside the runner's own gitignored `vendor/` working tree, which is
@@ -32,7 +55,7 @@ name: Mago Preflight (advisory)
 # it - so the unverified download path is never entered.
 #
 # A version pin is NECESSARY BUT NOT SUFFICIENT, so there are two independent
-# controls: `composer.json` pins the package to the exact `1.49.0` (this branch
+# controls: `composer.json` pins the package to the exact `1.49.0` (`main` now
 # carries that pin; the caret range it replaced is what let a lockfile refresh
 # move the wrapper's download target silently), AND the seed script asserts that
 # the version Composer actually resolved equals MAGO_VERSION and fails closed
@@ -100,28 +123,41 @@ concurrency:
 
 jobs:
   mago-preflight:
-    name: Mago preflight (advisory)
+    name: Mago Quality Gate
     runs-on: ubuntu-24.04
     # `continue-on-error: true` used to sit here as belt-and-braces on top of the
-    # script's own `exit 0`. It has been REMOVED deliberately.
+    # script's own `exit 0`. It is GONE and must never come back.
     #
     # What that flag actually did is a property of GitHub Actions, not a claim
     # about any particular run: it intercepted a failing job's conclusion and
     # rewrote it to success, so a failure in the pre-seed step below would have
-    # been absorbed and the job would have reported green. It was NOT what made
-    # the job non-blocking - that is carried by (a) `scripts/ci/mago-preflight.sh`
-    # always exiting 0 and (b) this job not being a required status check. Removing
-    # it therefore costs nothing in advisory character and restores the only
-    # signal that could distinguish "seed could not be proven" from "seed fine".
+    # been absorbed and the job would have reported green. While this workflow was
+    # advisory that was merely confusing. Now that a failure here BLOCKS A MERGE,
+    # restoring it would silently neutralise the gate while every surface still
+    # claimed the gate was active - the worst possible failure mode for a control.
     #
-    # Consequence for reviewers: a red run of this job now means "the advice could
-    # not be collected safely", never "your change is bad". It still cannot block a
-    # merge, because it is not a required status check.
+    # Context for how it was non-blocking during the advisory era: that came from
+    # (a) `scripts/ci/mago-preflight.sh` always exiting 0 and (b) this job not being
+    # a required status check. Both have since changed - the script fails closed
+    # and the context is required - so nothing but a NON-zero exit reaches the
+    # conclusion below, which is exactly what the gate depends on.
     #
-    # Already observed on a real runner: an N-3 run on this branch with a
-    # deliberately wrong tarball digest ended `failure` at the seed step while the
-    # `always()` diagnostic still reported `success`, demonstrating both that the
-    # failure is no longer absorbed and that it is not masked by the diagnostic.
+    # Consequence for reviewers, AFTER PROMOTION: a red run now blocks the merge,
+    # so the distinction the advisory era could afford to blur is no longer
+    # cosmetic. A red run still means one of two different things, and they must be
+    # told apart before anyone acts:
+    #   * "the gate measured a Mago problem in the change"      -> fix the code; or
+    #   * "the gate could not be evaluated" (seed, download, network, tool absent)
+    #     -> NOT a code problem; use the admin-bypass procedure rather than
+    #        weakening the check.
+    # The gate script prints which of the two it is, and the diagnostic step below
+    # reports the provisioning state even on a failing run.
+    #
+    # Already observed on a real runner while this workflow was advisory: an N-3 run
+    # on a test branch with a deliberately wrong tarball digest ended `failure` at the
+    # seed step, while the `always()` diagnostic still reported `success`,
+    # demonstrating both that the failure is not absorbed and that it is not masked
+    # by the diagnostic.
 
     steps:
       - name: Checkout repository
@@ -148,11 +184,14 @@ jobs:
         # fall through to a download that nothing verifies.
         run: bash scripts/ci/seed-mago-binary.sh
 
-      - name: Collect advisory static-quality signals
-        # Non-blocking by construction. Writes a comparison table plus a
-        # cross-tool verdict (AGREE_CLEAN / AGREE_ISSUES / CONFLICTED / UNKNOWN)
-        # to the job summary. A disagreement is reported as CONFLICTED - it is
-        # never resolved by majority vote.
+      - name: Mago quality gate (blocking)
+        # BLOCKING by construction: the step returns the script's own exit code,
+        # and the script exits 1 whenever any Mago signal is not measured clean.
+        # Writes a comparison table plus a cross-tool verdict (AGREE_CLEAN /
+        # AGREE_ISSUES / CONFLICTED / UNKNOWN) to the job summary, and echoes the
+        # raw output of every signal to the log between RAW markers so the parse
+        # can be checked rather than trusted. A disagreement is reported as
+        # CONFLICTED - it is never resolved by majority vote.
         run: bash scripts/ci/mago-preflight.sh
 
       - name: Diagnose the Mago binary provisioning (always)
