@@ -14,8 +14,7 @@
         "rector/rector": "^2.6",
         "infection/infection": "^0.30",
         "phpbench/phpbench": "^1.4",
-        "deptrac/deptrac": "^4.7",
-        "carthage-software/mago": "1.49.0"
+        "deptrac/deptrac": "^4.7"
     },
     "config": {
         "allow-plugins": {
@@ -45,10 +44,7 @@
         "bench": "phpbench run --progress=none",
         "format:local": "php-cs-fixer fix",
         "format:check:local": "php-cs-fixer check --diff",
-        "format:check:staged": "bash scripts/dev/php-cs-fixer-staged.sh",
-        "mago": "mago analyze",
-        "mago:lint": "mago lint",
-        "mago:format:check": "mago format --check"
+        "format:check:staged": "bash scripts/dev/php-cs-fixer-staged.sh"
     },
     "keywords": [
         "php",
