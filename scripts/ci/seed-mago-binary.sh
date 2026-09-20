@@ -42,8 +42,11 @@
 #   * The wrapper's directory layout is asserted, not assumed: if upstream
 #     changes it, this script fails loudly instead of seeding into a path the
 #     wrapper would ignore (which would silently restore the unverified download).
-#   * The version actually installed is asserted to equal the pinned version, so
-#     a caret range resolving elsewhere cannot silently bypass the seed.
+#   * The version actually installed is asserted to equal the pinned version, AND
+#     the constraint DECLARED in composer.json is asserted to be that same exact
+#     version (step 2b). The first closes "the lockfile resolved elsewhere"; the
+#     second closes "composer.json silently relaxed/raised the constraint". A
+#     caret range can no longer survive either direction.
 #   * A pre-existing target with the WRONG bytes is a hard failure, never a
 #     silent overwrite: something put bytes there that this pipeline did not
 #     verify.
@@ -126,7 +129,46 @@ if [ "$installed_version" != "$MAGO_VERSION" ]; then
          - or pin the constraint exactly so this cannot happen silently."
 fi
 
-# --- 3. derive the target path from the wrapper's own layout ---------------
+# --- 2b. assert the DECLARED constraint is the SAME exact pin --------------
+# The assertion above compares the INSTALLED version against the pin, so it
+# catches a lockfile that resolved somewhere else. It does NOT catch the reverse
+# drift: composer.json quietly relaxing "1.49.0" back to "^1.49" (or raising the
+# constraint) while MAGO_VERSION stays put. That reverse drift is exactly how the
+# original caret range let the wrapper's download target move without anyone
+# editing this workflow, so it is asserted directly rather than inferred from the
+# install. Both directions are now closed.
+#
+# shellcheck disable=SC2016  # single quotes intentional: PHP source, not shell.
+declared_constraint="$(php -r '
+$json = json_decode(file_get_contents("composer.json"), true);
+$c = $json["require-dev"]["carthage-software/mago"] ?? null;
+echo is_string($c) ? $c : "";
+')" || fail "could not read the declared mago constraint from composer.json"
+
+[ -n "$declared_constraint" ] \
+  || fail "composer.json no longer declares carthage-software/mago in require-dev"
+
+if [ "$declared_constraint" != "$MAGO_VERSION" ]; then
+  fail "composer.json declares '${declared_constraint}' for carthage-software/mago but this pipeline pins MAGO_VERSION=${MAGO_VERSION}.
+       The declared constraint and the provisioning pin have drifted apart.
+       Both are real changes and must move together:
+         - pin composer.json to the exact version (no ^, ~, >= or * range), and
+         - re-verify MAGO_TARBALL_SHA256 / MAGO_BINARY_SHA256 from two sources."
+fi
+
+# The string comparison above is only trustworthy for an EXACT version, so the
+# shape is required explicitly rather than by enumerating range syntax. This also
+# closes the case where MAGO_VERSION itself was set to a range, which the plain
+# string equality above would happly accept when both sides carried it.
+if [[ ! "$declared_constraint" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  fail "composer.json pins carthage-software/mago as '${declared_constraint}', which is not an exact x.y.z version.
+       A range is what allowed a lockfile refresh to move the wrapper's download
+       target unnoticed. Pin the exact version instead."
+fi
+
+say "declared constraint matches the provisioning pin: ${declared_constraint}"
+
+# --- 3. derive the target path from the wrapper's own layout -----------------
 STORAGE_DIR="mago-${MAGO_VERSION}-${MAGO_TRIPLE}"
 RELEASE_DIR="${BIN_DIR}/${MAGO_VERSION}"
 TARGET="${RELEASE_DIR}/${STORAGE_DIR}/mago"
@@ -145,7 +187,7 @@ if [ -e "$TARGET" ]; then
        trusts. Remove that file (or the vendor tree) and re-run; do not adopt it."
 fi
 
-# --- 5. fetch the tarball --------------------------------------------------
+# --- 5. fetch the tarball ---------------------------------------------------
 ARCHIVE="${workdir}/${STORAGE_DIR}.tar.gz"
 URL="${MAGO_RELEASE_BASE_URL}/${MAGO_VERSION}/${STORAGE_DIR}.tar.gz"
 say "fetching ${URL}"
@@ -172,7 +214,7 @@ printf '%s  %s\n' "$MAGO_BINARY_SHA256" "$EXTRACTED" | sha256sum --check --stric
   || fail "binary digest mismatch inside the verified archive. Expected ${MAGO_BINARY_SHA256}."
 say "binary verified (sha256 matches the pin)"
 
-# --- 8. place it where the wrapper's short-circuit will find it -----------
+# --- 8. place it where the wrapper's short-circuit will find it ------------
 mkdir -p "$(dirname "$TARGET")"
 install -m 0755 "$EXTRACTED" "$TARGET" || fail "could not install the binary to ${TARGET}"
 
