@@ -1,0 +1,146 @@
+name: Rector Maintenance
+
+# SCHEDULED MAINTENANCE - READ BEFORE CHANGING.
+# ---------------------------------------------------------------------------
+# Intent: turn Rector from a manual chore into a reviewable weekly proposal.
+# Rector NEVER modifies `main` directly here. The flow is:
+#
+#   schedule -> checkout main -> install -> Rector -> detect changes
+#            -> no changes : stop (no branch, no PR)
+#            -> changes    : refresh a STABLE branch -> open/update a PR
+#
+# The pull request is a normal PR: it is NOT auto-merged, `allow_auto_merge`
+# is disabled on this repository, and nothing in this file calls a merge API.
+# A human or agent must review it and it must pass the normal gates.
+#
+# IMPORTANT KNOWN LIMITATION (not worked around - tracked as an owner decision):
+# Workflow runs triggered by the repository's own `GITHUB_TOKEN` do NOT create
+# further workflow runs, except for `workflow_dispatch` and
+# `repository_dispatch`. A pull request opened with `GITHUB_TOKEN` therefore
+# does NOT start the `pull_request` workflows (Master CI, PHP SAST, PHPBench,
+# Dependency Review, Mago Preflight). Combined with `strict = true` and
+# `enforce_admins = true` on `main`, such a PR cannot be merged until the
+# owner supplies a credential that can trigger workflows (GitHub App or a
+# fine-grained PAT with contents: write + pull_requests: write) or manually
+# re-runs the checks. See the tooling report's owner-decision section.
+#
+# Why `gh` instead of a third-party "create pull request" action: it adds no
+# new supply-chain surface. The runner ships `gh`, and the only action used here
+# (actions/checkout) is already pinned to a reviewed commit SHA.
+
+on:
+  schedule:
+    # Weekly, Monday 03:00 UTC.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+# Baseline: no workflow-level write authority; the job below narrows what it needs.
+permissions:
+  contents: read
+
+concurrency:
+  group: rector-maintenance
+  cancel-in-progress: false
+
+jobs:
+  rector:
+    name: Automated Rector upgrades
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # required: push the maintenance branch
+      pull-requests: write # required: open/update the pull request
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Run Rector
+        # Uses the repository's own rector.php (paths: src, tests). No extra
+        # rule sets and no --dry-run: this job exists to produce the proposal.
+        run: composer rector
+
+      - name: Detect changes
+        id: diff
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- src tests; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Rector produced no changes on main; stopping. No branch, no PR."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Rector produced changes:"
+            git --no-pager diff --stat -- src tests
+          fi
+
+      - name: Refresh the maintenance branch
+        if: steps.diff.outputs.changed == 'true'
+        shell: bash
+        env:
+          BRANCH: maintenance/rector-upgrades
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B "$BRANCH"
+
+          # Only src/ and tests/ may ever be committed. rector.php already
+          # limits its paths, but assert it so a future config change cannot
+          # let automated writes reach workflows or release files.
+          git add -- src tests
+          if git diff --cached --name-only | grep -qE '^(?!src/|tests/)'; then
+            echo "Refusing to commit: staged paths outside src/ and tests/:" >&2
+            git diff --cached --name-only | grep -vE '^(src/|tests/)' >&2
+            exit 1
+          fi
+
+          git commit -m "chore: automated Rector upgrades"
+          git push --force origin "HEAD:refs/heads/${BRANCH}"
+
+      - name: Open or update the maintenance pull request
+        if: steps.diff.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: maintenance/rector-upgrades
+        run: |
+          set -euo pipefail
+
+          existing="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            echo "Maintenance PR #${existing} already tracks ${BRANCH}; the branch was refreshed and the PR updated in place."
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: automated Rector upgrades" \
+            --label enhancement \
+            --body "Automated weekly Rector proposal produced by the \`Rector Maintenance\` workflow.
+
+          **This pull request is never auto-merged.** It is an ordinary PR and must be reviewed by a human or agent and pass the normal gates.
+
+          - Generated by: \`Rector Maintenance\` (schedule / workflow_dispatch)
+          - Only \`src/\` and \`tests/\` can be touched; workflow, release, SBOM, security and benchmark files are out of scope by construction.
+          - Existing authorities are unchanged: PHP-CS-Fixer (formatting), PHPStan (static analysis), Deptrac (architecture), PHPUnit (tests), Semgrep (SAST), Gitleaks (secrets).
+          - If this PR has no checks attached, see the known \`GITHUB_TOKEN\` limitation documented at the top of \`.github/workflows/rector-maintenance.yml\`."
+
+      - name: Nothing to do
+        if: steps.diff.outputs.changed != 'true'
+        run: echo "main is already Rector-clean; no maintenance branch or PR was created."

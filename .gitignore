@@ -6,5 +6,18 @@ composer.phar
 # composer.lock
 
 # Local tool caches
+# PHP-CS-Fixer caches its per-file rule results here. The LOCAL scripts use it
+# ("format:local", "format:check:local", "format:check:staged") so unchanged
+# files are not re-checked. CI deliberately does NOT use it: "format:check"
+# passes --using-cache=no so CI stays deterministic and full-tree.
 .php-cs-fixer.cache
 .phpunit.cache
+
+# Mago local artefacts. NOTE: Mago 1.49.0 was verified to emit NO local cache,
+# state or report file - its configuration schema declares no cache key and no
+# such path appears after "lint", "format", "analyze" or "guard" runs. These two
+# entries are future-proofing only, so an artefact introduced by a later Mago
+# version cannot be committed by accident.
+.mago/
+mago-baseline.toml
+

@@ -1,0 +1,63 @@
+name: Mago Preflight (advisory)
+
+# ADVISORY WORKFLOW - READ BEFORE CHANGING.
+# ---------------------------------------------------------------------------
+# This workflow exists to give fast, cheap, early feedback on a pull request.
+# It is deliberately NOT a gate:
+#
+#   * It is NOT in the required status check list on `main`, and adding it there
+#     requires an owner decision plus an audit of Mago's real findings.
+#   * `scripts/ci/mago-preflight.sh` always exits 0, and the job additionally
+#     carries `continue-on-error: true`. Both exist so a Mago wobble can never
+#     block a merge. If a regression ever makes this red, the merge gates are
+#     unaffected.
+#   * It modifies nothing. `permissions: contents: read` and no step writes.
+#
+# This is a SEPARATE workflow on purpose rather than an extra job inside
+# ci.yml: adding a job to ci.yml would change the composition of the existing
+# required check ("PHP lint, audit, static analysis and style") and could alter
+# what that context means. A new context cannot silently re-scope an old one.
+#
+# Authorities are unchanged:
+#   PHP-CS-Fixer -> formatting    PHPStan -> static/type analysis
+#   Deptrac -> architecture       PHPUnit -> runtime behaviour
+#   Semgrep -> security patterns  Gitleaks -> secrets
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mago-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mago-preflight:
+    name: Mago preflight (advisory)
+    runs-on: ubuntu-24.04
+    # Belt and braces on top of the script's own `exit 0`.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Collect advisory static-quality signals
+        # Non-blocking by construction. Writes a comparison table plus a
+        # cross-tool verdict (AGREE_CLEAN / AGREE_ISSUES / CONFLICTED / UNKNOWN)
+        # to the job summary. A disagreement is reported as CONFLICTED - it is
+        # never resolved by majority vote.
+        run: bash scripts/ci/mago-preflight.sh

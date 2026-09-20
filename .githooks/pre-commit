@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+#
+# OPT-IN git pre-commit hook. Enable it with:
+#
+#     git config core.hooksPath .githooks
+#
+# Nothing happens until a developer opts in - this repository's existing
+# contributors are not forced onto a new hook by a clone alone.
+#
+# Division of labour (FIRST-PASS local feedback only - never a CI gate):
+#   * PHP-CS-Fixer = AUTHORITY for formatting. It BLOCKS the commit when a
+#     staged file is non-compliant, restricted to staged PHP files, using the
+#     local cache so unchanged files are skipped. Full-tree verification still
+#     belongs to CI ("format:check" with --using-cache=no).
+#   * Mago = secondary, INFORMATIONAL signal only. It never blocks a commit:
+#     it is not a required status check and has not been audited as a quality
+#     authority. Its output is printed for the developer to read.
+#
+# To bypass once: git commit --no-verify
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+# --- 1. Formatting authority (blocking) ------------------------------------
+if [ -x vendor/bin/php-cs-fixer ]; then
+  bash scripts/dev/php-cs-fixer-staged.sh
+else
+  echo "pre-commit: vendor/bin/php-cs-fixer not found; skipping formatting check (run 'composer install')." >&2
+fi
+
+# --- 2. Mago, advisory only (never blocks) ---------------------------------
+if [ -x vendor/bin/mago ]; then
+  echo "pre-commit: Mago on staged files (informational, non-blocking)..."
+  if ! vendor/bin/mago analyze --staged; then
+    echo "pre-commit: Mago reported issues above - INFORMATIONAL ONLY." >&2
+    echo "pre-commit: Mago is not a gate here; PHPStan is the static-analysis authority." >&2
+  fi
+else
+  echo "pre-commit: Mago not installed; skipping advisory signal (run 'composer install')."
+fi
