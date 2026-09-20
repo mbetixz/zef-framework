@@ -15,7 +15,7 @@
         "infection/infection": "^0.30",
         "phpbench/phpbench": "^1.4",
         "deptrac/deptrac": "^4.7",
-        "carthage-software/mago": "^1.49"
+        "carthage-software/mago": "1.49.0"
     },
     "config": {
         "allow-plugins": {
