@@ -1,11 +1,17 @@
 name: Composer Lock Bootstrap
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - "composer.json"
   workflow_dispatch:
+
+# On-demand bootstrap: resolves composer.lock and commits it when out of
+# sync. The routine push trigger was removed - the lock/composer.json sync
+# invariant is already gated on every push and pull request by ci.yml
+# ("composer validate --strict"), and under the strict branch protection on
+# main (required checks + enforce_admins) a GITHUB_TOKEN push from this
+# workflow would be rejected anyway. With no push trigger, the commit job
+# no longer renders as permanently "skipped" on every merge to main; it
+# only appears in explicit manual dispatch runs, where a skip truthfully
+# means "lockfile already synchronized".
 
 # Baseline: no workflow-level write authority. Only the commit job may write.
 permissions:

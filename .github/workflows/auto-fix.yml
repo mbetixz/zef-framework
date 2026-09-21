@@ -1,9 +1,17 @@
 name: Auto Fix Code Style
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
+
+# On-demand style repair: runs the formatter and commits the result when
+# drift is detected. The routine push trigger was removed - code style is
+# already gated on every push and pull request by ci.yml
+# ("php-cs-fixer check --diff"), and under the strict branch protection on
+# main (required checks + enforce_admins) a GITHUB_TOKEN push from this
+# workflow would be rejected anyway. With no push trigger, the commit job
+# no longer renders as permanently "skipped" on every merge to main; it
+# only appears in explicit manual dispatch runs, where a skip truthfully
+# means "no style drift to commit".
 
 # Baseline: no workflow-level write authority. Only the final job may write.
 permissions:

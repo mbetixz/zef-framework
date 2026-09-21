@@ -1,0 +1,53 @@
+name: API Documentation Check
+
+on:
+  pull_request:
+    branches: ["main"]
+
+# Read-only documentation build for pull requests. The deploy half of the
+# pipeline lives in pages.yml (push to main / workflow_dispatch only), so a
+# pull request never queues a deploy job that would render as "skipped".
+# The job name below is load-bearing: it must stay exactly
+# "Build API documentation" to satisfy the required status check context
+# configured on the protected main branch.
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build API documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Generate API documentation (Doctum)
+        run: composer docs
+
+      - name: Verify documentation output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s build/api/index.html ]; then
+            echo "::error::Doctum produced no build/api/index.html - the docs build is broken."
+            exit 1
+          fi
+
+          echo "API documentation generated: $(find build/api -type f | wc -l) files under build/api."
