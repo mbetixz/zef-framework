@@ -56,6 +56,7 @@ final class FinalPushTest extends TestCase
         putenv('ZEF_CORS_ORIGIN_ANY');
         putenv('ZEF_CORS_ORIGIN');
         putenv('ZEF_SECURITY_RATE_LIMIT');
+        putenv('ZEF_OTEL_ENABLED');
     }
 
     // ------------------------------------------------------------------

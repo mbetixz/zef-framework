@@ -22,15 +22,28 @@ dengan gate 64/68, RequestFactory 181→35 escape, Router 136→66, Telemetry
 v2.14.2–v2.14.3 (ronde 3 dengan kurikulum `docs/EDGE-CASE-MATRIX.md`:
 fase 1 Security/Validation **MSI zona 64.4→84.0**; fase 2b Container core —
 Container + AutowireCompilerPass + ContainerResolver — **MSI 3 kelas 67→92,
-covered 94, mutation coverage 97%**; **748 test / 12463 assertion**;
-gate mutasi **68/73**)
-ditambahkan secara
-aditif — tanpa mengubah perilaku lama.
+covered 94, mutation coverage 97%**) serta v2.14.4 (fase 3 Runtime lifecycle:
+chunk adapters-runtime-sec **MSI zona 53→80, covered 57→83** — RoadRunnerRuntime,
+WorkerAdapter, TinkerSession, AuthenticationMiddleware, SecurityRuntimeMiddleware;
+**+138 kill**, dua akar fatal lingkungan uji diakari — signal self-kill 143 dan
+routing error_log Infection; **797 test / 12653 assertion**; gate mutasi **69/74**)
+ditambah v2.14.5 (fase 4 HTTP/Router/Kernel: chunk adapters-http **MSI zona 75→93,
+covered 79→96**, Router **65→85**, Kernel 64→66 — matriks CIDR TrustedProxyMatcher,
+kanonisasi persen Uri, siklus moveTo UploadedFile, tata bahasa conditional-GET
+ETag, grammar ApiVersionNegotiator, HEAD→GET radix Router, kontrak span/meter
+kernel; **+366 kill** dengan 115 test / 405 asersi baru; **912 test / 13058
+assertion**; gate mutasi **71/76**), serta v2.14.6 (paket lengkap: bridge RoadRunner
+`spiral/roadrunner-http` v4.1 + `nyholm/psr7` sebagai dependency resmi, binary `rr`
+v2025.1.15 di `vendor/bin/rr`, config siap-serve `.rr.yaml`, distribusi ZIP tanpa
+pengecualian), serta v2.14.7 (fase 5 observability: pipeline telemetry penuh —
+zona **85 / 95 / 98 / 86**, escape chunk turun 94→**69** mayoritas ekuivalen
+triaged, **+63 test / 349 asersi** baru; lingkungan uji dibuktikan pulih penuh
+dari ZIP distribusi) — semua aditif, tanpa mengubah perilaku lama.
 
-> ✅ Terverifikasi: **501/501** assertion self-test · **748 test PHPUnit native (12463 assertion)** ·
+> ✅ Terverifikasi: **501/501** assertion self-test · **981 test PHPUnit native (13404 assertion)** ·
 > PHPStan **level max** + strict-rules · Deptrac 0 violations `--fail-on-uncovered` ·
-> phpcs+Slevomat 0 violations · coverage statement **92.05%** (gate CI 90%) · mutation gate 68/73 · 361 file lolos `php -l`.
-> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md).
+> phpcs+Slevomat 0 violations · coverage statement **92.87%** (gate CI 90%) · mutation gate **71.5/76** · 366 file lolos `php -l`.
+> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md).
 
 ---
 
@@ -102,9 +115,18 @@ bin/zef --self-test
 
 ### 3. RoadRunner (produksi)
 
+Bridge (`spiral/roadrunner-http` v4.1 + `nyholm/psr7`) dan binary `rr` v2025.1.15
+sudah termasuk dalam paket — konfigurasi siap di `.rr.yaml`:
+
+```bash
+vendor/bin/rr serve        # worker: bin/worker.php, listen 0.0.0.0:8080
+```
+
+Installasi manual (opsional, untuk proyek turunan):
+
 ```bash
 composer require spiral/roadrunner-http nyholm/psr7
-rr serve          # memakai bin/worker.php sebagai entrypoint worker
+vendor/bin/rr get-binaries  # atau unduh release dari GitHub
 ```
 
 ### 4. Memakai framework dari kode

@@ -8,7 +8,7 @@
             "src/Adapters"
         ]
     },
-    "timeout": 30,
+    "timeout": 90,
     "logs": {
         "text": "build/infection.log",
         "summary": "build/infection-summary.log"

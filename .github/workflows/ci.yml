@@ -133,14 +133,15 @@ jobs:
           php scripts/ci/assert-coverage.php 90 build/clover.xml
 
       - name: Mutation testing (Infection)
-        # OD-50 (documented decision): main gated at --min-msi=70 /
-        # --min-covered-msi=80; the v2.14.3 suite currently measures
-        # MSI 70.31 / Covered MSI 75.51, so the 80 bar is not reachable
-        # without ~4.5 points of additional test coverage. Thresholds are
-        # accepted at 68/73 as an explicit bridge (measured margin +2.31 /
-        # +2.51 points), with restoring 70/80 as the follow-up target once
-        # the escaped-mutant hotspots (src/Adapters/Http/ApiVersionNegotiator.php)
-        # gain the missing assertions.
+        # OD-50 (documented decision): the repo target gate is --min-msi=70 /
+        # --min-covered-msi=80. The v2.14.3 suite measured MSI 70.31 /
+        # Covered MSI 75.51, bridged at 68/73 at integration time. The
+        # upstream v2.14.4–v2.14.7 evolution (Edge-Case Matrix rounds 3–5)
+        # added ~230 adversarial tests and raised the script thresholds to
+        # 71.5/76 (conservative global estimate from measured chunk deltas;
+        # per docs/CHANGELOG-v2.14.5.md and v2.14.7.md). MSI now clears the
+        # 70 target; restoring Covered MSI to 80 remains the follow-up once
+        # the remaining escaped-mutant hotspots are covered.
         run: composer mutation:ci
 
       - name: Rector (dry-run)

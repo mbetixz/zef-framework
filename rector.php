@@ -50,6 +50,21 @@ return RectorConfig::configure()
         \Rector\DeadCode\Rector\ClassMethod\RemoveEmptyClassMethodRector::class => [
             __DIR__ . '/src/Adapters/Kernel/Application.php',
         ],
+        // withHeader() helpers in legacy test suites keep the
+        // assert($result instanceof ServerRequest) narrowing because the PSR
+        // interface return type alone fails PHPStan; collapsing the temp
+        // variable (as this rule wants) re-breaks static analysis.
+        \Rector\CodeQuality\Rector\FunctionLike\SimplifyUselessVariableRector::class => [
+            __DIR__ . '/tests/Unit/MutationDeepRuntimeTest.php',
+            __DIR__ . '/tests/Unit/MutationDeepSecurityTest.php',
+        ],
+        // assert() narrowing again: RemoveDeadInstanceOfAssertRector deletes
+        // the assert() that PHPStan relies on to narrow the PSR
+        // MessageInterface return type back to ServerRequest.
+        \Rector\DeadCode\Rector\StmtsAwareInterface\RemoveDeadInstanceOfAssertRector::class => [
+            __DIR__ . '/tests/Unit/MutationDeepRuntimeTest.php',
+            __DIR__ . '/tests/Unit/MutationDeepSecurityTest.php',
+        ],
     ])
     ->withPhpVersion(PhpVersion::PHP_84)
     ->withPhpSets(php84: true)

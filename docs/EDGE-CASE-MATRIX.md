@@ -91,20 +91,29 @@ Escape di bawah = hitungan dari slice segar (pasca-ronde 2). Status diisi saat e
 
 | Kelas | Esc | Dimensi adversarial prioritas | Status |
 |---|---:|---|---|
-| RoadRunnerRuntime + WorkerAdapter | ~120 | Payload rusak; state antar-iterasi; wait/psr7 stream; graceful shutdown | ⏳ |
-| AuthenticationMiddleware | ~50 | Kredensial 128/129/512 byte; skema tak dikenal; replay | ⏳ |
-| TinkerSession + BlockingSleeper + InMemoryWorker | ~34 | Siklus wait; error mid-session; recovery | ⏳ |
+| RoadRunnerRuntime + WorkerAdapter | ~120 → 45 ✅ | Payload rusak; state antar-iterasi; wait/psr7 stream; graceful shutdown | ✅ fase 3 |
+| AuthenticationMiddleware | ~50 → 4 ✅ | Kredensial 128/129/512 byte; skema tak dikenal; replay | ✅ fase 3 |
+| TinkerSession + BlockingSleeper + InMemoryWorker | ~34 → 9 ✅ | Siklus wait; error mid-session; recovery | ✅ fase 3 |
 
-### Tier 4 — HTTP / Router / Kernel (fase 4) — 501 escape
+### Tier 4 — HTTP / Router / Kernel (fase 4) — 537 escape
 
 | Kelas | Esc | Dimensi adversarial prioritas | Status |
 |---|---:|---|---|
-| Http/Uri | 58 | Path traversal `%2e%2e%2f`; double-slash; dot-segment; port 0/65535/65536; userinfo; unicode | ⏳ |
-| Http/UploadedFile | 46 | Error konstanta UPLOAD_ERR_*; ghost move; ukuran 0; stream detached | ⏳ |
-| Http/TrustedProxyMatcher | 41 | X-Forwarded-For berantai; CIDR /0 /32; IPv6; proxy-of-proxy | ⏳ |
-| Kernel/Application + Dispatcher + ResponseEmitter | ~180 | Double-emit; header sudah terkirim; body non-seekable; chunk size; middleware order | ⏳ |
-| Router/Router + RouteDefinition + RouteCache | ~126 | Budget boundary; prioritas; constraint 400 first-fail; export/restore; HEAD→GET | ⏳ |
-| Http/ETag + ApiVersionNegotiator + RequestFactory sisa | ~50 | If-None-Match list/W/; versi edge; header caps | ⏳ |
+| Http/Uri | 58 → 9 ✅ | Kanonisasi persen; sub-delim path; userinfo encoding; IPv6 bracket; port 0/65535/65536; immutability | ✅ fase 4 |
+| Http/UploadedFile | 46 → 7 ✅ | Guard error/move; destinasi hilang; rename ke dir; cleanup tmp; posisi stream dipulihkan; multi-chunk | ✅ fase 4 |
+| Http/TrustedProxyMatcher | 41 → 4 ✅ | CIDR /0 /32 /128 /33 /129 /-1; keluarga campuran; trim; lanjut-scan entri sampah | ✅ fase 4 |
+| Router/Router + RouteDefinition + RouteCache | ~126 → 57 ✅ | Grammar placeholder; signature duplikat; HEAD→GET saat POST sort dulu; 405 allow-list; budget persis; fallback hanya 404; restore sanitasi | ✅ fase 4 |
+| Http/ETag + ApiVersionNegotiator + Stream + LimitedInput + Psr17 + ServerRequest | ~160 → 31 ✅ | If-None-Match list/W/*; IMS ≤ persis; tanggal rusak; token 16/17 byte; header caps; mode stream; body limit N/N+1; immutability | ✅ fase 4 |
+| Kernel/Application + Dispatcher + ResponseEmitter | ~180 → 119 ⚠️ | Span/meter OTEL (teramati saat enabled), rekonsiliasi Content-Length + loop header() **tidak teramati di CLI** (headers_list no-op) — setara-lingkungan; middleware order ✅ | ⚠️ sisa setara-CLI |
+
+### Tier 5 — Observability (fase 5) — ~94 escape baseline riil
+
+| Kelas | Escape | Kurikulum adversarial | Status |
+|---|---|---|---|
+| Telemetry | 32 → 30 ⚠️ | Env strict bounds (min/max dibunuh via throw; default ±1 ekuivalen); endpoint grammar+credentials; guard recordLog 3-cabang; drain pipeline continue/return dengan spy urutan; shutdown eksak meter events; dual/different exporter | ✅ sisa ekuivalen (hook registry, dead logger, timing deadline) |
+| TelemetrySanitizer + Logger + Clock | 15 → 5 ✅ | Limit 0/1/3/4/2048 persis; multibyte; scrub kontrol-char; invalid UTF-8; 17+6 grammar key; redaksi separator/case; NAN/INF/slice-32/multi-sensitive; severity mapping; presisi unixNano < 1.2 detik | ✅ sisa ekuivalen (needle generik men-subsume separator; dua strategi scrub) |
+| CounterMeter + Span + Tracer + NoopSpan + InMemory | 7 → 2 ✅ | Delta negatif/NaN/INF; default 1; float cast; key ksort+unescaped JSON; overflow PHP_INT_MAX; cardinality per-name overflow+eviction; guard konjungtif; span lifecycle full; tracer singleton/inherit | ✅ sisa cast redundant |
+| BatchSpanProcessor + Health + Propagators | 42 → 32 ⚠️ | Ctor defaults refleksi; flush post-shutdown zombie-queue; retry policy tak terjamah saat queue kosong; splice order [s1,s2,s3]; anchor regex caret/dollar; uppercase hex normalisasi; traceState 512 grammar-valid; Health truncation class-name 128 (fixture 145 char); toJson raw unescaped | ⚠️ sisa timing deadline/for-bound/anchor-redundant/ctor-revalidate (lihat changelog) |
 
 ## 5. Riwayat verifikasi (diisi per fase)
 
@@ -113,9 +122,10 @@ Escape di bawah = hitungan dari slice segar (pasca-ronde 2). Status diisi saat e
 | fase 1 (SecVal) | domain-secval | 249→120 | 64.4→**84.0** (covered 71.6→87.0) | 88 test / 406 asersi baru; +193 kill; not-covered 98→33; 3m27s threads=2 |
 | fase 2 (Container, parsial) | src/Domain/Container + src/Application/Container | RadixTree 56→32; app-container 188 (belum tersentuh) | Domain/Container **77.1** (covered 80.2); app-container 66.6 (tetap) | EdgeMatrixRadixTreeTest 10 test/66 asersi; Container/AutowireCompilerPass/ContainerResolver → fase 2b |
 | fase 2b (Container core) | Container+AutowireCompilerPass+ContainerResolver (filter 3 kelas) | 110→27 escape; 64→22 not-covered | 3 kelas **67→92** (covered 76→94); mutation coverage 88→97 | EdgeMatrixContainerTest **62 test / 155 asersi**; +103 kill; 538 mutan; 1m11s threads=2; gate 66/71→**68/73** |
-| fase 3 (Runtime) | adapters-runtime-sec | — | — | ⏳ ronde lanjutan |
-| fase 4 (Http/Router/Kernel) | adapters-http + adapters-router-kernel | — | — | ⏳ ronde lanjutan |
-| fase 5 (gate) | gate 66/71→**68/73**; 13 tool hijau; coverage 92.05% | — | — | CHANGELOG-v2.14.3 |
+| fase 3 (Runtime) | adapters-runtime-sec | 204→81 escape; 38→22 not-covered | zona **53→80** (covered 57→83) | EdgeMatrixRuntimeTest 31 test/117 asersi + EdgeMatrixSecAdapterTest 18 test/69 asersi; +138 kill; 518 mutan; 4m43s threads=2; 2 akar fatal lingkungan uji diakari (signal self-kill 143, error_log routing); gate 68/73→**69/74**; v2.14.4 |
+| fase 4 (Http/Router/Kernel) | adapters-http; adapters-router-kernel (dipecah Router + Kernel) | HTTP 277→**51** escape (78→40 nc); Router 113→**57**; Kernel 147→**119** | HTTP **75→93** (covered 79→96); Router **65→85** (covered 68→87); Kernel 64→66 | EdgeMatrixHttpTest **82 test/274 asersi** + EdgeMatrixRouterKernelTest **33 test/131 asersi**; **+366 kill**; gate 69/74→**71/76**; v2.14.5 |
+| fase 5 (Observability) | src/Application/Observability (4 sub-run) | Telemetry 32→**30**; San+Log+Clock 15→**5**; Meter/Span/Tracer 7→**2**; BSP/Health/Propag 42→**32** | **85 / 95 / 98 / 86** | EdgeMatrixObservabilityTest **69 test / 349 asersi**; lingkungan dipulihkan dari ZIP v2.14.6 (bukti distribusi penuh); gate 71/76→**71.5/76**; v2.14.7 |
+| fase 5 (gate) | gate 66/71→**68/73**→**69/74**→**71/76**; 13 tool hijau; coverage 92.05→92.3% | — | — | CHANGELOG-v2.14.3 … v2.14.5 |
 
 ## 6. Inventaris ekuivalen-mutant (jujur, tidak dipalsukan)
 
@@ -136,3 +146,13 @@ tidak dapat dicapai tanpa memutasi PCRE itu sendiri, `MethodCallRemoval` pada
   base-add dekorasi dimasking check wrapper; ledger duplikat contextual
   dimasking guard deps-ter-rewrite.
 - Catch `Closure::fromCallable` (factory selalu callable via typehint).
+
+**Fase 3 (v2.14.4) — pola terkonfirmasi (sisa 81 escape di-triage penuh di
+CHANGELOG-v2.14.4.md):**
+- Branch penolakan admission struktural mati (inFlight selalu 0 di loop sinkron).
+- Counter privat yang hanya ditulis, tidak pernah dibaca.
+- Control-plane self-check dengan perintah hardcoded yang selalu valid.
+- Mutan ±1 threshold env yang butuh presisi memori <1% vs derau arena ±2.8%.
+- Catch `var_export` yang tak terjangkau (sirkular → warning, bukan exception).
+- Guard `function_exists` platform-invariant; `ini_restore` vs `ini_set` pada
+  routing error_log Infection (akar fatal lingkungan uji — diperbaiki).
