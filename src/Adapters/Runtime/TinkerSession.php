@@ -65,7 +65,9 @@ final class TinkerSession
         $run = function () use ($code): mixed {
             extract($this->state, EXTR_SKIP); // never clobbers $code/$this internals
             unset($result);
-            $result = eval($code);
+            // nosemgrep: php.lang.security.eval-use — REPL feature: evaluates developer-supplied
+            // code by design (local dev tool; input is never remote/untrusted).
+            $result = eval($code); // nosemgrep: php.lang.security.eval-use
             $after = get_defined_vars();
             unset($after['code']);
             $state = $after;

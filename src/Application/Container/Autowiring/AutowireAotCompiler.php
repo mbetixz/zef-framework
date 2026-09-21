@@ -153,10 +153,13 @@ final class AutowireAotCompiler
     /**
      * Evaluate one generated factory expression into a \Closure.
      * Compile-time only; the resulting closure carries no reflection.
+     *
+     * The eval below is triaged: the input is code this compiler generated
+     * itself (trusted), the same pattern Symfony DI uses for container dumps.
      */
     public static function evalFactory(string $factoryCode): \Closure
     {
-        $closure = eval('return ' . $factoryCode . ';');
+        $closure = eval('return ' . $factoryCode . ';'); // nosemgrep: php.lang.security.eval-use
         if (!$closure instanceof \Closure) {
             throw new InvalidConfigurationException('Generated factory did not produce a closure.');
         }

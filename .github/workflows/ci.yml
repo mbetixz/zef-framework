@@ -58,7 +58,7 @@ jobs:
       - name: Architecture rules (deptrac)
         run: vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress
 
-      - name: Code style (php-cs-fixer: PER-CS2.0 + Symfony + PhpCsFixer + PHP84)
+      - name: "Code style (php-cs-fixer: PER-CS2.0 + Symfony + PhpCsFixer + PHP84)"
         run: vendor/bin/php-cs-fixer check --diff --using-cache=no
 
       - name: phpDoc & type-hint annotations (phpcs + Slevomat)
