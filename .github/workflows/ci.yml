@@ -21,7 +21,27 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: pcov
-          extensions: mbstring, dom, xml, xmlwriter, pcov
+          extensions: mbstring, dom, xml, xmlwriter, pcov, apcu
+          ini-values: apc.enable_cli=1
+
+      - name: Start Redis test server (127.0.0.1:6399)
+        # RedisStoreTest connects to 127.0.0.1:6399 with password
+        # 'zef-test-secret' (see tests/Unit/RedisStoreTest.php). Without a
+        # live server the phpredis-backed integration tests cannot run.
+        run: |
+          docker run -d --name zef-redis \
+            -p 127.0.0.1:6399:6399 \
+            redis:7-alpine redis-server --port 6399 --requirepass zef-test-secret
+          for i in $(seq 1 30); do
+            if docker exec zef-redis redis-cli -p 6399 -a zef-test-secret --no-auth-warning ping 2>/dev/null | grep -q PONG; then
+              echo "Redis test server ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Redis test server failed to become ready."
+          docker logs zef-redis
+          exit 1
 
       - name: Install dependencies
         run: |
