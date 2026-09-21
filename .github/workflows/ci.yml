@@ -5,9 +5,18 @@ on:
     branches: ["**"]
   pull_request:
 
+# Least-privilege: this pipeline only reads the repository (checkout,
+# dependency install, analysis, tests). No artifacts, caches or PR comments
+# are written, so the GITHUB_TOKEN needs nothing beyond contents: read.
+permissions:
+  contents: read
+
 jobs:
   test:
-    name: Lint + Self-test + Toolchain (PHP ${{ matrix.php }})
+    # Job name must match the required status-check context enforced by
+    # branch protection on main ("PHP lint, audit, static analysis and style")
+    # so the check registers against the policy instead of pending forever.
+    name: PHP lint, audit, static analysis and style
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
