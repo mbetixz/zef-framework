@@ -16,19 +16,18 @@ jobs:
     # Job name must match the required status-check context enforced by
     # branch protection on main ("PHP lint, audit, static analysis and style")
     # so the check registers against the policy instead of pending forever.
+    # NOTE: the matrix strategy was removed on purpose — GitHub Actions
+    # appends matrix values to static job names as a " (8.4)" suffix, which
+    # would break the exact-match against the required context again.
     name: PHP lint, audit, static analysis and style
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        php: ["8.4"]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: "8.4"
           # The 90% coverage gate was calibrated against Xdebug's statement
           # counting. pcov measures this suite ~2% lower (89.86% vs 92.02%
           # for the same execution profile), which would fail the gate that
