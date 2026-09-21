@@ -3,9 +3,11 @@ name: Documentation & GitHub Pages
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
+
+# Pull requests are validated by the dedicated "API Documentation Check"
+# workflow (docs-check.yml), which builds the docs read-only without the
+# deploy job - so no job in this workflow is ever skipped on its triggers.
 
 # Baseline: read-only by default; write authority is scoped to the deploy job below.
 permissions:
@@ -48,7 +50,6 @@ jobs:
 
   deploy:
     name: Deploy API documentation
-    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
