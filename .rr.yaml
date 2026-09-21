@@ -1,0 +1,26 @@
+# Konfigurasi RoadRunner v2025.1 untuk ZEF Framework.
+# Jalankan:  vendor/bin/rr serve -c .rr.yaml
+# Worker:    bin/worker.php (bridge spiral/roadrunner-http + nyholm/psr7 sudah di vendor/)
+
+version: "2025.1"
+
+server:
+  command: "php bin/worker.php"
+  relay: "pipes"
+
+http:
+  # Alamat publik server RoadRunner.
+  address: 0.0.0.0:8080
+  # Middleware bawaan RR; tambahkan "static" bila ingin melayani public/ langsung.
+  middleware: [ "gzip" ]
+  pool:
+    # Jumlah worker PHP; kalibrasi sesuai CPU.
+    num_workers: 4
+    max_jobs: 0          # 0 = tanpa batas; selaras dengan ZEF_WORKER_MAX_JOBS
+    supervisor:
+      max_worker_memory: 512   # MB per worker (0 = nonaktif)
+
+logs:
+  mode: development
+  level: info
+  encoding: console

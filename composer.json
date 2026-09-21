@@ -4,10 +4,11 @@
     "type": "project",
     "license": "MIT",
     "require": {
-        "php": "^8.4"
+        "php": "^8.4",
+        "spiral/roadrunner-http": "^4.1",
+        "nyholm/psr7": "^1.8"
     },
     "require-dev": {
-        "ext-redis": "*",
         "code-lts/doctum": "^5.6",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.2",
@@ -15,14 +16,11 @@
         "squizlabs/php_codesniffer": "^3.13",
         "slevomat/coding-standard": "^8.15",
         "phpunit/phpunit": "^10.0",
+        "ext-redis": "*",
         "rector/rector": "^2.6",
         "infection/infection": "^0.30",
         "phpbench/phpbench": "^1.4",
         "deptrac/deptrac": "^4.7"
-    },
-    "suggest": {
-        "ext-redis": "Redis-backed distributed rate limiter store (src/Infrastructure/Security/RedisRateLimiter)",
-        "ext-apcu": "APCu-backed rate limiter for single-instance deployments (src/Infrastructure/Security/ApcuRateLimiter)"
     },
     "config": {
         "allow-plugins": {
@@ -72,8 +70,8 @@
         "docs": "php vendor/bin/doctum.php update doctum.php --no-progress",
         "audit": "@php scripts/ci/assert-abandoned-policy.php",
         "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress --fail-on-uncovered",
-        "mutation": "infection --threads=max --min-msi=68 --min-covered-msi=73",
-        "mutation:ci": "infection --threads=max --min-msi=68 --min-covered-msi=73 --logger-github",
+        "mutation": "infection --threads=max --min-msi=71.5 --min-covered-msi=76",
+        "mutation:ci": "infection --threads=max --min-msi=71.5 --min-covered-msi=76 --logger-github",
         "bench": "phpbench run --report=aggregate --progress=none",
         "lint": "@php scripts/lint.php",
         "serve": "@php -S 0.0.0.0:8080 public/index.php"
@@ -82,5 +80,9 @@
         "php",
         "framework"
     ],
-    "homepage": "https://github.com/mbetixz/zef-framework"
+    "homepage": "https://github.com/mbetixz/zef-framework",
+    "suggest": {
+        "ext-redis": "Redis-backed distributed rate limiter store (src/Infrastructure/Security/RedisRateLimiter)",
+        "ext-apcu": "APCu-backed rate limiter for single-instance deployments (src/Infrastructure/Security/ApcuRateLimiter)"
+    }
 }

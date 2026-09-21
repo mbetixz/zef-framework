@@ -395,10 +395,10 @@ final class MutationDeepRuntimeTest extends TestCase
 
     private function withHeader(ServerRequest $request, string $name, string $value): ServerRequest
     {
-        $with = $request->withHeader($name, $value);
-        \assert($with instanceof ServerRequest);
+        $result = $request->withHeader($name, $value);
+        assert($result instanceof ServerRequest);
 
-        return $with;
+        return $result;
     }
 
     private function okApp(): Application
