@@ -1,0 +1,156 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework — Adapters layer (inbound HTTP adapter)
+ * Added in the v2.10.0 roadmap continuation (additive, no behavioural changes).
+ */
+
+namespace Zef\Framework\Http;
+
+use Zef\Framework\Exception\ApiVersionUnsupportedException;
+
+/**
+ * API version negotiation for HTTP endpoints.
+ *
+ * Priority (most explicit wins):
+ *   1. path prefix  /v{version}/...          e.g. /v2/users  → "2"
+ *   2. header       X-Api-Version (configurable)
+ *   3. query        ?api_version= (configurable)
+ *   4. configured default (when provided)
+ *
+ * Everything that is malformed, oversized, or not in the supported list is
+ * raised as ApiVersionUnsupportedException (a 400/406-grade outcome), never
+ * as a raw PHP error. Header/query length caps block header-injection noise.
+ */
+final class ApiVersionNegotiator
+{
+    private const int MAX_TOKEN_BYTES = 16;
+    private const int MAX_HEADER_BYTES = 256;
+    private const int MAX_QUERY_BYTES = 64;
+
+    /**
+     * @var array<string,true>
+     */
+    private array $supported;
+
+    /**
+     * @var list<string> original version tokens (string-key safety)
+     */
+    private readonly array $versionList;
+    private readonly ?string $default;
+
+    /**
+     * @param list<string> $supported e.g. ['1','2','3'] (exact tokens)
+     */
+    public function __construct(
+        array $supported,
+        ?string $default = null,
+        public readonly string $headerName = 'X-Api-Version',
+        public readonly string $queryKey = 'api_version',
+    ) {
+        if ($supported === []) {
+            throw new \InvalidArgumentException('ApiVersionNegotiator requires at least one supported version.');
+        }
+        foreach ($supported as $version) {
+            if (!is_string($version) || !$this->isValidToken($version)) {
+                throw new \InvalidArgumentException('Supported versions must match [A-Za-z0-9._-]{1,16}, got: ' . (is_scalar($version) ? (string) $version : get_debug_type($version)));
+            }
+        }
+        if ($default !== null) {
+            if (!in_array($default, $supported, true)) {
+                throw new \InvalidArgumentException("Default version '{$default}' must be part of the supported list.");
+            }
+            $this->default = $default;
+        } else {
+            $this->default = null;
+        }
+        $this->supported = array_fill_keys($supported, true);
+        $this->versionList = array_values($supported);
+    }
+
+    /** @return list<string> */
+    public function supportedVersions(): array
+    {
+        return $this->versionList;
+    }
+
+    /**
+     * @param string $path         request path (leading '/' expected, not enforced)
+     * @param ?string $headerValue raw header value for the configured header name
+     * @param ?string $queryValue  raw query value for the configured query key
+     */
+    public function negotiate(string $path, ?string $headerValue = null, ?string $queryValue = null): ApiVersion
+    {
+        // 1) Path prefix (most explicit).
+        [$pathVersion] = $this->splitPathPrefix($path);
+        if ($pathVersion !== null) {
+            return $this->assertSupported($pathVersion, ApiVersion::SOURCE_PATH);
+        }
+
+        // 2) Header.
+        $headerToken = $this->sanitizeToken($headerValue, self::MAX_HEADER_BYTES);
+        if ($headerToken !== null) {
+            return $this->assertSupported($headerToken, ApiVersion::SOURCE_HEADER);
+        }
+
+        // 3) Query.
+        $queryToken = $this->sanitizeToken($queryValue, self::MAX_QUERY_BYTES);
+        if ($queryToken !== null) {
+            return $this->assertSupported($queryToken, ApiVersion::SOURCE_QUERY);
+        }
+
+        // 4) Default.
+        if ($this->default !== null) {
+            return new ApiVersion($this->default, ApiVersion::SOURCE_DEFAULT);
+        }
+
+        throw new ApiVersionUnsupportedException(null, $this->supportedVersions(), 'No API version provided (path /v{n} prefix, ' . $this->headerName . ' header or ?' . $this->queryKey . '= query).');
+    }
+
+    /**
+     * Splits a leading /v{token} prefix off the path.
+     * "/v2/users" → ["2", "/users"]; "/users" → [null, "/users"].
+     *
+     * @return array{?string, string}
+     */
+    public function splitPathPrefix(string $path): array
+    {
+        if (preg_match('#^/v([A-Za-z0-9._-]{1,' . self::MAX_TOKEN_BYTES . '})(/|$)#', $path, $m) === 1) {
+            $rest = substr($path, strlen($m[0]));
+
+            return [$m[1], $rest === '' ? '/' : '/' . $rest];
+        }
+
+        return [null, $path];
+    }
+
+    private function assertSupported(string $token, string $source): ApiVersion
+    {
+        if (!isset($this->supported[$token])) {
+            throw new ApiVersionUnsupportedException($token, $this->supportedVersions(), "API version '{$token}' is not supported. Supported versions: " . implode(', ', $this->supportedVersions()) . '.');
+        }
+
+        return new ApiVersion($token, $source);
+    }
+
+    /** Null when absent/malformed/oversized — never throws. */
+    private function sanitizeToken(?string $raw, int $maxLength): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        $raw = trim($raw);
+        if ($raw === '' || strlen($raw) > $maxLength || !$this->isValidToken($raw)) {
+            return null;
+        }
+
+        return $raw;
+    }
+
+    private function isValidToken(string $token): bool
+    {
+        return preg_match('/^[A-Za-z0-9._-]{1,' . self::MAX_TOKEN_BYTES . '}$/', $token) === 1;
+    }
+}

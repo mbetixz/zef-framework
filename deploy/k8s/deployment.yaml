@@ -1,0 +1,76 @@
+# ZEF Framework — Kubernetes deployment (v2.10.0 roadmap item).
+#
+# Assumptions:
+#   - Image builds from deploy/Dockerfile (php:8.4-cli-alpine, lint+selftest gate).
+#   - App listens on 0.0.0.0:8080 via public/index.php / bin/zef --serve.
+#   - Probes reuse the v2.8.0 health endpoints: /health/live, /health/ready.
+#
+# Roll-out: kubectl apply -f deploy/k8s/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zef-app
+  labels:
+    app.kubernetes.io/name: zef-app
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zef-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zef-app
+        app.kubernetes.io/component: api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: app
+          image: zef-framework:latest   # replace with your registry path
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ZEF_ENV
+              value: production
+            - name: ZEF_DEBUG
+              value: "0"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3

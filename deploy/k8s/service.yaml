@@ -1,0 +1,17 @@
+# ZEF Framework — ClusterIP service in front of the zef-app deployment.
+# Apply together with deployment.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: zef-app
+  labels:
+    app.kubernetes.io/name: zef-app
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: zef-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

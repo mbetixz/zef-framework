@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd"
+         name="ZEF-PHPDoc-Strict">
+    <description>ZEF Framework — strict phpDoc/type-hint annotation checks (Slevomat) + PSR-1 structural guards. Byte-level formatting is owned exclusively by php-cs-fixer (PER-CS2.0 + Symfony + PhpCsFixer, a superset of PSR-12); phpcs intentionally avoids overlapping whitespace/brace sniffs so the two tools can never fight over the same bytes.</description>
+
+    <file>src</file>
+    <file>modules</file>
+    <file>plugins</file>
+    <file>tests</file>
+    <exclude-pattern>*/src/Compat/*</exclude-pattern>
+
+    <arg name="extensions" value="php"/>
+    <arg name="parallel" value="8"/>
+    <arg value="sp"/>
+
+    <config name="installed_paths" value="vendor/slevomat/coding-standard"/>
+
+    <!-- PSR-1 structural conformance (no byte-level formatting rules) -->
+    <rule ref="PSR1.Classes.ClassDeclaration">
+        <!-- Multiple contracts per file are a deliberate grouping pattern:
+             the provider-ports file keeps Deferrable/Bootable next to their
+             base interface; test fixtures co-locate scenario classes. -->
+        <exclude name="PSR1.Classes.ClassDeclaration.MultipleClasses"/>
+    </rule>
+    <rule ref="PSR1.Files.SideEffects"/>
+    <rule ref="Generic.PHP.DisallowShortOpenTag.EchoFound">
+        <severity>0</severity>
+    </rule>
+
+    <!-- declare(strict_types=1) present and correctly formatted -->
+    <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes">
+        <properties>
+            <property name="declareOnFirstLine" value="false"/>
+            <property name="spacesCountAroundEqualsSign" value="0"/>
+            <property name="linesCountAfterDeclare" value="1"/>
+            <property name="linesCountBeforeDeclare" value="1"/>
+        </properties>
+    </rule>
+
+    <!-- Strict phpDoc: every param/property/return that cannot be expressed
+         natively (arrays, traversables, closures) MUST be annotated.
+         Traversable *specifications* (array<int,X> shapes) are enforced
+         semantically by PHPStan level max (missingType.iterableValue), which
+         infers far better than token-level sniffs. -->
+    <rule ref="SlevomatCodingStandard.TypeHints.ParameterTypeHint">
+        <exclude name="SlevomatCodingStandard.TypeHints.ParameterTypeHint.MissingTraversableTypeHintSpecification"/>
+    </rule>
+    <rule ref="SlevomatCodingStandard.TypeHints.ReturnTypeHint">
+        <exclude name="SlevomatCodingStandard.TypeHints.ReturnTypeHint.MissingTraversableTypeHintSpecification"/>
+    </rule>
+    <rule ref="SlevomatCodingStandard.TypeHints.PropertyTypeHint">
+        <properties>
+            <property name="enableNativeTypeHint" value="true"/>
+        </properties>
+        <exclude name="SlevomatCodingStandard.TypeHints.PropertyTypeHint.MissingTraversableTypeHintSpecification"/>
+    </rule>
+    <rule ref="SlevomatCodingStandard.TypeHints.UselessConstantTypeHint"/>
+
+    <!-- phpDoc hygiene (semantic, non-overlapping with the formatter) -->
+    <rule ref="SlevomatCodingStandard.Commenting.EmptyComment"/>
+    <rule ref="SlevomatCodingStandard.Commenting.InlineDocCommentDeclaration"/>
+    <rule ref="SlevomatCodingStandard.Commenting.UselessInheritDocComment"/>
+</ruleset>

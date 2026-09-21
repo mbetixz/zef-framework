@@ -1,0 +1,166 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework — Domain layer (ports, contracts, value objects)
+ * Added in the v2.8.0 roadmap continuation (additive, no behavioural changes).
+ */
+
+namespace Zef\Framework\Validation;
+
+/**
+ * Fluent rule chain for one field. Rules run in registration order; the
+ * first failing rule wins (later rules see the original value).
+ *
+ * ReDoS policy: pattern() enforces a bounded pattern length and a bounded
+ * subject length before preg_match, mirroring the framework's ReDoS stance
+ * for route constraints.
+ */
+final class FieldRules
+{
+    private const int MAX_PATTERN_LENGTH = 2048;
+    private const int MAX_PATTERN_SUBJECT = 4096;
+
+    /**
+     * @var list<array{rule:string,check:callable(mixed):bool,message:string,skipNull:bool,skipEmpty:bool}>
+     */
+    private array $rules = [];
+
+    public function __construct(
+        public readonly string $field,
+    ) {}
+
+    public function required(string $message = 'is required.'): self
+    {
+        return $this->add('required', static fn (mixed $v): bool => !in_array($v, [null, '', []], true), $message, false, false);
+    }
+
+    /** Value must be absent-or-null-safe string after casting checks below. */
+    public function typeString(string $message = 'must be a string.'): self
+    {
+        return $this->add('type', static fn (mixed $v): bool => is_string($v), $message);
+    }
+
+    public function typeInt(string $message = 'must be an integer.'): self
+    {
+        return $this->add('type', static fn (mixed $v): bool => is_int($v) || (is_string($v) && preg_match('/^-?\d{1,18}$/', $v) === 1), $message);
+    }
+
+    public function typeNumeric(string $message = 'must be numeric.'): self
+    {
+        return $this->add('type', static fn (mixed $v): bool => is_int($v) || is_float($v) || (is_string($v) && is_numeric($v)), $message);
+    }
+
+    public function minLength(int $min, string $message = 'is too short.'): self
+    {
+        if ($min < 0) {
+            throw new \InvalidArgumentException('minLength must be >= 0.');
+        }
+
+        return $this->add('min_length', static fn (mixed $v): bool => is_string($v) && mb_strlen($v) >= $min, $message);
+    }
+
+    public function maxLength(int $max, string $message = 'is too long.'): self
+    {
+        if ($max < 1) {
+            throw new \InvalidArgumentException('maxLength must be >= 1.');
+        }
+
+        return $this->add('max_length', static fn (mixed $v): bool => is_string($v) && mb_strlen($v) <= $max, $message);
+    }
+
+    public function min(float|int $bound, string $message = 'is too small.'): self
+    {
+        return $this->add('min', static fn (mixed $v): bool => is_numeric($v) && (float) $v >= $bound, $message);
+    }
+
+    public function max(float|int $bound, string $message = 'is too large.'): self
+    {
+        return $this->add('max', static fn (mixed $v): bool => is_numeric($v) && (float) $v <= $bound, $message);
+    }
+
+    public function email(string $message = 'is not a valid email address.'): self
+    {
+        return $this->add('email', static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_EMAIL) !== false, $message);
+    }
+
+    public function uuid(string $message = 'is not a valid UUID.'): self
+    {
+        return $this->add('uuid', static fn (mixed $v): bool => is_string($v) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/Di', $v) === 1, $message);
+    }
+
+    /** @param list<int|string> $allowed */
+    public function in(array $allowed, string $message = 'is not one of the allowed values.'): self
+    {
+        foreach ($allowed as $value) {
+            if (!is_string($value) && !is_int($value)) {
+                throw new \InvalidArgumentException('in() accepts only string/int values.');
+            }
+        }
+
+        return $this->add('in', static fn (mixed $v): bool => in_array($v, $allowed, true), $message);
+    }
+
+    public function pattern(string $regex, string $message = 'does not match the required format.'): self
+    {
+        if ($regex === '' || strlen($regex) > self::MAX_PATTERN_LENGTH) {
+            throw new \InvalidArgumentException('pattern() regex length must be 1..2048.');
+        }
+
+        return $this->add(
+            'pattern',
+            static function (mixed $v) use ($regex): bool {
+                if (!is_string($v) || strlen($v) > self::MAX_PATTERN_SUBJECT) {
+                    return false;
+                }
+
+                return preg_match($regex, $v) === 1;
+            },
+            $message,
+        );
+    }
+
+    /** Custom predicate; receives the raw value. */
+    public function custom(callable $check, string $message = 'is invalid.'): self
+    {
+        return $this->add('custom', $check, $message);
+    }
+
+    /** All subsequently registered rules are skipped for null values. */
+    public function nullable(): self
+    {
+        foreach ($this->rules as $index => $rule) {
+            $this->rules[$index]['skipNull'] = true;
+        }
+
+        return $this;
+    }
+
+    /** @return list<ValidationError> failures for the given raw value */
+    public function validate(mixed $value): array
+    {
+        $errors = [];
+        foreach ($this->rules as $rule) {
+            if ($rule['skipNull'] && $value === null) {
+                continue;
+            }
+            if ($rule['skipEmpty'] && ($value === '' || $value === [])) {
+                continue;
+            }
+            $passed = ($rule['check'])($value);
+            if ($passed !== true) {
+                $errors[] = new ValidationError($this->field, "Field '{$this->field}' {$rule['message']}", $rule['rule']);
+            }
+        }
+
+        return $errors;
+    }
+
+    private function add(string $rule, callable $check, string $message, bool $skipNull = true, bool $skipEmpty = true): self
+    {
+        $this->rules[] = ['rule' => $rule, 'check' => $check, 'message' => $message, 'skipNull' => $skipNull, 'skipEmpty' => $skipEmpty];
+
+        return $this;
+    }
+}

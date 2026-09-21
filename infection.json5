@@ -1,14 +1,17 @@
 {
-    "$schema": "vendor/infection/infection/resources/schema.json",
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.30.0/resources/schema.json",
     "source": {
-        "directories": ["src"]
+        "directories": [
+            "src/Domain",
+            "src/Application",
+            "src/Infrastructure",
+            "src/Adapters"
+        ]
     },
-    "testFramework": "phpunit",
-    "tmpDir": "build/infection/tmp",
+    "timeout": 30,
     "logs": {
-        "text": "build/infection/infection.log",
-        "summary": "build/infection/summary.log",
-        "json": "build/infection/infection.json"
+        "text": "build/infection.log",
+        "summary": "build/infection-summary.log"
     },
     "mutators": {
         "@default": true

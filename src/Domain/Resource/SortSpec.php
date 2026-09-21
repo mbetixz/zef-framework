@@ -1,0 +1,171 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework — Domain layer (ports, contracts, value objects)
+ * Added in the v2.10.0 roadmap continuation (additive, no behavioural changes).
+ */
+
+namespace Zef\Framework\Resource;
+
+/**
+ * Sort specification parsed from a query string against a mandatory whitelist.
+ *
+ * Wire format:  ?sort=-price,name        ('-' prefix = descending, '+' = ascending)
+ *
+ * Security & robustness stance (mirrors PageRequest): listing endpoints must
+ * never 500 because of client input. Fields outside the whitelist are dropped
+ * silently; an empty result falls back to the configured defaults. The
+ * whitelist is also the injection boundary — callers may map fields to column
+ * names knowing only whitelisted identifiers can ever arrive.
+ */
+final readonly class SortSpec
+{
+    public const int MAX_KEYS = 8;
+    public const int MAX_FIELD_BYTES = 64;
+
+    /**
+     * @var list<SortKey>
+     */
+    public array $keys;
+
+    /**
+     * @param list<string> $defaultFields applied when no valid sort field arrives
+     */
+    public function __construct(array $keys, array $defaultFields = [], bool $defaultDesc = false)
+    {
+        $resolved = [];
+        foreach ($keys as $key) {
+            if (!$key instanceof SortKey) {
+                throw new \InvalidArgumentException('SortSpec expects a list of SortKey instances.');
+            }
+            $resolved[] = $key;
+        }
+        if ($resolved === [] && $defaultFields !== []) {
+            foreach ($defaultFields as $field) {
+                if (!is_string($field) || $field === '') {
+                    throw new \InvalidArgumentException('Default sort fields must be non-empty strings.');
+                }
+                $resolved[] = new SortKey($field, $defaultDesc);
+            }
+        }
+        $this->keys = $resolved;
+    }
+
+    /**
+     * @param array<string,mixed> $query already-parsed query values
+     * @param list<string> $whitelist allowed field names
+     */
+    public static function fromQuery(
+        array $query,
+        array $whitelist,
+        string $sortKey = 'sort',
+        array $defaultFields = [],
+        bool $defaultDesc = false,
+    ): self {
+        $allowed = array_fill_keys($whitelist, true);
+        $keys = [];
+        $raw = $query[$sortKey] ?? null;
+        if (is_string($raw) && $raw !== '') {
+            $raw = strlen($raw) > 512 ? substr($raw, 0, 512) : $raw;
+            foreach (explode(',', $raw) as $candidate) {
+                if (count($keys) >= self::MAX_KEYS) {
+                    break;
+                }
+                $candidate = trim($candidate);
+                if ($candidate === '') {
+                    continue;
+                }
+                $desc = false;
+                $first = $candidate[0];
+                if ($first === '-') {
+                    $desc = true;
+                    $candidate = ltrim(substr($candidate, 1), '+- ');
+                } elseif ($first === '+') {
+                    $candidate = ltrim(substr($candidate, 1), '+- ');
+                }
+                if ($candidate === '' || strlen($candidate) > self::MAX_FIELD_BYTES) {
+                    continue;
+                }
+                if (!isset($allowed[$candidate])) {
+                    continue; // lenient: unknown fields never abort the request
+                }
+                foreach ($keys as $existing) {
+                    if ($existing->field === $candidate) {
+                        continue 2; // first occurrence wins
+                    }
+                }
+                $keys[] = new SortKey($candidate, $desc);
+            }
+        }
+
+        return new self($keys, $defaultFields, $defaultDesc);
+    }
+
+    /** @return list<SortKey> resolved keys (defaults included when the query had none) */
+    public function keys(): array
+    {
+        return $this->keys;
+    }
+
+    public function isEmpty(): bool
+    {
+        return $this->keys === [];
+    }
+
+    /**
+     * In-memory multi-key stable sort over a list of rows.
+     *
+     * @param list<array<string,mixed>|object> $rows
+     *
+     * @return list<array<string,mixed>|object>
+     */
+    public function applyTo(array $rows): array
+    {
+        if ($this->keys === [] || count($rows) < 2) {
+            return $rows;
+        }
+        usort($rows, function (mixed $a, mixed $b): int {
+            foreach ($this->keys as $key) {
+                $cmp = $this->valueOf($a, $key->field) <=> $this->valueOf($b, $key->field);
+                if ($key->desc) {
+                    $cmp = -$cmp;
+                }
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+            }
+
+            return 0; // PHP 8 usort is stable
+        });
+
+        return $rows;
+    }
+
+    /** @return null|string wire representation, null when no keys */
+    public function toQuery(): ?string
+    {
+        if ($this->keys === []) {
+            return null;
+        }
+        $parts = [];
+        foreach ($this->keys as $key) {
+            $parts[] = ($key->desc ? '-' : '') . $key->field;
+        }
+
+        return implode(',', $parts);
+    }
+
+    private function valueOf(mixed $row, string $field): mixed
+    {
+        if (is_array($row)) {
+            return $row[$field] ?? null;
+        }
+        if (is_object($row)) {
+            return $row->{$field} ?? null;
+        }
+
+        return null;
+    }
+}

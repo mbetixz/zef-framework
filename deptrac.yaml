@@ -1,12 +1,182 @@
+# ZEF Framework — architecture conformance (hexagonal layering).
+#
+#   composer deptrac
+#
+# Base layers mirror the physical directories produced by the v2.7.0
+# hexagonal split: Domain has zero outward dependencies, Application may
+# only depend on Domain, Infrastructure on Domain+Application, and
+# Adapters/App/Module/Plugin may use everything below them.
+#
+# Exception layers (deliberate, documented deviations):
+#   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
+#   - EnvConfig:     Zef\Framework\Foundation\Env — kernel env reader; the
+#                    framework's own components read their configuration
+#                    directly through it (24 call sites). Replacing this with
+#                    an EnvInterface port is tracked as future work.
+#   - RouteDefSpec:  Zef\Framework\Router\RouteDefinition — route spec value
+#                    object consumed by the Domain config aggregator.
+#   - TrustedProxy:  Zef\Framework\Http\TrustedProxyMatcher — consumed by
+#                    the Application-layer client address resolver.
+#   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
+#                    default exporter wired by the Telemetry facade.
+#   - KernelSleeper: Zef\Framework\Runtime\BlockingSleeper — in-process
+#                    sleep primitive for the batch span processor and job
+#                    worker.
+#   - OriginPolicySpec: Zef\Framework\Security\OriginPolicy — consumed by
+#                    the Domain security policy aggregator.
+#   - ContainerImpl: Zef\Framework\Container\Container — the provider
+#                    contracts (ServiceProviderInterface & friends) expose
+#                    the concrete container in their signatures.
 deptrac:
-  paths:
-    - ./src
-
-  layers:
-    - name: Core
-      collectors:
-        - type: className
-          regex: '^Zef\\App\\.*'
-
-  ruleset:
-    Core: ~
+    paths:
+        - ./src
+        - ./modules
+        - ./plugins
+    layers:
+        -   name: Domain
+            collectors:
+                -   type: directory
+                    value: src/Domain/.*
+        -   name: Application
+            collectors:
+                -   type: directory
+                    value: src/Application/(?!Security/OriginPolicy\.php|Container/Container\.php).*
+        -   name: Infrastructure
+            collectors:
+                -   type: directory
+                    value: src/Infrastructure/(?!Foundation/Env\.php|Observability/OtlpHttpJsonExporter\.php).*
+        -   name: Adapters
+            collectors:
+                -   type: directory
+                    value: src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php|Runtime/BlockingSleeper\.php).*
+        -   name: Compat
+            collectors:
+                -   type: directory
+                    value: src/Compat/.*
+        -   name: App
+            collectors:
+                -   type: directory
+                    value: src/Bootstrap\.php
+                -   type: directory
+                    value: src/Middleware/.*
+        -   name: Module
+            collectors:
+                -   type: directory
+                    value: modules/.*
+        -   name: Plugin
+            collectors:
+                -   type: directory
+                    value: plugins/.*
+        -   name: EnvConfig
+            collectors:
+                -   type: directory
+                    value: src/Infrastructure/Foundation/Env\.php
+        -   name: RouteDefSpec
+            collectors:
+                -   type: directory
+                    value: src/Adapters/Router/RouteDefinition\.php
+        -   name: TrustedProxy
+            collectors:
+                -   type: directory
+                    value: src/Adapters/Http/TrustedProxyMatcher\.php
+        -   name: OtlpExporter
+            collectors:
+                -   type: directory
+                    value: src/Infrastructure/Observability/OtlpHttpJsonExporter\.php
+        -   name: KernelSleeper
+            collectors:
+                -   type: directory
+                    value: src/Adapters/Runtime/BlockingSleeper\.php
+        -   name: OriginPolicySpec
+            collectors:
+                -   type: directory
+                    value: src/Application/Security/OriginPolicy\.php
+        -   name: ContainerImpl
+            collectors:
+                -   type: directory
+                    value: src/Application/Container/Container\.php
+    ruleset:
+        Domain:
+            - Compat
+            - EnvConfig
+            - RouteDefSpec
+            - TrustedProxy
+            - OriginPolicySpec
+            - ContainerImpl
+        Compat: []
+        EnvConfig:
+            - Compat
+        RouteDefSpec:
+            - Domain
+            - Compat
+        TrustedProxy:
+            - Domain
+            - Compat
+        OtlpExporter:
+            - Domain
+            - Application
+            - Infrastructure
+            - EnvConfig
+            - Compat
+        KernelSleeper:
+            - Adapters
+            - EnvConfig
+            - Compat
+        OriginPolicySpec:
+            - Domain
+            - Adapters
+            - EnvConfig
+            - Compat
+        ContainerImpl:
+            - Domain
+            - Application
+            - Compat
+        Application:
+            - Domain
+            - Compat
+            - EnvConfig
+            - TrustedProxy
+            - OtlpExporter
+            - KernelSleeper
+            - ContainerImpl
+        Infrastructure:
+            - Domain
+            - Application
+            - Compat
+            - EnvConfig
+        Adapters:
+            - Domain
+            - Application
+            - Infrastructure
+            - Compat
+            - EnvConfig
+            - ContainerImpl
+            - TrustedProxy
+            - OriginPolicySpec
+        App:
+            - Domain
+            - Application
+            - Infrastructure
+            - Adapters
+            - Compat
+            - EnvConfig
+            - ContainerImpl
+            - OriginPolicySpec
+            - Module
+            - Plugin
+        Module:
+            - Domain
+            - Application
+            - Infrastructure
+            - Adapters
+            - Compat
+            - EnvConfig
+            - ContainerImpl
+        Plugin:
+            - Domain
+            - Application
+            - Infrastructure
+            - Adapters
+            - Compat
+            - EnvConfig
+            - ContainerImpl

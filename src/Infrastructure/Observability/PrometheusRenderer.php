@@ -1,0 +1,154 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework — Infrastructure layer (outbound adapters)
+ * Added in the v2.8.0 roadmap continuation (additive, no behavioural changes).
+ */
+
+namespace Zef\Framework\Observability;
+
+/**
+ * Renders a MeterInterface snapshot into the Prometheus text exposition
+ * format (version 0.0.4) consumed by Prometheus / VictoriaMetrics / etc.
+ *
+ * Semantics:
+ * - counter series (increment)  -> `<name>{labels} count` and `<name>_sum`
+ *   (count == sum for pure counters; both are emitted for correctness)
+ * - histogram-style observations (observe) -> `<name>_count` + `<name>_sum`
+ * - metric names are sanitized to `[a-zA-Z0-9_:]`, label names to
+ *   `[a-zA-Z0-9_]`; label values are escaped per the exposition format
+ * - series with no attributes omit the `{...}` block entirely
+ *
+ * The renderer is stateless and performs no I/O; the HTTP surface lives in
+ * the calling module (e.g. `Zef\Module\Health\MetricsHandler`).
+ */
+final class PrometheusRenderer
+{
+    private const string METRIC_NAME_DEFAULT = 'zef_unnamed_metric';
+    private const string LABEL_NAME_DEFAULT = 'zef_unnamed_label';
+    private const int MAX_SERIES = 4096;
+
+    /** @param array<string,string> $staticLabels appended to every series */
+    public function render(MeterInterface $meter, array $staticLabels = []): string
+    {
+        $lines = [];
+        $emittedTypes = [];
+        $seriesCount = 0;
+        foreach ($meter->snapshot() as $rawKey => $series) {
+            if (++$seriesCount > self::MAX_SERIES) {
+                break;
+            }
+            // CounterMeter snapshot keys are composites: "<metric>|<json attrs>".
+            $rawKey = is_string($rawKey) ? $rawKey : '';
+            $pipe = strpos($rawKey, '|');
+            if ($pipe !== false) {
+                $metricName = $this->sanitizeName(substr($rawKey, 0, $pipe));
+                $decoded = json_decode(substr($rawKey, $pipe + 1), true);
+                $attributes = is_array($decoded) ? $decoded : [];
+            } else {
+                $metricName = $this->sanitizeName($rawKey);
+                $attributes = is_array($series['attributes'] ?? null) ? $series['attributes'] : [];
+            }
+            $labelBlock = $this->labelBlock($attributes, $staticLabels);
+
+            if (!isset($emittedTypes[$metricName])) {
+                $emittedTypes[$metricName] = true;
+                $lines[] = "# TYPE {$metricName} counter";
+            }
+            $count = is_numeric($series['count'] ?? null) ? (float) $series['count'] : 0.0;
+            $sum = is_numeric($series['sum'] ?? null) ? (float) $series['sum'] : 0.0;
+            $lines[] = sprintf('%s%s %s', $metricName, $labelBlock, $this->number($count));
+            if (abs($sum - $count) > PHP_FLOAT_EPSILON) {
+                // Observation series (count != sum): expose classic histogram members.
+                if (!isset($emittedTypes[$metricName . '_sum'])) {
+                    $emittedTypes[$metricName . '_sum'] = true;
+                    $lines[] = "# TYPE {$metricName}_sum counter";
+                    $lines[] = "# TYPE {$metricName}_count counter";
+                }
+                $lines[] = sprintf('%s_sum%s %s', $metricName, $labelBlock, $this->number($sum));
+                $lines[] = sprintf('%s_count%s %s', $metricName, $labelBlock, $this->number($count));
+            }
+        }
+        if ($lines === []) {
+            return '';
+        }
+
+        return implode("\n", $lines) . "\n";
+    }
+
+    private function sanitizeName(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return self::METRIC_NAME_DEFAULT;
+        }
+        $clean = preg_replace('/[^a-zA-Z0-9_:]/', '_', $name);
+        $clean = is_string($clean) ? $clean : self::METRIC_NAME_DEFAULT;
+        if (preg_match('/^[a-zA-Z_:]/', $clean) !== 1) {
+            return 'zef_' . $clean;
+        }
+
+        return $clean;
+    }
+
+    /**
+     * @param array<string,mixed> $attributes
+     * @param array<string,string> $staticLabels
+     */
+    private function labelBlock(array $attributes, array $staticLabels): string
+    {
+        $pairs = [];
+        foreach ($staticLabels as $name => $value) {
+            $label = $this->sanitizeLabelName((string) $name);
+            $pairs[$label] = is_scalar($value) ? (string) $value : '';
+        }
+        foreach ($attributes as $name => $value) {
+            if (!is_string($name) || $name === '') {
+                continue;
+            }
+            if (!is_scalar($value)) {
+                // Non-scalar dimensions are dropped, never stringified blindly.
+                continue;
+            }
+            $pairs[$this->sanitizeLabelName($name)] = (string) $value;
+        }
+        if ($pairs === []) {
+            return '';
+        }
+        ksort($pairs);
+        $encoded = [];
+        foreach ($pairs as $name => $value) {
+            $encoded[] = sprintf('%s="%s"', $name, $this->escapeValue($value));
+        }
+
+        return '{' . implode(',', $encoded) . '}';
+    }
+
+    private function sanitizeLabelName(string $name): string
+    {
+        $clean = preg_replace('/[^a-zA-Z0-9_]/', '_', $name);
+        $clean = is_string($clean) ? $clean : self::LABEL_NAME_DEFAULT;
+        if ($clean === '' || preg_match('/^[a-zA-Z_]/', $clean) !== 1) {
+            return 'lbl_' . $clean;
+        }
+
+        return $clean;
+    }
+
+    private function escapeValue(string $value): string
+    {
+        return str_replace(['\\', '"', "\n"], ['\\\\', '\"', '\n'], $value);
+    }
+
+    private function number(float $value): string
+    {
+        if (!is_finite($value)) {
+            return $value > 0 ? '+Inf' : (is_nan($value) ? 'NaN' : '-Inf');
+        }
+        $formatted = json_encode($value, JSON_PRESERVE_ZERO_FRACTION);
+
+        return is_string($formatted) ? $formatted : '0.0';
+    }
+}
