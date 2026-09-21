@@ -1,0 +1,246 @@
+# 🚀 ZEF Framework — Roadmap Fitur
+
+> Dokumen ini adalah roadmap asli yang menjadi dasar pemetaan modular pada refactor hexagonal.
+> Setiap butir di bawah kini memiliki lokasi fisik yang jelas di pohon direktori
+> (lihat `docs/ARCHITECTURE.md` untuk pemetaan namespace → layer).
+
+---
+
+## 🏗️ 1. FONDASI FRAMEWORK
+
+### Arsitektur Hexagonal (Ports & Adapters)
+- [x] Core domain isolation → `src/Domain`
+- [x] PSR interfaces sebagai ports → `src/Compat/Psr` + `src/Domain/**`
+- [x] HTTP, CLI, RoadRunner sebagai inbound adapters → `src/Adapters/{Http,Kernel,Runtime}` + `bin/`
+- [x] Database, Cache, Queue sebagai outbound adapters → `src/Infrastructure/{Cache,Security}` + `src/Application/{CQRS,Job,Message}`
+- [x] Dependency injection melalui Container PSR-11 → `src/Application/Container`
+- [x] Request/Response handling melalui PSR-7 → `src/Adapters/Http`
+
+  #### Target Enterprise:
+  - [ ] `GraphQL adapter`
+  - [ ] `WebSocket adapter`
+  - [ ] `gRPC adapter`
+  - [ ] `Event sourcing adapter`
+  - [ ] `Social auth adapters (Google, Facebook, GitHub)`
+  - [ ] `SMS/Email service adapters`
+  - [ ] `CDN/storage adapters (S3, GCS, Local)`
+  - [x] `v2.8.0`: Conditional-GET adapter (ETag/If-None-Match/If-Modified-Since) → `src/Adapters/Http/ETagMiddleware`
+### Container System (PSR-11) — `src/Application/Container` + `src/Domain/Container`
+- [x] Auto-wiring dengan reflection
+- [x] Singleton, Request-scoped, Transient lifecycles
+- [x] Circular dependency detection
+- [x] Service definition validation
+- [x] Module-based registration
+- [x] Lazy loading support
+- [x] Request scope isolation
+- [x] Architecture policy enforcement
+
+  #### Target Enterprise:
+  - [x] `Tagged services untuk grouping` (v2.8.0: `TaggedServiceLocator`, resolusi via tag `ServiceDefinition`) — [x] `Contextual binding` (v2.10.0: `Container::when()->needs()->give()`, registry-rewrite pre-freeze) — [x] `Service decoration chain` (v2.10.0: `Container::decorate()`, wrapper definitions + `@inner:*`)
+  - [ ] `Service middleware/interceptors` — [x] `Container compilation untuk performa` (`ContainerCompiler` ✔ + autowiring AOT v2.9.0 ✔)
+  - [x] `Service provider dengan deferred loading` (v2.10.0: `ServiceProviderInterface` + `DeferrableProviderInterface` + `bootProviders()`) — [x] `Container events (resolving, resolved)` (v2.10.0: `onResolving()` / `onResolved()` dengan instance replacement)
+  - [x] `RadixTree namespace container` (v2.11.0: `NamespaceRadixTree` + `NamespaceScopePolicy` + `RadixTreeCompilerPass` — hybrid flat O(1) + trie O(K), `getByPrefix()`, namespace fallback, scope policy `internal`/`module` tanpa tagging manual, AOT `exportArray`)
+
+### Router System — `src/Adapters/Router`
+- [x] O(log n) route matching (Radix Tree)
+- [x] Dynamic parameters dengan constraints
+- [x] Built-in constraints (int, uuid, slug, hex, bool)
+- [x] Custom regex constraints dengan ReDoS protection
+- [x] Method-based routing (GET, POST, etc.)
+- [x] 405 Method Not Allowed detection
+- [x] Route priority system
+- [x] Module-scoped routes
+
+  #### Target Enterprise:
+  - [x] `Route groups dengan prefixes` (v2.10.0: `Router::group()`, prefix/name/middleware/priority bersarang) — [ ] `Subdomain routing untuk multi-tenancy`
+  - [x] `API versioning (URL, header, query)` (v2.10.0: `ApiVersionNegotiator`, prioritas path > header > query > default) — [ ] `Route model binding otomatis`
+  - [x] `Route caching & compilation` (v2.10.0: `exportRoutes()`/`fromCompiledArray()`/`RouteCache`, file murni atomik) — [ ] `Localization routing (/{locale}/...)`
+  - [ ] `Content negotiation routing` — [x] `Route naming & reverse routing` (v2.8.0: `RouteDefinition.name`, `Router::patternFor()`, `UrlGenerator`)
+  - [x] `Route middleware assignment` (v2.10.0: metadata `middleware` per-route via groups, terekspor di `getRoutes()`) — [x] `Fallback routes & custom 404` (v2.10.0: `Router::fallback()` + `matchOrFallback()`, 405 tetap dijaga)
+
+---
+
+## 🛡️ 2. SECURITY FRAMEWORK
+
+### Security Dasar — `src/{Domain,Application,Infrastructure,Adapters}/Security`
+- [x] Authentication boundaries (layer isolation)
+- [x] Authorization policies (scope-based) → `AllowScopeAuthorizationPolicy`
+- [x] Replay protection (idempotency keys) → `BoundedInMemoryReplayProtector`
+- [x] Rate limiting (in-memory, APCu, Redis) → `InMemoryRateLimiter`, `ApcuRateLimiter`, `RedisRateLimiter`
+- [x] Credential management → `StaticCredentialProvider`, `CredentialHandle`
+- [x] Security context propagation → `SecurityContext`, `CorrelationPropagator`
+- [x] CSRF protection dengan token rotation → `CsrfTokenManager`
+- [x] CORS dengan origin validation & preflight handling → `app/Middleware/CorsMiddleware`
+- [x] Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) → `app/Middleware/SecurityHeadersMiddleware`
+- [x] Trusted host/proxy validation → `TrustedHostValidator`, `TrustedProxyMatcher`
+- [x] Header injection prevention → `InvalidHeaderException`, `HeaderValidator`
+- [x] Request body size limits → `RequestBodyPolicy`, `LimitedInputStream`
+- [x] Client IP resolution (rightmost-untrusted XFF) → `ClientAddressResolver`
+
+#### Authentication / Authorization / Firewall / Encryption / Audit (Target Enterprise)
+- [ ] MFA/2FA (TOTP, SMS, Email) · WebAuthn · OAuth 2.0 server · SAML 2.0 SSO
+- [x] JWT-ready token plumbing · Session Redis (parsial via `SharedRateLimitStoreInterface`)
+- [x] RBAC scope-based penuh — [ ] ABAC penuh — [x] Policy-based authorization (gates/policies)
+- [ ] Resource-level permissions · Dynamic permissions · Permission inheritance/caching · RLS otomatis
+- [x] SQL injection prevention (parameterized queries di layer data) — [x] XSS/SSRF/Path traversal protection dasar
+- [ ] WAF rules · File upload malware scan · Bot detection/CAPTCHA · Honeypot fields
+- [x] AES-256-GCM service (v2.8.0: `AesGcmEncryptor`, port `EncryptionInterface`, format `zefenc1.*` versi-bawa-kunci) — [x] Key rotation (v2.10.0: `RotatingKeyRing`, decrypt probe semua kunci) — [ ] Encrypted columns/file storage
+- [x] MFA TOTP (v2.8.0: `Totp` RFC 6238 + `Base32` RFC 4648, vektor resmi lolos) · [ ] WebAuthn · [ ] OAuth 2.0 server · [ ] SAML 2.0 SSO
+- [x] Secure hashing (Argon2id/bcrypt via PHP core) — [x] CSPRNG (random_bytes)
+- [ ] GDPR toolkit · Data retention · RTBF · Data portability · Cookie consent · Compliance reporting
+
+---
+
+## 🔄 3. CQRS & EVENT-DRIVEN ARCHITECTURE — `src/{Domain,Application}/CQRS` + `src/Domain/Event`
+
+- [x] Command bus dengan middleware (validation, auth) → `CommandBus`
+- [x] Query bus terpisah (read-only optimization) → `QueryBus`
+- [x] Handler registration & resolution · Middleware chain (priority)
+- [x] Idempotency store (in-memory) → `InMemoryIdempotencyStore`
+- [x] Event publishing otomatis dari commands
+- [x] Context correlation tracking (trace ID) → `CqrsContext`
+- [x] Event dispatcher dengan priority (PSR-14) → `src/Application/Event/EventDispatcher`
+- [x] Listeners & subscribers · Stop propagation · Event freezing
+
+  #### Target Enterprise:
+  - [ ] Event Store (Postgres/NoSQL) · Event replay · Snapshot · Projection/Read model sync
+  - [ ] Event versioning & migration tools
+  - [ ] Saga Orchestration/Choreography · Compensating actions · Timeout/circuit breaker
+  - [ ] RabbitMQ · Amazon SQS · Apache Kafka adapters · Protobuf serialization
+  - [ ] DLQ (parsial: job worker ✔) · Retry policies (parsial: `RetryPolicy`, `RetryBackoffPolicy` ✔)
+  - [ ] Message ordering guarantees · Exactly-once semantics
+  - [x] v2.8.0: `DeduplicatingMiddleware` (at-least-once → efektif once per messageId via idempotency store)
+
+---
+
+## 📊 4. OBSERVABILITY & TELEMETRI — `src/{Domain,Application,Infrastructure}/Observability`
+
+- [x] W3C Trace Context support → `TraceContextPropagator`
+- [x] Distributed tracing · Span creation/attributes/events · Parent-child spans
+- [x] OTLP HTTP/JSON exporter → `OtlpHttpJsonExporter` (Infrastructure)
+- [x] In-memory exporter untuk testing → `InMemorySpanExporter`
+- [x] Counter meters (monotonic) → `CounterMeter` · Histogram/metrics · Aggregation
+- [x] Structured logging (JSON) → `TelemetryLogger` · Correlation ID · PII redaction → `TelemetrySanitizer`
+- [x] Log levels (emergency → debug)
+
+  #### Target Enterprise:
+  - [ ] New Relic · Datadog · Elastic APM · Custom APM adapters
+  - [ ] Performance profiling · Slow query/N+1 detection · Memory leak detection
+  - [x] Prometheus export (v2.8.0: `PrometheusRenderer` + endpoint `/metrics` text format 0.0.4) — [ ] Grafana templates
+  - [x] Health check endpoints (`/health/live`, `/health/ready`) → `modules/Health`
+  - [x] Custom health indicators (v2.8.0: port `HealthIndicatorInterface`, `HealthAggregator`, endpoint agregat `/health` 503-saat-degraded) · [ ] Alert rule engine · Incident integration
+  - [ ] ELK · Graylog · Splunk · CloudWatch · GCL · Log shipping/filtering/sampling
+  - [ ] Jaeger · Zipkin · Service mesh · Trace sampling/baggage · Cross-service correlation
+  - [ ] Business KPIs · Revenue tracking · Funnel · A/B metrics · Real-time dashboards
+
+---
+
+## 💾 5. DATA LAYER & PERSISTENCE — `src/{Domain,Infrastructure}/Cache` (+ roadmaps berikutnya)
+
+- [x] In-memory cache store · TTL · Eviction policies (LRU/LFU/FIFO) → `InMemoryCacheStore`
+- [x] Key normalization → `DefaultCacheKeyNormalizer` · Cache clock → `SystemCacheClock`
+- [x] PSR-6-style pool (`CacheInterface`) & PSR-16-style simple cache
+- [x] Cache tags (v2.8.0: `TaggableCache`, indeks tag + reverse index, `invalidateTag()`)
+- [x] Multi-tier L1/L2 (v2.8.0: `TieredCache` write-through + promosi read)
+- [x] Lock primitive (v2.8.0: port `LockStoreInterface` + `InMemoryLockStore` berbasis lease TTL — fondasi stampede prevention & distributed lock Redis)
+- [ ] Redis cluster · Memcached · Stampede prevention penuh (fondasi lock ✔) · Distributed lock Redis (port ✔)
+
+### Database Management (Target — belum ada di monolith)
+- [ ] Multi-connection · Read/write splitting · Pooling · Sharding · Query builder · ORM
+- [ ] Migration/seeding · Schema builder · Transactions nested/savepoints
+- [ ] Repository pattern · Specification · Unit of Work · Identity Map · Batch ops
+
+---
+
+## ⚙️ 6. JOB QUEUE & BACKGROUND PROCESSING — `src/{Domain,Application}/Job`
+
+- [x] In-process job worker → `InProcessJobWorker` · Envelope metadata → `JobEnvelope`
+- [x] Job middleware · Retry policies (exponential backoff) → `RetryPolicy`
+- [x] Dead letter queue · Idempotency store · Cancellation & timeout · Drain mode
+- [x] Delayed jobs & priorities (konten queue: `availableAtUnixNano`, `priority`)
+- [x] Scheduled/recurring (v2.8.0: `Scheduler` + `FixedIntervalSchedule` + `CronExpression` 5-field UTC)
+- [ ] Multi-driver (Redis, Database, Beanstalk, SQS) · Chaining/batching
+- [ ] Job rate limiting · Monitoring dashboard
+
+---
+
+## ✉️ 7. MESSAGING & INTEGRATION — `src/{Domain,Application}/Message`
+
+- [x] Message envelope/headers/context → `MessageEnvelope`, `MessageContext`, `MessageResult`
+- [x] In-process message bus · Middleware · JSON serialization → `JsonMessageSerializer`
+- [ ] Broker integration (RabbitMQ, Kafka, Redis Streams) · Pub/Sub · Request/Reply
+- [ ] Transformation · Validation · Versioning · Compression · Encryption · Deduplication
+- [ ] Consumer groups · Acknowledgment · Redelivery · Dead letter exchange
+
+---
+
+## 🌐 8. HTTP & API FEATURES — `src/Adapters/Http` + `src/Adapters/Kernel`
+
+- [x] PSR-7 immutability penuh (`Request`, `Response`, `ServerRequest`, `Uri`, `Stream`, `UploadedFile`)
+- [x] PSR-17 factories → `Psr17Factory` · PSR-15 middleware pipeline → `MiddlewarePipeline`
+- [x] Global & route middleware · Priority · Header validation (RFC 9110) · HTTP/1.1–2–3 protocol strings
+- [x] Request body limits · Emitter dengan CL reconciliation → `ResponseEmitter`
+
+  #### Target Enterprise API:
+  - [ ] HATEOAS · JSON:API · HAL · Content negotiation · Partial responses · Sparse fieldsets
+  - [x] Pagination (offset/page: `PageRequest`+`PageSlice` dengan hard cap; cursor: `Cursor` opaque ber-checksum) (v2.8.0) · [x] Sorting/filtering (v2.10.0: `SortSpec`+`FilterSpec`, whitelist-wajib anti-injection) · [ ] Resource embedding
+  - [x] ETag/Last-Modified conditional requests (v2.8.0: `ETagMiddleware`, opt-in) · [ ] Vary handling lanjutan
+  - [x] RFC 9457 Problem Details (v2.8.0: `ProblemDetails` factory `application/problem+json`)
+  - [ ] GraphQL (schema, resolvers, DataLoader, depth limiting, federation, playground)
+  - [ ] WebSocket (channels, presence, auth, broadcasting) · SSE fallback
+  - [ ] OpenAPI 3.0 generation · Postman export · SDK generation
+
+---
+
+## 🔍 9. VALIDATION & INPUT HANDLING — `src/Domain/Validation` + `src/Adapters/Http`
+
+- [x] Header validation → `HeaderValidator` · URI validation → `Identifier` · Route constraints → `RouteConstraintValidator`
+- [x] HTTP status/method validators · Trusted host → `TrustedHostValidator` · Port range
+- [x] Container/config dependency validation → `DependencyGraphValidator`
+- [x] Rules engine field-based (v2.8.0: `Validator` + `FieldRules` + `ValidationResult` + `ValidationError`, ReDoS-guarded) · [x] Form request objects terintegrasi HTTP (v2.10.0: `FormRequest::fromServerRequest()`) · [ ] Async rules
+- [x] Localized error messages (v2.10.0: `MessageCatalog` + `ValidationTranslator`) · [ ] HTML purifier · Sanitization filters
+
+---
+
+## 🏢 10. MULTI-TENANCY (Target — fondasi tersedia)
+
+- [ ] Database/schema-per-tenant · tenant_id shared · Tenant context/resolution/switching
+- [ ] Provisioning, migration, seeding per tenant · White labeling · Custom domains
+- Fondasi yang relevan: container request-scope, router subdomain-ready, config per-module.
+
+---
+
+## 🛠️ 11. DEVELOPER EXPERIENCE
+
+- [x] Self-test runner CLI → `bin/zef --self-test` · Dev server → `bin/zef --serve` · Lint → `composer lint`
+- [x] Route inspector → `bin/zef route:list` (v2.8.0) · Code generators → `bin/zef make:module|make:handler|make:middleware` (v2.8.0)
+- [x] Tinker/REPL (v2.10.0: `TinkerSession` + `bin/zef tinker`) · Debug toolbar · Profiler · Hot reload
+- [ ] PhpStorm/VS Code plugin · Beautiful error pages (parsial: `ErrorResponseFactory`)
+
+---
+
+## 🧪 12. TESTING FRAMEWORK — `tests/`
+
+- [x] PSR contract compliance tests · Route/container/concurrency/security boundary tests
+- [x] Request factory edge cases · Router semantic tests · Pipeline error handling
+- [x] JSON scalar boundary · Zero critical bugs gate · 145 assertion suite via `CliRunner`
+- [x] Mutation testing (v2.13.1: Infection + PCOV dieksekusi nyata, 8.907 mutan, gate no-regression 55/60)
+- [ ] Mutation deep-dive ke MSI 85/90 (v2.14.0 ronde 1: MSI 59.6→61.8, gate 58/62; v2.14.1 ronde 2: **MSI ~67.0 / covered ~73.0, gate 64/68**, RequestFactory 181→35 escape, Router 136→66, Kernel 185→137, Telemetry 158→74; v2.14.2 ronde 3 kurikulum EDGE-CASE-MATRIX: fase 1 SecVal **64.4→84.0**; v2.14.3 fase 2b Container core: 3 kelas **67→92 / covered 94**, gate **68/73**; sisa: Runtime 204, Http/Router/Kernel ~470, observability ~190, Domain inti ~700, plus ~29 escape-ekuivalen terinventarisasi jujur di matrix)
+
+---
+
+## 🚀 13. DEPLOYMENT & DEVOPS
+
+- [x] Worker lifecycle management · Signal handling (SIGTERM/SIGINT) · Memory limit enforcement
+- [x] Request admission control → `InMemoryAdmissionController` · Graceful shutdown · Resource health
+- [x] RoadRunner adapter → `bin/worker.php` · Docker-ready entrypoints (`bin/`, `public/`)
+- [x] Docker/Compose templates → `deploy/Dockerfile`, `deploy/docker-compose.yml` + healthcheck · CI template → `.github/workflows/ci.yml` (v2.8.0)
+- [x] K8s manifests (v2.10.0: `deploy/k8s/`) · Helm · Blue-green/canary · IaC
+
+---
+
+## 🧩 14. EXTENSIBILITY
+
+- [x] Config providers → `ConfigProviderInterface` · Module registration/lifecycle → `AbstractModule`, `ModuleRegistry`
+- [x] Module dependencies · Isolation · Architecture policy enforcement
+- [ ] Plugin marketplace · Webhook system · Sandboxing · Conflict resolution

@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework — Adapters layer (inbound adapters)
+ * Added in the v2.8.0 roadmap continuation (additive, no behavioural changes).
+ */
+
+namespace Zef\Framework\Router;
+
+use Zef\Framework\Exception\RouteConstraintException;
+use Zef\Framework\Validation\RouteConstraintValidator;
+
+/**
+ * Reverse routing: generates concrete URLs from named routes.
+ *
+ * Dynamic segments (`{id}`, `{id:int}`) are substituted with rawurlencode()d
+ * parameter values and re-validated against the route's constraint so that a
+ * generated URL can never fail to match its own route. Generation is strict:
+ * missing parameters and unknown extra parameters both throw.
+ */
+final class UrlGenerator
+{
+    private readonly RouteConstraintValidator $constraints;
+
+    public function __construct(
+        private readonly Router $router,
+    ) {
+        // Reuse the router's own validator so custom constraints are known here.
+        $this->constraints = $router->constraintValidator();
+    }
+
+    /**
+     * @param array<string,null|scalar|\Stringable> $params
+     *
+     * @throws \InvalidArgumentException         for unknown route names, missing
+     *                                           or invalid parameter types
+     * @throws RouteConstraintException          when a value violates the route's
+     *                                           constraint (same semantics as matching)
+     */
+    public function generate(string $name, array $params = []): string
+    {
+        $pattern = $this->router->patternFor($name);
+        $parts = $pattern === '/' ? [] : explode('/', trim($pattern, '/'));
+        $consumed = [];
+        $path = [];
+        foreach ($parts as $part) {
+            if (preg_match('/^\{([A-Za-z_][A-Za-z0-9_]*)(?::([A-Za-z_][A-Za-z0-9_]*))?\}$/', $part, $m) === 1) {
+                $paramName = $m[1];
+                $constraint = $m[2] ?? null;
+                if (!array_key_exists($paramName, $params)) {
+                    throw new \InvalidArgumentException("Route '{$name}' requires parameter '{$paramName}'.");
+                }
+                $value = $this->stringify($name, $paramName, $params[$paramName]);
+                if ($constraint !== null) {
+                    // Mirrors Router::match() semantics: constraint violation throws.
+                    if (!$this->constraints->test($paramName, $constraint, $value)) {
+                        throw new RouteConstraintException($paramName, $constraint, $value);
+                    }
+                }
+                $consumed[$paramName] = true;
+                $path[] = rawurlencode($value);
+
+                continue;
+            }
+            $path[] = $part;
+        }
+        foreach (array_keys($params) as $extra) {
+            if (!isset($consumed[(string) $extra])) {
+                throw new \InvalidArgumentException("Route '{$name}' does not accept parameter '{$extra}'.");
+            }
+        }
+
+        return '/' . implode('/', $path);
+    }
+
+    private function stringify(string $route, string $param, mixed $value): string
+    {
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+        if ($value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        throw new \InvalidArgumentException("Route '{$route}' parameter '{$param}' must be scalar or Stringable, got " . get_debug_type($value) . '.');
+    }
+}

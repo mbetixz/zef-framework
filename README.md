@@ -1,590 +1,274 @@
-# 🚀 ZEF Framework — Roadmap Fitur
+# ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.13.0 Hardening Release)
+
+Framework PHP 8.4 berarsitektur **Hexagonal (Ports & Adapters)** hasil pemecahan monolith
+`zef_framework_v2.7.0.php` (12.639 baris, 1 file) menjadi struktur PSR-4 multi-file per layer.
+Rilis lanjutan **v2.8.0** (25+ kelas fitur), **v2.9.0** (Advanced Autowiring Engine),
+**v2.10.0** (Enterprise Feature Pack), **v2.11.0** (RadixTree Namespace Container),
+**v2.12.0** (Composer toolchain alignment), dan **v2.13.0** (Hardening Release:
+PHPStan level max + strict-rules, PHPCS+Slevomat phpDoc strict, Rector agresif,
+Deptrac fail-on-uncovered, migrasi 19 suite ke PHPUnit native in-process,
+coverage 81.6% via pcov) dan v2.13.1 (penuntasan coverage ≥ 90%: **408 test
+PHPUnit / 1248 assertion**, coverage statement **90.04%** dengan gate CI 90%,
+Infection PCOV dieksekusi nyata: 8.907 mutan, MSI 59.6% / covered 66.3%,
+gate no-regression 55/60, Redis riil 8.0.2
+untuk rate-limit store test, plus 12 file unit test baru) serta v2.14.0
+(mutation deep-dive ronde 1: **469 test / 11485 assertion**, coverage
+statement **91.11%**, MSI 61.8% / covered 67.6% dengan gate 58/62, cluster
+terburuk 37%→53%, bug produksi AuthenticationMiddleware ditemukan pipeline
+mutasi) serta v2.14.1 (mutation deep-dive ronde 2: **568 test / 11830
+assertion**, coverage statement **91.55%**, MSI ~67.0% / covered ~73.0%
+dengan gate 64/68, RequestFactory 181→35 escape, Router 136→66, Telemetry
+158→74, seluruh 17 slice log escape dipanen ke build/escapes-*.txt) serta
+v2.14.2–v2.14.3 (ronde 3 dengan kurikulum `docs/EDGE-CASE-MATRIX.md`:
+fase 1 Security/Validation **MSI zona 64.4→84.0**; fase 2b Container core —
+Container + AutowireCompilerPass + ContainerResolver — **MSI 3 kelas 67→92,
+covered 94, mutation coverage 97%**; **748 test / 12463 assertion**;
+gate mutasi **68/73**)
+ditambahkan secara
+aditif — tanpa mengubah perilaku lama.
+
+> ✅ Terverifikasi: **501/501** assertion self-test · **748 test PHPUnit native (12463 assertion)** ·
+> PHPStan **level max** + strict-rules · Deptrac 0 violations `--fail-on-uncovered` ·
+> phpcs+Slevomat 0 violations · coverage statement **92.05%** (gate CI 90%) · mutation gate 68/73 · 361 file lolos `php -l`.
+> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md).
 
 ---
 
-## 🏗️ 1. FONDASI FRAMEWORK
+## Instalasi
 
-### Arsitektur Hexagonal (Ports & Adapters)
-- [ ] Core domain isolation
-- [ ] PSR interfaces sebagai ports
-- [ ] HTTP, CLI, RoadRunner sebagai inbound adapters
-- [ ] Database, Cache, Queue sebagai outbound adapters
-- [ ] Dependency injection melalui Container PSR-11
-- [ ] Request/Response handling melalui PSR-7
+**Persyaratan:** PHP >= 8.4 (ekstensi opsional: `redis`, `apcu`, `mbstring`).
 
-  #### Target Enterprise:
-  - [ ] `GraphQL adapter`
-  - [ ] `WebSocket adapter`
-  - [ ] `gRPC adapter`
-  - [ ] `Event sourcing adapter`
-  - [ ] `Social auth adapters (Google, Facebook, GitHub)`
-  - [ ] `SMS/Email service adapters`
-  - [ ] `CDN/storage adapters (S3, GCS, Local)`
+```bash
+# Opsi A — tanpa Composer (zero-composer fallback, seperti monolith aslinya)
+php bin/zef --self-test
+php bin/zef --self-test=v280   # hanya suite fitur v2.8.0 (103 assertion)
+php bin/zef --self-test=v290   # hanya suite autowiring v2.9.0 (59 assertion)
+php bin/zef --self-test=v210   # hanya suite enterprise v2.10.0 (107 assertion)
+php bin/zef --self-test=v211   # hanya suite radix-tree v2.11.0 (87 assertion)
 
-### Container System (PSR-11)
-- [ ] Auto-wiring dengan reflection
-- [ ] Singleton, Request-scoped, Transient lifecycles
-- [ ] Circular dependency detection
-- [ ] Service definition validation
-- [ ] Module-based registration
-- [ ] Lazy loading support
-- [ ] Request scope isolation
-- [ ] Architecture policy enforcement
+# Opsi B — dengan Composer
+composer install
+composer test          # PHPUnit native: 408 test (19 suite ZEF in-process + unit tests)
+composer coverage:gate # coverage statement via pcov + gate (scripts/ci/assert-coverage.php)
+composer phpcs         # phpDoc/type-hint strict (phpcs + Slevomat)
+composer phpunit       # (alias) lihat composer test
+composer lint          # php -l seluruh file first-party
+composer stan          # PHPStan level MAX + strict-rules + baseline frozen
+composer deptrac       # conformance arsitektur hexagonal
+composer format:check  # php-cs-fixer (PER-CS2.0 + Symfony)
+composer rector:check  # usulan upgrade PHP 8.4 (dry-run)
+composer audit         # kebijakan paket abandoned
+composer bench         # PHPBench: container get() 0.6us (singleton)
+composer docs          # Doctum API docs -> build/api
+composer serve         # dev server di 0.0.0.0:8080
+```
 
-  #### Target Enterprise:
-  - [ ] `Tagged services untuk grouping`
-  - [ ] `Contextual binding (berbeda untuk context berbeda)`
-  - [ ] `Service decoration chain`
-  - [ ] `Service middleware/interceptors`
-  - [ ] `Container compilation untuk performa`
-  - [ ] `Service provider dengan deferred loading`
-  - [ ] `Container events (resolving, resolved, factory)`
+> Catatan: proyek ini **tidak butuh** `composer install` untuk berjalan. Autoloader classmap
+> statis (`autoload/zef_autoload.php`) sudah mencakup seluruh 250 kelas. Jika Composer
+> digunakan, autoloader tersebut tetap terdaftar lewat `autoload.files` dan aman digandakan.
+> Interface PSR resmi (`psr/*`) dipakai secara otomatis bila tersedia; jika tidak, shim
+> kondisional di `src/Compat/Psr/` yang aktif.
 
-### Router System
-- [ ] O(log n) route matching (Radix Tree)
-- [ ] Dynamic parameters dengan constraints
-- [ ] Built-in constraints (int, uuid, slug, hex, bool)
-- [ ] Custom regex constraints dengan ReDoS protection
-- [ ] Method-based routing (GET, POST, etc.)
-- [ ] 405 Method Not Allowed detection
-- [ ] Route priority system
-- [ ] Module-scoped routes
+## Quick Start
 
-  #### Target Enterprise:
-  - [ ] `Route groups dengan prefixes`
-  - [ ] `Subdomain routing untuk multi-tenancy`
-  - [ ] `API versioning (URL, header, query)`
-  - [ ] `Route model binding otomatis`
-  - [ ] `Route caching & compilation`
-  - [ ] `Localization routing (/{locale}/...)`
-  - [ ] `Content negotiation routing`
-  - [ ] `Route naming & reverse routing`
-  - [ ] `Route middleware assignment`
-  - [ ] `Fallback routes & custom 404`
+### 1. Development server (HTTP)
 
----
+```bash
+bin/zef --serve 0.0.0.0:8080
+# atau
+php -S 0.0.0.0:8080 public/index.php
+```
 
-## 🛡️ 2. SECURITY FRAMEWORK
+Rute bawaan aplikasi demo:
 
-### Security Dasar
-- [ ] Authentication boundaries (layer isolation)
-- [ ] Authorization policies (scope-based)
-- [ ] Replay protection (idempotency keys)
-- [ ] Rate limiting (in-memory, APCu, Redis, Database)
-- [ ] Credential management (secure storage)
-- [ ] Security context propagation (thread-safe)
-- [ ] CSRF protection dengan token rotation
-- [ ] CORS dengan origin validation & preflight handling
-- [ ] Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)
-- [ ] Trusted host/proxy validation
-- [ ] Header injection prevention
-- [ ] Request body size limits
-- [ ] Client IP resolution (rightmost-untrusted XFF)
+| Rute                    | Handler                  | Sumber           |
+|-------------------------|--------------------------|------------------|
+| `GET /`                 | HomeHandler              | `modules/Core`   |
+| `GET /about`            | AboutHandler             | `modules/Core`   |
+| `GET /health`           | AggregateHealthHandler   | `modules/Health` | (v2.8.0 — 503 saat degraded)
+| `GET /health/live`      | LiveHandler              | `modules/Health` |
+| `GET /health/ready`     | ReadyHandler             | `modules/Health` |
+| `GET /metrics`          | MetricsHandler           | `modules/Health` | (v2.8.0 — Prometheus)
+| `GET /toko`             | TokoHandler              | `plugins/Toko`   |
+| `GET /toko/produk/{id}` | ProdukDetailHandler      | `plugins/Toko`   |
 
-### Security Enterprise
-#### Authentication Layer:
-  - [ ] `Multi-factor authentication (MFA/2FA) (TOTP, SMS, Email)`
-  - [ ] `Biometric authentication support (WebAuthn)`
-  - [ ] `OAuth 2.0 server implementation`
-  - [ ] `SAML 2.0 untuk enterprise SSO`
-  - [ ] `JWT dengan refresh token rotation & blacklisting`
-  - [ ] `API key management (generation, rotation, revocation)`
-  - [ ] `Session management dengan Redis (clustering support)`
-  - [ ] `Remember me functionality (secure cookie)`
-  - [ ] `Concurrent session control (limit per user)`
-  - [ ] `Device fingerprinting`
+Rute `404`, `400` (pelanggaran constraint `{id:int}`), dan `405` juga aktif.
 
-#### Authorization Layer:
-  - [ ] `RBAC (Role-Based Access Control) penuh`
-  - [ ] `ABAC (Attribute-Based Access Control)`
-  - [ ] `Policy-based authorization (gates/policies)`
-  - [ ] `Resource-level permissions (row ownership)`
-  - [ ] `Dynamic permissions (runtime rules)`
-  - [ ] `Permission inheritance`
-  - [ ] `Permission caching (Redis/Memcached)`
-  - [ ] `API scopes management (scope validation)`
-  - [ ] `Row-level security (RLS) otomatis`
+### 2. Self-test (501 assertion)
 
-#### Firewall & Protection:
-  - [ ] `Web Application Firewall (WAF) rules (custom & default)`
-  - [ ] `SQL injection prevention (parameterized queries)`
-  - [ ] `XSS protection otomatis (output encoding)`
-  - [ ] `SSRF protection (URL validation)`
-  - [ ] `Path traversal protection`
-  - [ ] `File upload security (type validation, malware scan)`
-  - [ ] `DDoS mitigation strategies (burst limits)`
-  - [ ] `Bot detection (CAPTCHA, heuristics)`
-  - [ ] `Honeypot fields`
+```bash
+bin/zef --self-test
+```
 
-#### Encryption & Hashing:
-  - [ ] `Encryption service (AES-256-GCM)`
-  - [ ] `Key rotation management (automatic & manual)`
-  - [ ] `Secure hashing (Argon2id, bcrypt)`
-  - [ ] `Password strength validation (complexity rules)`
-  - [ ] `Encrypted database columns (transparent)`
-  - [ ] `Encrypted file storage`
-  - [ ] `Secure random generation (CSPRNG)`
+### 3. RoadRunner (produksi)
 
-#### Audit & Compliance:
-  - [ ] `Comprehensive audit logging (who, what, when, where)`
-  - [ ] `GDPR compliance tools (consent, export)`
-  - [ ] `Data retention policies (auto-delete)`
-  - [ ] `Right to erasure (RTBF) automation`
-  - [ ] `Data portability (JSON/CSV export)`
-  - [ ] `Cookie consent management`
-  - [ ] `Privacy policy enforcement`
-  - [ ] `Compliance reporting (audit trails)`
+```bash
+composer require spiral/roadrunner-http nyholm/psr7
+rr serve          # memakai bin/worker.php sebagai entrypoint worker
+```
 
----
+### 4. Memakai framework dari kode
 
-## 🔄 3. CQRS & EVENT-DRIVEN ARCHITECTURE
+```php
+<?php
+require 'autoload/zef_autoload.php';
 
-### CQRS & Event System
-- [ ] Command bus dengan middleware (validation, auth)
-- [ ] Query bus terpisah (read-only optimization)
-- [ ] Handler registration & resolution
-- [ ] Middleware chain building (priority)
-- [ ] Idempotency store (in-memory/Redis)
-- [ ] Event publishing otomatis dari commands
-- [ ] Context correlation tracking (trace ID)
-- [ ] Event dispatcher dengan priority (PSR-14)
-- [ ] Event listeners & subscribers
-- [ ] Event propagation control (stop propagation)
-- [ ] Event context dengan attributes
-- [ ] Event freezing untuk immutability
+use Zef\App\Bootstrap;
 
-  #### Target Enterprise CQRS:
-  - [ ] `Event Store implementation (Postgres/NoSQL)`
-  - [ ] `Event stream management (append-only)`
-  - [ ] `Event replay mechanism (rebuild state)`
-  - [ ] `Snapshot strategy (optimization)`
-  - [ ] `Projection building (read model)`
-  - [ ] `Read model synchronization (async)`
-  - [ ] `Event versioning (schema evolution)`
-  - [ ] `Event migration tools (up/down)`
-  - [ ] `Saga Orchestration (centralized control)`
-  - [ ] `Saga Choreography (decentralized)`
-  - [ ] `Compensating actions (rollback logic)`
-  - [ ] `Saga state persistence`
-  - [ ] `Timeout handling (circuit breaker)`
-  - [ ] `Failure recovery (retry/compensate)`
-  - [ ] `RabbitMQ adapter`
-  - [ ] `Amazon SQS adapter`
-  - [ ] `Apache Kafka adapter`
-  - [ ] `Message serialization (JSON, Protobuf)`
-  - [ ] `Dead letter queue (DLQ)`
-  - [ ] `Message retry policies (exponential, linear)`
-  - [ ] `Message ordering guarantees`
-  - [ ] `Exactly-once delivery semantics`
+$app    = Bootstrap::createApp(debug: true);
+$app->setTrustedHosts(['localhost', '127.0.0.1']);
+$app->addProvider(new \Zef\Module\Core\ConfigProvider());
+$app->addProvider(new \Zef\Plugin\Toko\ConfigProvider());
 
----
+// CLI lain: command bus, cache, telemetry, job worker — semua tersedia
+$cache = new \Zef\Framework\Cache\InMemoryCache(
+    new \Zef\Framework\Cache\InMemoryCacheStore(),
+    new \Zef\Framework\Cache\SystemCacheClock(),
+);
+```
 
-## 📊 4. OBSERVABILITY & TELEMETRI
+## Struktur Direktori
 
-### Telemetry (OpenTelemetry-compatible)
-- [ ] W3C Trace Context support
-- [ ] Distributed tracing
-- [ ] Span creation & management
-- [ ] Span attributes & events
-- [ ] Parent-child span relationships
-- [ ] OTLP HTTP/JSON exporter
-- [ ] In-memory exporter untuk testing
-- [ ] Counter meters (monotonic)
-- [ ] Histogram/observation metrics
-- [ ] Metric attributes dengan cardinality control
-- [ ] Metric aggregation (sum, avg, min, max)
-- [ ] OTLP metric export
-- [ ] Structured logging (JSON)
-- [ ] Log context dengan correlation ID
-- [ ] Sensitive data redaction (PII masking)
-- [ ] OTLP log export
-- [ ] Log levels (emergency -> debug -> trace)
+```
+zef-framework/
+├── autoload/zef_autoload.php   # classmap statis 353 kelas (zero-composer fallback)
+├── bin/
+│   ├── zef                     # CLI: --self-test, --serve, route:list, make:*
+│   └── worker.php              # worker RoadRunner (produksi)
+├── public/index.php            # entrypoint HTTP (web SAPI)
+├── src/                        # framework inti — 4 layer hexagonal + compat
+│   ├── Compat/Psr/             # shim PSR kondisional (23 interface/kelas)
+│   ├── Domain/                 # port, kontrak, VO, validator (132)
+│   ├── Application/            # mesin orkestrasi in-process (50)
+│   ├── Infrastructure/         # adapter outbound: cache, redis, otlp, aes, prometheus (19)
+│   └── Adapters/               # adapter inbound: http, router, kernel, runtime (32)
+├── app/                        # aplikasi demo (Bootstrap + middleware)
+├── modules/                    # modul demo: Core, Health (+ /health, /metrics)
+├── plugins/                    # plugin demo: Toko
+├── tests/                      # self-test suite (501 assertion, lihat bagian Testing)
+├── deploy/                     # Dockerfile, docker-compose.yml (v2.8.0), k8s/ (v2.10.0)
+├── .github/workflows/ci.yml    # CI: lint + self-test (v2.8.0)
+├── docs/                       # ARCHITECTURE, CHANGELOG-*, ROADMAP
+├── scripts/lint.php            # lint seluruh file PHP
+├── composer.json               # scaffolding PSR-4 penuh
+└── README.md
+```
 
-  #### Target Enterprise Observability:
-  - [ ] `New Relic integration`
-  - [ ] `Datadog integration`
-  - [ ] `Elastic APM integration`
-  - [ ] `Custom APM adapters`
-  - [ ] `Performance profiling (CPU/Memory)`
-  - [ ] `Slow query detection`
-  - [ ] `Memory leak detection`
-  - [ ] `N+1 query detection`
-  - [ ] `Prometheus metrics export (Grafana ready)`
-  - [ ] `Grafana dashboard templates`
-  - [ ] `Health check endpoints (/health, /ready)`
-  - [ ] `Readiness/liveness probes`
-  - [ ] `Custom health indicators (DB, Cache, Queue)`
-  - [ ] `Alert rule engine`
-  - [ ] `Incident management integration (PagerDuty, Opsgenie)`
-  - [ ] `ELK Stack integration (Elasticsearch, Logstash, Kibana)`
-  - [ ] `Graylog integration`
-  - [ ] `Splunk integration`
-  - [ ] `CloudWatch Logs`
-  - [ ] `Google Cloud Logging`
-  - [ ] `Log shipping dengan batching`
-  - [ ] `Log filtering & sampling`
-  - [ ] `Jaeger integration`
-  - [ ] `Zipkin integration`
-  - [ ] `Service mesh integration (Istio, Linkerd)`
-  - [ ] `Trace sampling strategies (ratio, header)`
-  - [ ] `Trace baggage propagation`
-  - [ ] `Cross-service correlation`
-  - [ ] `Trace analytics`
-  - [ ] `Custom business KPIs`
-  - [ ] `Revenue tracking`
-  - [ ] `User behavior analytics`
-  - [ ] `Conversion funnel tracking`
-  - [ ] `A/B testing metrics`
-  - [ ] `Real-time dashboards`
-  - [ ] `Metric alerting`
+## Sorotan Fitur v2.8.0
 
----
+| Area | Fitur | Kelas utama |
+|------|-------|-------------|
+| Container | Tagged services | `TaggedServiceLocator` |
+| Router | Route naming + URL generation | `UrlGenerator`, `Router::patternFor()` |
+| HTTP | Conditional GET (ETag/304) | `ETagMiddleware` (opt-in) |
+| HTTP | RFC 9457 Problem Details | `ProblemDetails` |
+| API | Pagination offset/page/cursor | `PageRequest`, `PageSlice`, `Cursor` |
+| Observability | Export Prometheus `GET /metrics` | `PrometheusRenderer` |
+| Health | Indikator kustom + agregat `GET /health` | `HealthIndicatorInterface`, `HealthAggregator` |
+| Cache | Tags, L1/L2, lock lease | `TaggableCache`, `TieredCache`, `InMemoryLockStore` |
+| Jobs | Scheduler cron/fixed-interval | `Scheduler`, `CronExpression`, `FixedIntervalSchedule` |
+| Security | AES-256-GCM + TOTP (RFC 6238) | `AesGcmEncryptor`, `Totp`, `Base32` |
+| Validation | Rules engine field-based | `Validator`, `FieldRules` |
+| Messaging | Dedup at-least-once | `DeduplicatingMiddleware` |
+| DX | `route:list`, `make:*` | `bin/zef` |
+| DevOps | Docker, Compose, CI | `deploy/`, `.github/` |
 
-## 💾 5. DATA LAYER & PERSISTENCE
+## Sorotan Fitur v2.9.0 — Advanced Autowiring Engine
 
-### Cache System
-- [ ] In-memory cache store
-- [ ] TTL support
-- [ ] Cache eviction policies (LRU, LFU, FIFO)
-- [ ] Key normalization
-- [ ] Cache clock interface
-- [ ] PSR-6 (Cache Pool) full implementation
-- [ ] PSR-16 (Simple Cache) full implementation
-- [ ] Redis cluster support
-- [ ] Memcached support
-- [ ] Multi-tier caching (L1: memory, L2: Redis)
-- [ ] Cache tags untuk selective invalidation
-- [ ] Cache warming strategies
-- [ ] Cache stampede prevention
-- [ ] Cache statistics & monitoring
-- [ ] Distributed cache locking (mutex)
+| Area | Fitur | Kelas utama |
+|------|-------|-------------|
+| Attributes | `#[Inject]`, `#[Value]`, `#[Target]` | `Autowiring\Inject`, `Value`, `Target` |
+| Resolusi | Interface binding berlapis + autowire rekursif | `AutowireCompilerPass` |
+| Variadic | Koleksi seluruh implementasi service | `AutowireCompilerPass::collectImplementations()` |
+| Graf | Deps lengkap → validasi asli tetap satu gerbang | `AutowireMetadata`, `DependencyGraphValidator` |
+| AOT | Kode closure murni + export/load berkas | `AutowireAotCompiler`, `ReflectionMetadataExtractor` |
 
-### Database Management
-- [ ] Multiple database connections
-- [ ] Read/write splitting
-- [ ] Connection pooling
-- [ ] Database sharding
-- [ ] Query builder dengan fluent interface
-- [ ] ORM integration (Doctrine, Eloquent-like)
-- [ ] Migration system (up/down, rollback)
-- [ ] Database seeding
-- [ ] Schema builder
-- [ ] Transaction management
-- [ ] Nested transactions
-- [ ] Savepoints
-- [ ] Database events
-- [ ] Query logging & profiling
-- [ ] Lazy loading & eager loading
-- [ ] Soft deletes
-- [ ] Audit trails (change tracking)
-- [ ] Optimistic locking (version column)
-- [ ] Pessimistic locking (SELECT ... FOR UPDATE)
-- [ ] Repository interfaces (domain layer)
-- [ ] Repository implementations (infrastructure)
-- [ ] Specification pattern untuk query criteria
-- [ ] Unit of Work pattern
-- [ ] Identity Map pattern
-- [ ] Change tracking
-- [ ] Batch operations
+```php
+$pass = new AutowireCompilerPass(configValues: ['db.host' => 'localhost'], module: 'billing');
+$result = $pass->process($container, [PaymentService::class]);
+AutowireAotCompiler::export($result, 'var/cache/zef-aot-billing.php'); // opsional (cold start)
+$container->validateAndFreeze();   // graf dependensi kini lengkap
+```
 
----
+Detail lengkap: [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md).
 
-## ⚙️ 6. JOB QUEUE & BACKGROUND PROCESSING
+## Sorotan Fitur v2.10.0 — Enterprise Feature Pack
 
-### Job System
-- [ ] In-process job worker
-- [ ] Job envelope dengan metadata
-- [ ] Job middleware support
-- [ ] Retry policies (exponential backoff)
-- [ ] Dead letter queue
-- [ ] Job idempotency store
-- [ ] Job context dengan correlation
-- [ ] Job cancellation & timeout
-- [ ] Multi-driver support (Redis, Database, Beanstalk, SQS)
-- [ ] Job priorities
-- [ ] Delayed jobs
-- [ ] Job chaining
-- [ ] Job batching
-- [ ] Job dependencies
-- [ ] Job rate limiting
-- [ ] Job monitoring dashboard
-- [ ] Scheduled jobs (cron-like)
-- [ ] Recurring jobs
-- [ ] Job serialization strategies
+| Area | Fitur | Kelas utama |
+|------|-------|-------------|
+| Container | Contextual binding `when()->needs()->give()` | `ContextualBindingBuilder` |
+| Container | Decoration chain + deferred providers + events | `Container::decorate/registerProvider/onResolved` |
+| Router | Groups/prefixes bersarang + fallback 404 | `Router::group()`, `Router::fallback()` |
+| Router | Route cache kompilasi (file murni, atomic write) | `RouteCache`, `Router::fromCompiledArray()` |
+| HTTP | API versioning (path > header > query > default) | `ApiVersionNegotiator`, `ApiVersion` |
+| HTTP | Form request objects (rules engine terintegrasi) | `FormRequest` |
+| Resource | Sorting + filtering whitelist-wajib | `SortSpec`, `FilterSpec`, `SortKey`, `FilterCondition` |
+| Security | Rotasi kunci AES-256-GCM | `RotatingKeyRing` |
+| Validation | Pesan error terlokalisasi (fallback chain) | `MessageCatalog`, `ValidationTranslator` |
+| DX/DevOps | Tinker REPL + K8s manifests | `TinkerSession`, `bin/zef tinker`, `deploy/k8s/` |
 
----
+```php
+$c->when(BillingService::class)->needs(PaymentGateway::class)->give('gateway.stripe');
+$c->decorate('mailer', fn($ctx, $inner) => new LoggingMailer($inner, $ctx->get('logger')));
+$r->group(['prefix' => '/api/v2', 'name' => 'api.v2.'], fn($r) => $r->add('GET', '/users', 'user.index', name: 'users'));
+```
 
-## ✉️ 7. MESSAGING & INTEGRATION
+Detail lengkap: [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md).
 
-### Message System
-- [ ] Message envelope
-- [ ] Message headers
-- [ ] Message context
-- [ ] In-process message bus
-- [ ] Message middleware
-- [ ] JSON serialization
-- [ ] Message broker integration (RabbitMQ, Kafka, Redis Streams)
-- [ ] Pub/Sub pattern
-- [ ] Request/Reply pattern
-- [ ] Message routing
-- [ ] Message transformation
-- [ ] Message validation
-- [ ] Message versioning
-- [ ] Message compression
-- [ ] Message encryption
-- [ ] Message deduplication
-- [ ] Message ordering
-- [ ] Consumer groups
-- [ ] Message acknowledgment
-- [ ] Message redelivery
-- [ ] Dead letter exchange
+```bash
+bin/zef route:list                      # inspeksi rute + nama
+bin/zef make:module katalog             # scaffold modul baru
+bin/zef make:handler Produk --module=katalog --path=/katalog/produk
+bin/zef make:middleware Tracing         # scaffold middleware PSR-15
+bin/zef tinker                          # REPL dengan $app + $container siap pakai
+```
 
----
+## Testing
 
-## 🌐 8. HTTP & API FEATURES
+Suite self-test framework hidup di `tests/` dan dijalankan lewat `bin/zef --self-test`
+(tanpa dependensi eksternal — PHPUnit tidak diperlukan). Total **501 assertion** dalam
+19 suite ber-key:
 
-### HTTP Layer (PSR-7/15/17)
-- [ ] Request/Response immutability
-- [ ] ServerRequest dengan attributes
-- [ ] URI parsing & manipulation
-- [ ] Stream handling
-- [ ] Uploaded file handling
-- [ ] Header validation (RFC 9110)
-- [ ] Protocol version support (HTTP/1.1, 2, 3)
-- [ ] Middleware pipeline (PSR-15)
-- [ ] Global & route middleware
-- [ ] Middleware priority
-- [ ] Request factory (PSR-17)
-- [ ] Response factory (PSR-17)
-- [ ] Stream factory (PSR-17)
-- [ ] URI factory (PSR-17)
-- [ ] Uploaded file factory (PSR-17)
+| Berkas | Isi |
+|--------|-----|
+| `tests/CliRunner.php` | Runner + 15 suite baseline (PSR contracts, routes, container, security, hardening, regresi v2.6.0 & v2.7.0, dll.) |
+| `tests/V280FeatureSuite.php` | **Suite khusus v2.8.0** — 13 sub-suite, 103 assertion untuk seluruh fitur roadmap v2.8.0 (tagged services, URL generator, ETag, ProblemDetails, pagination, Prometheus, health, cache, scheduler, AES-GCM, TOTP, validator, dedup) |
+| `tests/V290AutowireSuite.php` | **Suite khusus v2.9.0** — 11 sub-suite, 59 assertion untuk Advanced Autowiring Engine (attributes, interface binding, variadic, graf dependensi, AOT cold-start, frozen guard) |
+| `tests/V2100EnterpriseSuite.php` | **Suite khusus v2.10.0** — 13 sub-suite, 107 assertion untuk Enterprise Feature Pack (contextual binding, decoration, providers, events, groups, route cache, fallback, API versioning, sort/filter, key ring, i18n, form request, tinker) |
+| `tests/V2110RadixTreeSuite.php` | **Suite khusus v2.11.0** — 8 sub-suite, 87 assertion untuk RadixTree Namespace Container (struktur tree & kompresi, prefix query, namespace scope policy, getByPrefix, namespace fallback, AOT round-trip, lifecycle freeze, edge semantics) |
+| `tests/V270*.php` | Fixture konkret untuk suite regresi v2.7.0 |
 
-  #### Target Enterprise API:
-  - [ ] `RESTful API`
-  - [ ] `Resource-based routing`
-  - [ ] `HATEOAS support`
-  - [ ] `JSON:API specification`
-  - [ ] `HAL (Hypertext Application Language)`
-  - [ ] `API versioning (URL, header, query)`
-  - [ ] `Content negotiation (Accept header)`
-  - [ ] `Partial responses (field filtering)`
-  - [ ] `Pagination (cursor, offset, page-based)`
-  - [ ] `Sorting & filtering`
-  - [ ] `Sparse fieldsets`
-  - [ ] `Resource embedding`
-  - [ ] `Conditional requests (ETag, Last-Modified)`
-  - [ ] `Rate limiting per endpoint`
-  - [ ] `API throttling`
-  - [ ] `API analytics`
-  - [ ] `GraphQL`
-  - [ ] `GraphQL schema definition`
-  - [ ] `Query resolver`
-  - [ ] `Mutation resolver`
-  - [ ] `Subscription resolver`
-  - [ ] `DataLoader untuk N+1 prevention`
-  - [ ] `Query complexity analysis`
-  - [ ] `Query depth limiting`
-  - [ ] `GraphQL playground (UI)`
-  - [ ] `Schema introspection`
-  - [ ] `GraphQL federation`
-  - [ ] `WebSocket`
-  - [ ] `WebSocket server`
-  - [ ] `Connection management`
-  - [ ] `Channel subscriptions`
-  - [ ] `Presence channels`
-  - [ ] `Private channels`
-  - [ ] `Channel authentication`
-  - [ ] `Broadcasting events`
-  - [ ] `Server-sent events (SSE) fallback`
-  - [ ] `API Documentation`
-  - [ ] `OpenAPI 3.0 (Swagger) generation`
-  - [ ] `API Blueprint support`
-  - [ ] `Postman collection export`
-  - [ ] `Interactive API explorer`
-  - [ ] `Code examples generation`
-  - [ ] `SDK generation`
+```bash
+bin/zef --self-test            # seluruh 501 assertion (19 suite)
+bin/zef --self-test=v280       # hanya suite fitur v2.8.0 — 103 assertion
+bin/zef --self-test=v290       # hanya suite autowiring v2.9.0 — 59 assertion
+bin/zef --self-test=v210       # hanya suite enterprise v2.10.0 — 107 assertion
+bin/zef --self-test=v211       # hanya suite radix-tree v2.11.0 — 87 assertion
+bin/zef --self-test=v27        # regresi v2.7.0 (key v270; substring match)
+bin/zef --self-test=router     # suite apa pun yang key/labelnya mengandung 'router'
+composer test                  # sama dengan --self-test penuh
+```
 
----
+Filter bersifat case-insensitive dan dicocokkan substring terhadap key maupun label suite
+(`psr, routes, container, concurrency, security, request, router, pipeline, psr7, hardening,
+json, gate, beta3, v260, v270, v280, v290, v210, v211`); filter yang tidak cocok apa pun keluar dengan
+status 1 dan mencetak daftar key yang tersedia.
 
-## 🔍 9. VALIDATION & INPUT HANDLING
+## Variabel Lingkungan
 
-### Validation
-- [ ] Header validation
-- [ ] URI validation
-- [ ] Route constraint validation
-- [ ] Service dependency validation
-- [ ] Configuration validation
-- [ ] Input sanitization
-- [ ] Request validation layer
-- [ ] Form request objects
-- [ ] Validation rules engine
-- [ ] Custom validation rules
-- [ ] Conditional validation
-- [ ] Array validation
-- [ ] Nested validation
-- [ ] File validation (size, type, dimensions)
-- [ ] Async validation (database checks)
-- [ ] Business rule validation
-- [ ] Multi-step validation
-- [ ] Validation error formatting
-- [ ] Localized error messages
-- [ ] Validation bail strategies
-- [ ] Input sanitization filters
-- [ ] XSS prevention
-- [ ] HTML purifier integration
-- [ ] SQL injection prevention
-- [ ] Path traversal prevention
-- [ ] Command injection prevention
+| Variabel                    | Default              | Keterangan                                  |
+|-----------------------------|----------------------|---------------------------------------------|
+| `ZEF_DEBUG`                 | `0`                  | Mode debug (diagnostik error + pesan detail)|
+| `ZEF_MAX_BODY_BYTES`        | bawaan framework     | Batas ukuran request body (413 bila lebih)  |
+| `ZEF_TRUSTED_HOSTS`         | `localhost,127.0.0.1,::1,zef.test` | Daftar host tepercaya (CSV)   |
+| `ZEF_SECURITY_CSRF_SECRET`  | —                    | Secret CSRF >= 32 byte (aktifkan CSRF)      |
+| `ZEF_WORKER_MAX_JOBS`       | `0` (tanpa batas)    | Kapasitas job per worker RoadRunner         |
+| `ZEF_WORKER_MEMORY_LIMIT`   | `0` (nonaktif)       | Batas memori worker RoadRunner (byte)       |
 
----
+## Pemetaan dari Monolith
 
-## 🏢 10. MULTI-TENANCY
-
-### Multi-Tenancy Architecture
-- [ ] Database-per-tenant
-- [ ] Schema-per-tenant
-- [ ] Shared database dengan tenant_id
-- [ ] Tenant context management
-- [ ] Tenant resolution (domain, subdomain, header, path)
-- [ ] Tenant switching
-- [ ] Cross-tenant data prevention
-- [ ] Tenant registration
-- [ ] Tenant provisioning
-- [ ] Tenant configuration
-- [ ] Tenant migration
-- [ ] Tenant seeding
-- [ ] Tenant suspension
-- [ ] Tenant deletion
-- [ ] White labeling
-- [ ] Custom domains
-- [ ] Tenant-specific assets
-- [ ] Tenant-specific themes
-- [ ] Tenant-specific configs
-- [ ] Tenant analytics
-- [ ] Billing per tenant
-- [ ] SLA management per tenant
-
----
-
-## 🛠️ 11. DEVELOPER EXPERIENCE
-
-### Development Tools
-- [ ] Code generators (controller, service, entity, repository)
-- [ ] Scaffolding commands
-- [ ] Migration commands
-- [ ] Seeder commands
-- [ ] Cache commands
-- [ ] Queue worker commands
-- [ ] Server commands
-- [ ] Make commands
-- [ ] Tinker/REPL
-- [ ] PhpStorm plugin
-- [ ] VS Code extension
-- [ ] Autocomplete support
-- [ ] Code navigation
-- [ ] Refactoring support
-- [ ] Debug toolbar
-- [ ] Query debugger
-- [ ] Event debugger
-- [ ] Cache debugger
-- [ ] Performance profiler
-- [ ] Xdebug integration
-- [ ] Ray/Telescope integration
-- [ ] Built-in development server
-- [ ] Hot reload support
-- [ ] Asset watching
-- [ ] Live reload
-- [ ] Beautiful error pages
-- [ ] Stack trace viewer
-- [ ] Code context
-- [ ] Variable inspector
-- [ ] Whoops integration
-
----
-
-## 🧪 12. TESTING FRAMEWORK
-
-### Testing
-- [ ] PSR contract compliance tests
-- [ ] Route testing
-- [ ] Container lifecycle tests
-- [ ] Concurrency isolation tests
-- [ ] Security boundary tests
-- [ ] Request factory edge cases
-- [ ] Router semantic tests
-- [ ] Pipeline error handling
-- [ ] JSON scalar boundary
-- [ ] Zero critical bugs gate
-- [ ] Hardening validation
-- [ ] PHPUnit integration penuh
-- [ ] Unit testing utilities
-- [ ] Integration testing helpers
-- [ ] Feature testing DSL
-- [ ] E2E testing support
-- [ ] API testing toolkit
-- [ ] Database testing (transactions, refreshing)
-- [ ] Factory pattern untuk test data
-- [ ] Test doubles (mocks, stubs, fakes, spies)
-- [ ] HTTP testing (fake requests/responses)
-- [ ] Event testing (fake dispatcher)
-- [ ] Queue testing (fake queue)
-- [ ] Mail testing (fake mailer)
-- [ ] Notification testing
-- [ ] Time testing (freeze, travel)
-- [ ] Code coverage reporting
-- [ ] Mutation testing
-- [ ] Performance testing
-- [ ] Load testing integration
-- [ ] Security testing tools
-
----
-
-## 🚀 13. DEPLOYMENT & DEVOPS
-
-### Runtime Support & Deployment
-- [ ] Worker lifecycle management
-- [ ] Signal handling (SIGTERM, SIGINT)
-- [ ] Memory limit enforcement
-- [ ] Request admission control
-- [ ] Graceful shutdown
-- [ ] Resource health monitoring
-- [ ] Worker adapter validation
-- [ ] Docker support dengan optimized images
-- [ ] Docker Compose templates
-- [ ] Kubernetes manifests
-- [ ] Helm charts
-- [ ] CI/CD pipeline templates (GitHub Actions, GitLab CI, Jenkins)
-- [ ] Build optimization
-- [ ] Asset compilation
-- [ ] Environment management
-- [ ] Zero-downtime deployment
-- [ ] Blue-green deployment
-- [ ] Canary deployment
-- [ ] Rollback mechanisms
-- [ ] Health checks
-- [ ] Readiness probes
-- [ ] Liveness probes
-- [ ] Infrastructure as Code (Terraform, Pulumi)
-- [ ] Service mesh integration (Istio, Linkerd)
-
----
-
-## 🧩 14. EXTENSIBILITY
-
-### Plugin System
-- [ ] Config providers
-- [ ] Module registration
-- [ ] Module dependencies
-- [ ] Module lifecycle (register, boot, start, shutdown)
-- [ ] Module isolation
-- [ ] Plugin architecture
-- [ ] Extension points/hooks
-- [ ] Service provider pattern
-- [ ] Package discovery
-- [ ] Package manager integration
-- [ ] Third-party integrations marketplace
-- [ ] Webhook system
-- [ ] Plugin sandboxing
-- [ ] Plugin versioning
-- [ ] Plugin conflicts resolution
+Setiap deklarasi dipindahkan **verbatim** (byte-exact, terverifikasi round-trip) ke satu file
+per kelas. Namespace **tidak diubah** — `Zef\Framework\Container\Container` tetap bernama sama;
+yang berubah hanyalah lokasi fisiknya di pohon direktori, dikelompokkan ke layer hexagonal.
+Rincian aturan pemetaan dan arah dependensi antar-layer ada di
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).

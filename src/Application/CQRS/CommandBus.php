@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework v2.7.0 — Application layer (in-process orchestration)
+ * Extracted from monolith zef_framework_v2.7.0.php during the
+ * hexagonal refactor (move-only, no behavioural changes).
+ */
+
+namespace Zef\Framework\CQRS;
+
+use Zef\Framework\Event\EventBusInterface;
+
+final class CommandBus implements CommandBusInterface
+{
+    use CqrsBusTrait;
+
+    public function __construct(
+        private readonly ?IdempotencyStoreInterface $idempotencyStore = null,
+        private readonly int $idempotencyTtlSeconds = 3600,
+        private readonly ?EventBusInterface $eventBus = null,
+    ) {
+        if ($idempotencyTtlSeconds < 1) {
+            throw new \InvalidArgumentException('CQRS idempotency TTL must be positive.');
+        }
+    }
+
+    #[\Override]
+    public function register(string $commandClass, callable|CommandHandlerInterface $handler): void
+    {
+        $this->assertMutable();
+        $this->validateMessageClass($commandClass, 'command');
+        if (isset($this->handlers[$commandClass])) {
+            throw new CqrsHandlerConflictException("Command handler already registered for '{$commandClass}'.");
+        }
+        $this->handlers[$commandClass] = $handler instanceof CommandHandlerInterface
+            ? $handler(...)
+            : $handler;
+    }
+
+    #[\Override]
+    public function use(CqrsMiddlewareInterface $middleware): void
+    {
+        $this->assertMutable();
+        $this->middleware[] = $middleware;
+    }
+
+    #[\Override]
+    public function dispatch(object $command, ?CqrsContext $context = null): mixed
+    {
+        $context ??= CqrsContext::create();
+        $pendingEvents = [];
+        $execute = function () use ($command, $context, &$pendingEvents): mixed {
+            $handler = $this->resolveHandler($command, 'command');
+            $next = $this->buildChain($handler);
+            $result = $next($command, $context);
+            if ($result instanceof CqrsEventResult) {
+                // Defer the event fan-out until AFTER the result is cached:
+                // the handler already ran, so a listener failure must not
+                // invalidate idempotency — with the fan-out inside the
+                // producer, EventDispatchException skipped the cache write
+                // and a client retry re-EXECUTED the command (double side
+                // effects).
+                $pendingEvents = $result->events;
+
+                return $result->result;
+            }
+
+            return $result;
+        };
+        $result = $this->guardDispatchDepth(
+            function () use ($command, $context, $execute): mixed {
+                if ($context->idempotencyKey !== null && $this->idempotencyStore instanceof IdempotencyStoreInterface) {
+                    return $this->idempotencyStore->remember(
+                        hash('sha256', $command::class . '|' . $context->idempotencyKey),
+                        $execute,
+                        $this->idempotencyTtlSeconds,
+                    );
+                }
+
+                return $execute();
+            },
+        );
+        // Fan out only for THIS invocation: $pendingEvents stays empty on
+        // an idempotent replay, so events are never re-fired. The first
+        // caller observes EventDispatchException; all listeners already
+        // ran by then (aggregating dispatcher).
+        foreach ($pendingEvents as $event) {
+            $this->eventBus?->dispatchWithContext($event, $context->toEventContext());
+        }
+
+        return $result;
+    }
+
+    #[\Override]
+    public function freeze(): void
+    {
+        $this->frozen = true;
+    }
+
+    #[\Override]
+    public function isFrozen(): bool
+    {
+        return $this->frozen;
+    }
+}

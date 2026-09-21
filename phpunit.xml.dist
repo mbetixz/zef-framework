@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         failOnRisky="true"
+         executionOrder="default"
+         resolveDependencies="true">
+    <php>
+        <!-- Infection kills the initial suite on the first STDERR byte:
+             route error_log() to /dev/null so fallback-warning paths in
+             tests cannot terminate mutation runs. Individual tests that
+             assert on error_log content override this locally. -->
+        <ini name="error_log" value="/dev/null"/>
+    </php>
+    <testsuites>
+        <testsuite name="zef">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+            <directory>modules</directory>
+            <directory>plugins</directory>
+        </include>
+        <exclude>
+            <directory>src/Compat</directory>
+        </exclude>
+    </source>
+</phpunit>

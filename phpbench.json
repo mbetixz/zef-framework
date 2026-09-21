@@ -1,11 +1,6 @@
 {
-    "$schema": "vendor/phpbench/phpbench/phpbench.schema.json",
-    "runner": {
-        "path": "tests/Benchmark"
-    },
-    "reports": {
-        "default": {
-            "extends": "aggregate"
-        }
-    }
+    "runner.bootstrap": "autoload/zef_autoload.php",
+    "runner.path": [
+        "benchmarks"
+    ]
 }

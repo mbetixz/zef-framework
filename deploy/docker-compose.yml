@@ -1,0 +1,37 @@
+# ZEF Framework v2.8.0 — local stack (app + optional Redis for distributed
+# rate limiting / future Redis cache adapters).
+#
+#   docker compose -f deploy/docker-compose.yml up --build
+#
+# The image is built from the repository root (context ..), Dockerfile lives
+# in deploy/.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: zef-framework:2.8.0
+    ports:
+      - "8080:8080"
+    environment:
+      ZEF_TRUSTED_HOSTS: "localhost,127.0.0.1,app"
+      # ZEF_OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4318/v1/traces"
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit((int)(@file_get_contents('http://127.0.0.1:8080/health/ready') === false));"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

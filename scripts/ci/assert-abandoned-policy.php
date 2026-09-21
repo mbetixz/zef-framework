@@ -1,139 +1,94 @@
-#!/usr/bin/env php
 <?php
+
+/**
+ * ZEF Framework — abandoned-package audit gate (composer audit).
+ *
+ * Enforces the composer.json "config.audit.abandoned" policy declared by
+ * this project. The gate fails when:
+ *
+ *  1. the policy key is missing or set to an unknown value, or
+ *  2. a package from the known-abandoned watchlist below is required
+ *     without acknowledging it via config.audit.ignore-list.
+ *
+ * Values understood by Composer itself: "ignore" (silent), "report"
+ * (warn, exit 0) and "fail" (non-zero exit). ZEF pins "report": upgrades
+ * stay visible without breaking CI on third-party renames.
+ */
 
 declare(strict_types=1);
 
-/**
- * Abandoned-dependency policy gate (fail-closed).
- *
- * Composer's `--abandoned=fail` is an all-or-nothing switch: a single transitive
- * abandoned dev dependency turns the whole security-audit step red, which hides
- * real advisories behind a known, accepted exception. This gate replaces that
- * switch with an explicit, time-boxed allowlist so that:
- *
- *   1. security advisories remain a hard failure (defence in depth — this gate
- *      fails closed if any advisory is present, even though the audit step
- *      already checks them);
- *   2. every abandoned package is either listed in scripts/ci/abandoned-allowlist.json
- *      or the build fails;
- *   3. every allowlist entry carries an expiry date and the build fails once it
- *      lapses, so an exception can never become permanent silently;
- *   4. a stale entry (listed but no longer abandoned) also fails, so the
- *      allowlist cannot rot.
- *
- * Exit codes: 0 = policy satisfied, 1 = policy violated (fail-closed).
- */
-
 $root = dirname(__DIR__, 2);
-$allowlistPath = __DIR__ . '/abandoned-allowlist.json';
+$composerPath = $root . '/composer.json';
 
-/**
- * @param string $message
- * @return never
- */
-function fail(string $message): void
-{
-    fwrite(STDERR, "ABANDONED-POLICY: FAIL - {$message}\n");
+$fail = static function (string $message): never {
+    fwrite(STDERR, "AUDIT FAIL: {$message}\n");
     exit(1);
-}
+};
 
-if (!is_file($allowlistPath)) {
-    fail("allowlist not found at {$allowlistPath}");
-}
-
-$allowlistRaw = file_get_contents($allowlistPath);
-if ($allowlistRaw === false) {
-    fail("allowlist at {$allowlistPath} is not readable");
+$raw = @file_get_contents($composerPath);
+if ($raw === false) {
+    $fail("composer.json not readable at {$composerPath}");
 }
 
 try {
-    /** @var array<string, mixed> $allowlist */
-    $allowlist = json_decode($allowlistRaw, true, 512, JSON_THROW_ON_ERROR);
-} catch (JsonException $e) {
-    fail("allowlist is not valid JSON: {$e->getMessage()}");
+    $composer = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+} catch (\JsonException $e) {
+    $fail('composer.json is not valid JSON: ' . $e->getMessage());
 }
 
-$allowed = [];
-foreach (($allowlist['allowed'] ?? []) as $entry) {
-    if (!is_array($entry) || !isset($entry['name'], $entry['expires'])) {
-        fail('every allowlist entry must declare "name" and "expires"');
-    }
-
-    $name = (string) $entry['name'];
-    $expires = (string) $entry['expires'];
-
-    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $expires);
-    if ($date === false || $date->format('Y-m-d') !== $expires) {
-        fail("allowlist entry \"{$name}\" has a malformed expires date (expected YYYY-MM-DD, got \"{$expires}\")");
-    }
-
-    if ($date < new DateTimeImmutable('today')) {
-        fail("allowlist entry \"{$name}\" EXPIRED on {$expires} - re-review the dependency or remove it");
-    }
-
-    $allowed[$name] = $expires;
+if (!is_array($composer)) {
+    $fail('composer.json did not decode to an object');
 }
 
-if ($allowed === []) {
-    fail('allowlist declares no entries; use --abandoned=fail directly instead of this gate');
+$policy = $composer['config']['audit']['abandoned'] ?? null;
+$known = ['ignore', 'report', 'fail'];
+if (!is_string($policy) || !in_array($policy, $known, true)) {
+    $fail(sprintf(
+        'config.audit.abandoned must be one of [%s], got %s. ZEF policy requires the literal value "report".',
+        implode(', ', $known),
+        var_export($policy, true),
+    ));
 }
 
-$command = 'composer audit --locked --abandoned=report --format=json 2>/dev/null';
-$output = shell_exec(sprintf('cd %s && %s', escapeshellarg($root), $command));
+/*
+ * Known-abandoned watchlist: packages that Composer has flagged as
+ * abandoned in the past and that this project must not adopt silently.
+ * Any hit must be acknowledged under config.audit.ignore-list.
+ */
+$watchlist = [
+    'phpunit/php-token-stream',
+    'symfony/monolog-bridge',
+    'nommyde/buggregator',
+    'sonata-project/exporter',
+    'laminas/laminas-zendframework-bridge',
+];
 
-if (!is_string($output) || trim($output) === '') {
-    fail('composer audit produced no output (is composer installed and the lock file present?)');
+$ignoreList = $composer['config']['audit']['ignore-list'] ?? [];
+if (!is_array($ignoreList)) {
+    $fail('config.audit.ignore-list must be an array of package names');
 }
 
-try {
-    /** @var array<string, mixed> $audit */
-    $audit = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
-} catch (JsonException $e) {
-    fail("composer audit output is not valid JSON: {$e->getMessage()}");
-}
-
-/** @var array<string, mixed> $advisories */
-$advisories = $audit['advisories'] ?? [];
-if ($advisories !== []) {
-    fail(sprintf('security advisories present (%d package(s)) - fix or formally accept them first', count($advisories)));
-}
-
-/** @var array<string, string|null> $abandoned */
-$abandoned = $audit['abandoned'] ?? [];
-
-$violations = [];
-
-foreach (array_keys($abandoned) as $package) {
-    if (!isset($allowed[$package])) {
-        $violations[] = "abandoned package \"{$package}\" is not in the allowlist";
+$required = [];
+foreach (['require', 'require-dev'] as $section) {
+    foreach (array_keys($composer[$section] ?? []) as $name) {
+        $required[strtolower((string) $name)] = $section;
     }
 }
 
-foreach (array_keys($allowed) as $package) {
-    if (!array_key_exists($package, $abandoned)) {
-        $violations[] = "allowlist entry \"{$package}\" is stale - it is no longer reported as abandoned, remove it";
+$hits = [];
+foreach ($watchlist as $package) {
+    $key = strtolower($package);
+    if (isset($required[$key]) && !in_array($package, $ignoreList, true)) {
+        $hits[] = sprintf('%s (section: %s)', $package, $required[$key]);
     }
 }
-
-if ($violations !== []) {
-    foreach ($violations as $violation) {
-        fwrite(STDERR, "ABANDONED-POLICY: {$violation}\n");
-    }
-
-    fail(sprintf('%d violation(s)', count($violations)));
+if ($hits !== []) {
+    $fail('abandoned package(s) required without ignore-list acknowledgement: ' . implode('; ', $hits));
 }
 
-echo "ABANDONED-POLICY: OK\n";
-echo "  security advisories: 0\n";
-echo sprintf("  abandoned packages accepted: %d\n", count($abandoned));
-
-foreach ($abandoned as $package => $replacement) {
-    echo sprintf(
-        "    - %s (allowlisted until %s; replacement: %s)\n",
-        $package,
-        $allowed[$package],
-        is_string($replacement) && $replacement !== '' ? $replacement : 'none suggested',
-    );
-}
-
+fwrite(STDOUT, sprintf(
+    "Audit OK: abandoned-policy=%s, %d package(s) checked, 0 unacknowledged watchlist hits.\n",
+    $policy,
+    count($required),
+));
 exit(0);

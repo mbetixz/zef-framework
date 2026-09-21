@@ -10,6 +10,9 @@
         "code-lts/doctum": "^5.6",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "squizlabs/php_codesniffer": "^3.13",
+        "slevomat/coding-standard": "^8.15",
         "phpunit/phpunit": "^10.0",
         "rector/rector": "^2.6",
         "infection/infection": "^0.30",
@@ -18,7 +21,8 @@
     },
     "config": {
         "allow-plugins": {
-            "infection/extension-installer": true
+            "infection/extension-installer": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true
         },
         "audit": {
             "abandoned": "report"
@@ -26,25 +30,48 @@
     },
     "autoload": {
         "psr-4": {
-            "Zef\\App\\": "src/"
+            "Zef\\App\\": "src/",
+            "Zef\\Framework\\": [
+                "src/Domain/",
+                "src/Application/",
+                "src/Infrastructure/",
+                "src/Adapters/"
+            ],
+            "Zef\\Middleware\\": "src/Middleware/",
+            "Zef\\Module\\": "modules/",
+            "Zef\\Plugin\\": "plugins/"
+        },
+        "files": [
+            "autoload/zef_autoload.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Zef\\Test\\": "tests/"
         }
     },
     "scripts": {
         "test": "phpunit",
+        "coverage": "phpunit --coverage-text",
+        "coverage:gate": [
+            "phpunit --coverage-clover build/clover.xml --coverage-text",
+            "php scripts/ci/assert-coverage.php 90"
+        ],
         "format": "php-cs-fixer fix --using-cache=no",
         "format:check": "php-cs-fixer check --diff --using-cache=no",
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf",
         "rector": "rector process",
         "rector:check": "rector process --dry-run --no-progress-bar",
-        "stan": "phpstan analyse --configuration=phpstan.neon.dist",
-        "docs": "@php vendor/bin/doctum.php update doctum.php --no-progress",
-        "audit": "php scripts/ci/assert-abandoned-policy.php",
-        "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress",
-        "mutation": "infection --threads=max --min-msi=70 --min-covered-msi=80",
-        "mutation:ci": "infection --threads=max --min-msi=70 --min-covered-msi=80 --logger-github",
-        "bench": "phpbench run --progress=none",
-        "format:local": "php-cs-fixer fix",
-        "format:check:local": "php-cs-fixer check --diff",
-        "format:check:staged": "bash scripts/dev/php-cs-fixer-staged.sh"
+        "stan": "phpstan analyse --configuration=phpstan.neon.dist --memory-limit=1G",
+        "docs": "php vendor/bin/doctum.php update doctum.php --no-progress",
+        "audit": "@php scripts/ci/assert-abandoned-policy.php",
+        "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress --fail-on-uncovered",
+        "mutation": "infection --threads=max --min-msi=68 --min-covered-msi=73",
+        "mutation:ci": "infection --threads=max --min-msi=68 --min-covered-msi=73 --logger-github",
+        "bench": "phpbench run --report=aggregate --progress=none",
+        "lint": "@php scripts/lint.php",
+        "serve": "@php -S 0.0.0.0:8080 public/index.php"
     },
     "keywords": [
         "php",
