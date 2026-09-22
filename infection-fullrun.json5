@@ -1,0 +1,20 @@
+{
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.30.0/resources/schema.json",
+    "source": {
+        "directories": [
+            "src/Domain",
+            "src/Application",
+            "src/Infrastructure",
+            "src/Adapters",
+            "src/Middleware"
+        ]
+    },
+    "timeout": 90,
+    "logs": {
+        "text": "build/infection-f16-fullrun.log",
+        "summary": "build/infection-summary-f16-fullrun.json"
+    },
+    "mutators": {
+        "@default": true
+    }
+}

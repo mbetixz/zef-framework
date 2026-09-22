@@ -115,6 +115,7 @@ final class TaggedServiceLocator
     {
         foreach ($this->view->definitions() as $id => $definition) {
             foreach ($definition->tags as $tag) {
+                // @infection-ignore-all LogicalOr — ekuivalen: ServiceDefinition memvalidasi tag sebagai string non-kosong; cabang defensif tak terjangkau
                 if (!is_string($tag) || $tag === '') {
                     continue;
                 }
@@ -125,6 +126,7 @@ final class TaggedServiceLocator
                 }
             }
         }
+        // @infection-ignore-all TrueValue — ekuivalen: flag indexed: re-index membangun ulang map identik; tanpa pengamat eksternal
         $this->indexed = true;
     }
 

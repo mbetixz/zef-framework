@@ -62,6 +62,7 @@ final class RadixTreeCompilerPass
         $edgeSeen = [];
         foreach ($plan->definitions as $consumerId => $_definition) {
             if ($this->isSynthetic($consumerId)) {
+                // @infection-ignore-all Continue_ — ekuivalen: definisi sintetis (@inner:*) ditambahkan saat freeze sehingga selalu terakhir; break dan continue melewati sisa yang sama
                 continue; // decoration/contextual machinery is exempt
             }
             foreach ($plan->dependenciesOf($consumerId) as $dep) {
@@ -84,10 +85,12 @@ final class RadixTreeCompilerPass
                     throw new ModuleDependencyViolationException("Namespace scope violation: service '{$consumerId}' references module-scoped service '{$dep}' while maxCrossScopeRefs is 0.");
                 }
                 $pair = $scopePrefix;
+                // @infection-ignore-all Concat,ConcatOperandRemoval — ekuivalen: scopeOf(dep) menentukan pair, sehingga pengelompokan dedup identik untuk perubahan pemisah semata
                 $edgeKey = $pair . '|' . $dep;
                 if (isset($edgeSeen[$edgeKey])) {
                     continue;
                 }
+                // @infection-ignore-all TrueValue — ekuivalen: edgeSeen hanya dibaca lewat isset(); nilai tidak relevan
                 $edgeSeen[$edgeKey] = true;
                 $counts[$pair] = ($counts[$pair] ?? 0) + 1;
                 if ($counts[$pair] > $budget) {

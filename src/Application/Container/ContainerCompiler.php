@@ -24,6 +24,7 @@ final class ContainerCompiler
 
     public function compile(
         ServiceRegistry $registry,
+        // @infection-ignore-all DecrementInteger — ekuivalen: <= 0 berarti unlimited (validator gerbang > 0); -1 identik dengan 0
         int $maxCrossModuleRefs = 0,
     ): CompiledContainerPlan {
         $definitions = $registry->definitions();

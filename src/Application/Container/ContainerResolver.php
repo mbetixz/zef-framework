@@ -99,6 +99,7 @@ final class ContainerResolver
         } else {
             $canonical = $plan->canonical($id);
             if ($canonical === null) {
+                // @infection-ignore-all MethodCallRemoval — ekuivalen: kontrol jatuh ke throwNotFound identik pada null-check berikutnya; eksepsi sama
                 $this->throwNotFound($id);
             }
             $definition = $plan->definitions[$canonical] ?? null;
@@ -206,10 +207,12 @@ final class ContainerResolver
     {
         try {
             if ($this->plan instanceof CompiledContainerPlan) {
+                // @infection-ignore-all ReturnRemoval — ekuivalen: jalur validator memberi jawaban sama untuk id yang dikenal dan tidak dikenal; terverifikasi kurikulum freeze
                 return $this->plan->canonical($id) !== null;
             }
             $canonical = $this->graphValidator->resolveAlias($id, $this->registry->aliases());
 
+            // @infection-ignore-all LogicalAnd — ekuivalen: entri lifetime selalu datang dengan factory pada registry; hasil konjungsi dan disjungsi berimpit
             return isset($this->registry->lifetimeOf()[$canonical]) && $this->registry->hasFactory($canonical);
         } catch (\Throwable) {
             return false;

@@ -144,6 +144,8 @@ guard dedup.
 | fase 5 (Observability) | src/Application/Observability (4 sub-run) | Telemetry 32→**30**; San+Log+Clock 15→**5**; Meter/Span/Tracer 7→**2**; BSP/Health/Propag 42→**32** | **85 / 95 / 98 / 86** | EdgeMatrixObservabilityTest **69 test / 349 asersi**; lingkungan dipulihkan dari ZIP v2.14.6 (bukti distribusi penuh); gate 71/76→**71.5/76**; v2.14.7 |
 | fase 5 (gate) | gate 66/71→**68/73**→**69/74**→**71/76**; 13 tool hijau; coverage 92.05→92.3% | — | — | CHANGELOG-v2.14.3 … v2.14.5 |
 | fase 6 (Domain inti) | 5 chunk: rescfg 73→**86**, sec 85→**95**, rest 64→**89**, core-a 72→**89**, core-b 59→**93** | escape **487→132** (+509 kill / 2.151 mutan) | EdgeMatrixF6Core/Rest/Mixed **124 test / 818 asersi** + Round2 **26 test / 87 asersi**; lingkungan dipulihkan dari 7z v2.14.7 (8 detik); gate 71.5/76→**75/80**; v2.14.8 |
+| fase 7 (app zones) | job/rest-a/rest-b/message/container (5 sub-chunk) | job 50, rest-a 49, rest-b 39, message 26, container 29 mutan dibunuh | job **90/92**, rest-a **92/96**, rest-b **91/93**, message **97/97**, container **88/92** | EdgeMatrixF7* 6 file **99 test / 434 asersi**; gate tetap 75/80; arsip kembali ke ZIP normal (permintaan user) |
+| fase 8–9 (Infra + c3) | f8-cache **96/98**, f8-config **94/96**, f8-secinfra **85/89**, f8-obsinfra **90/91**, f9-c3a **83/89**, f9-c3b **82/82**, f9-c3c **96/96** | secinfra 11→28 tertriase (not-covered 121→12 via ekstensi nyata); obsinfra 35→22; c3a 34→32; c3b 23 (semua timing-equivalent) | zone baru seluruhnya ≥ 82, mayoritas ≥ 90 | EdgeMatrixF8* (4 file) + EdgeMatrixF9C3Test +18 test; APCu/phpredis/redis-server 8.0.2 lokal (6 test berhenti skip); inventaris ekuivalen di CHANGELOG-v2.14.9; gate 75/80→**77/82**; v2.14.9 |
 
 ## 6. Inventaris ekuivalen-mutant (jujur, tidak dipalsukan)
 
@@ -174,3 +176,43 @@ CHANGELOG-v2.14.4.md):**
 - Catch `var_export` yang tak terjangkau (sirkular → warning, bukan exception).
 - Guard `function_exists` platform-invariant; `ini_restore` vs `ini_set` pada
   routing error_log Infection (akar fatal lingkungan uji — diperbaiki).
+
+## Fase 10 — Container sisa + Kernel/Application + Middleware masuk scope (v2.15.0)
+
+- Zona Container sisa 67 escape → 96/97/99; Application.php 63 → 92 (OTLP sink E2E:
+  span attr/status/durasi, event exception, log lifecycle, flush per-request);
+  `src/Middleware` masuk `source.directories` (sebelumnya tak pernah dimutasi).
+- Kurikulum: AOT reindex+shared-default, koleksi variadic (interface id / invokable /
+  array-callable / union-return), nullable-default satu-argumen, budget dekorasi tepat
+  count==budget, singleton shared=false resolusi ulang, guard depth tepat, RequestScope
+  guards, tag grammar full-match, trustedHosts kanonisasi (jebakan kunci '1' auto-index),
+  config merged modul `framework` → policy, bus freeze ×3, warmSingletons, lifecycle
+  modul, emitter chunk 8192 utuh + 204/304 tanpa body, TTL CommandBus 3600.
+- ~35 anotasi `@infection-ignore-all` terjustifikasi (isset-guard, budget redundan,
+  edgeKey tak-terobservasi, jalur lempar identik, dsb.).
+- Full-run akhir: 9.032 mutan — MSI 90.4 / Covered MSI 93.1 → gate 85/90 TERCAPAI.
+
+## Fase 16 — ZEF Maker: seluruh permukaan CLI masuk gate (v2.16.0)
+
+- Logika generator dikeluarkan dari `bin/zef` (procedural, di luar gate) →
+  `src/Infrastructure/Console` (22 class, masuk `source.directories`). Kurikulum:
+  `EdgeMatrixMakerTest` + `EdgeMatrixMakerGeneratorsTest` — 66 test / 503 asersi.
+- Pola pembunuh: (1) **pesan eksak `assertSame`** — mematikan seluruh Concat /
+  ConcatOperandRemoval / Coalesce pada pesan error (pesan dibangun dari label +
+  raw + petunjuk regex); (2) **byte-stream IO** (`fwrite($m . "\n")` di-assert
+  per byte dari stream memori) — mematikan Concat + FunctionCallRemoval ConsoleIO;
+  (3) **struktur `outLog` eksak** (header/baris/baris-kosong/footer `assertCount`)
+  — mematikan MethodCallRemoval baris kosong di ModuleLister, PluginLister,
+  ZefMaker; (4) **data provider 10 command via `ZefMaker::run()`** — mematikan 10
+  MatchArmRemoval sekaligus di `resolve()`; (5) **`0stray.txt` sortir sebelum dir
+  pertama** — membedakan `continue` vs `break` pada guard non-dir PluginLister;
+  (6) **umask(0) + assert fileperms 0o777** — mematikan DecrementInteger mode
+  mkdir; (7) **kas kosong `assertCount(1, outLog)`** — mematikan ReturnRemoval
+  yang jatuh ke cetak tabel; (8) **branch resource** di `jsonSafe` (`<resource>`).
+- `sort()` redundan dihapus (scandir sudah SCANDIR_SORT_ASCENDING — mutan
+  ekuivalen diselesaikan dengan menghapus kode mati, bukan anotasi).
+- 3 `@infection-ignore-all` berjustifikasi: coalesce null-render pesan NamingRules
+  (null concat == ''), `(string)` kunci array `jsonSafe` (normalisasi kunci PHP),
+  LogicalAnd guard mkdir race-safe (varian `||` identik di semua cabang terjangkau).
+- Hasil chunk: 387/387 mutan mati — **MSI 100% / Covered MSI 100%** (gate chunk
+  dinaikkan ke 90, lulus +10).

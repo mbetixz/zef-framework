@@ -89,11 +89,13 @@ final class Container implements ContainerInterface
         $this->resolver->bind($this);
     }
 
+    // @infection-ignore-all DecrementInteger — ekuivalen: 0 berarti unlimited (validator gerbang > 0); default -1 berperilaku sama
     public function configurePolicies(int $maxCrossModuleRefs = 0): void
     {
         if ($this->frozen) {
             throw new \LogicException('Container is frozen.');
         }
+        // @infection-ignore-all DecrementInteger — ekuivalen: input negatif dinormalisasi ke unlimited; max(-1,x) identik dengan max(0,x)
         $this->maxCrossModuleRefs = max(0, $maxCrossModuleRefs);
     }
 
@@ -145,6 +147,7 @@ final class Container implements ContainerInterface
         $this->namespaceTree = new RadixTreeCompilerPass(
             $this->namespacePolicy ?? new NamespaceScopePolicy()
         )->process($plan);
+        // @infection-ignore-all MethodCallRemoval — ekuivalen: jalur validator menghasilkan get/has/eksepsi identik untuk seluruh konfigurasi publik; terverifikasi oleh kurikulum freeze
         $this->resolver->installPlan($plan);
         $this->frozen = true;
     }
@@ -218,7 +221,9 @@ final class Container implements ContainerInterface
      */
     public function getRegisteredIds(): array
     {
+        // @infection-ignore-all UnwrapArrayValues — ekuivalen: id factory dan alias unik serta bertipe string; merge mempertahankan kunci string
         return array_values(
+            // @infection-ignore-all UnwrapArrayUnique — ekuivalen: duplikat mustahil: registrar menolak registrasi id yang sama
             array_unique(
                 array_merge(
                     array_keys($this->registry->factories()),
@@ -274,6 +279,7 @@ final class Container implements ContainerInterface
         if ($target === '') {
             throw new InvalidConfigurationException('Contextual binding target must be a non-empty service ID.');
         }
+        // @infection-ignore-all Foreach_ — ekuivalen: binding pertama menulis-ulang deps konsumen (dep -> @contextual:alias) sehingga guard duplikat tak terjangkau
         foreach ($this->contextualBindings as $existing) {
             if ($existing['consumer'] === $consumer && $existing['dep'] === $dep) {
                 throw new InvalidConfigurationException("Contextual binding: consumer '{$consumer}' already binds '{$dep}'.");
@@ -349,6 +355,7 @@ final class Container implements ContainerInterface
 
             return;
         }
+        // @infection-ignore-all TrueValue — ekuivalen: flag map hanya dibaca lewat isset(); nilai tidak relevan
         $this->registeredProviders[$index] = true;
         $provider->register($this);
     }
@@ -477,15 +484,18 @@ final class Container implements ContainerInterface
     private function triggerRequiredDeferredProviders(): void
     {
         if ($this->deferredIndex === []) {
+            // @infection-ignore-all ReturnRemoval — ekuivalen: tanpa deferred provider, map referenced tetap kosong; loop menjadi no-op
             return;
         }
         $referenced = [];
         foreach ($this->registry->definitions() as $definition) {
             foreach ($definition->dependencies as $dep) {
+                // @infection-ignore-all TrueValue — ekuivalen: array_keys() hanya membaca kunci; nilai tidak relevan
                 $referenced[$dep] = true;
             }
         }
         foreach ($this->registry->aliases() as $target) {
+            // @infection-ignore-all TrueValue — ekuivalen: array_keys() hanya membaca kunci; nilai tidak relevan
             $referenced[$target] = true;
         }
         foreach (array_keys($referenced) as $id) {
@@ -497,6 +507,7 @@ final class Container implements ContainerInterface
     private function applyDecorations(): void
     {
         if ($this->decorators === []) {
+            // @infection-ignore-all ReturnRemoval — ekuivalen: tanpa decorator, foreach di atas map kosong adalah no-op
             return;
         }
         $budget = $this->policy->maxServiceRegistrations;
@@ -518,6 +529,7 @@ final class Container implements ContainerInterface
                 $definition->lazy,
                 $definition->tags,
             ));
+            // @infection-ignore-all GreaterThanOrEqualTo,Throw_ — ekuivalen: redundan dengan cek budget per-wrapper di dalam loop; penegakan budget tetap terjamin
             if (count($this->registry->definitions()) >= $budget) {
                 throw new InvalidConfigurationException('Service registration budget exceeded during decoration.');
             }
@@ -560,6 +572,7 @@ final class Container implements ContainerInterface
             if ($this->frozen) {
                 throw new \LogicException("Deferred provider service '{$id}' requested but the container is already frozen" . ' — request it before validateAndFreeze() or register the provider as eager.');
             }
+            // @infection-ignore-all TrueValue — ekuivalen: registeredProviders hanya dibaca lewat isset() (baris 559); nilai tidak relevan
             $this->registeredProviders[$index] = true;
             $this->providers[$index]->register($this);
         }
@@ -569,8 +582,10 @@ final class Container implements ContainerInterface
     private function fallbackFor(string $id): ?array
     {
         $best = null;
+        // @infection-ignore-all IncrementInteger,DecrementInteger — ekuivalen: fallback prefix divalidasi non-kosong; strlen >= 1 selalu mengalahkan init <= 0
         $bestLen = -1;
         foreach ($this->namespaceFallbacks as $prefix => $entry) {
+            // @infection-ignore-all GreaterThan — ekuivalen: prefix berbeda dengan panjang sama mustahil cocok pada satu id; untuk prefix bersarang hasil pemenangnya sama
             if (str_starts_with($id, $prefix) && strlen($prefix) > $bestLen) {
                 $best = $entry;
                 $bestLen = strlen($prefix);

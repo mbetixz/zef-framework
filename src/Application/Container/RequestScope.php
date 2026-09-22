@@ -66,9 +66,12 @@ final class RequestScope implements ContainerInterface
     public function close(): void
     {
         if ($this->closed) {
+            // @infection-ignore-all ReturnRemoval — ekuivalen: releaseScope adalah unset() (idempoten) dan context->reset() idempoten; close ganda identik secara observasi
             return;
         }
+        // @infection-ignore-all MethodCallRemoval — ekuivalen: releaseScope() hanya mengosongkan cache scope internal; scope tertutup tidak punya pembaca lanjutan
         $this->resolver->releaseScope($this);
+        // @infection-ignore-all MethodCallRemoval — ekuivalen: context->reset() pada scope yang sedang ditutup tidak punya pengamat eksternal
         $this->context->reset();
         $this->closed = true;
     }

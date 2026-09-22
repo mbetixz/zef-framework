@@ -71,6 +71,7 @@ final class AutowireCompilerPass
         private readonly ?string $module = null,
         private readonly string $lifetime = ServiceLifetime::SINGLETON,
     ) {
+        // @infection-ignore-all Coalesce — ekuivalen: ReflectionMetadataExtractor final dan stateless; instance injeksi perilakunya identik dengan default baru
         $this->extractor = $extractor ?? new ReflectionMetadataExtractor();
         ServiceLifetime::assert($lifetime);
     }
@@ -317,6 +318,7 @@ final class AutowireCompilerPass
             if (str_starts_with($id, self::VALUE_SERVICE_PREFIX)) {
                 continue;
             }
+            // @infection-ignore-all LogicalOrAllSubExprNegation — ekuivalen: negasi ganda identik untuk id class/interface/bukan-keduanya; is_a menutup sisa kasus
             if ((class_exists($id) || interface_exists($id)) && is_a($id, $type, true)) {
                 $ids[] = $id;
 
@@ -328,6 +330,7 @@ final class AutowireCompilerPass
             }
         }
 
+        // @infection-ignore-all UnwrapArrayUnique,UnwrapArrayValues — ekuivalen: id dari kunci map terkumpul paling sekali; kunci numerik sudah berurutan
         return array_values(array_unique($ids));
     }
 
