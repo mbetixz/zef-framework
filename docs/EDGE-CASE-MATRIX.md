@@ -115,6 +115,23 @@ Escape di bawah = hitungan dari slice segar (pasca-ronde 2). Status diisi saat e
 | CounterMeter + Span + Tracer + NoopSpan + InMemory | 7 → 2 ✅ | Delta negatif/NaN/INF; default 1; float cast; key ksort+unescaped JSON; overflow PHP_INT_MAX; cardinality per-name overflow+eviction; guard konjungtif; span lifecycle full; tracer singleton/inherit | ✅ sisa cast redundant |
 | BatchSpanProcessor + Health + Propagators | 42 → 32 ⚠️ | Ctor defaults refleksi; flush post-shutdown zombie-queue; retry policy tak terjamah saat queue kosong; splice order [s1,s2,s3]; anchor regex caret/dollar; uppercase hex normalisasi; traceState 512 grammar-valid; Health truncation class-name 128 (fixture 145 char); toJson raw unescaped | ⚠️ sisa timing deadline/for-bound/anchor-redundant/ctor-revalidate (lihat changelog) |
 
+### Tier 6 — Domain inti (fase 6) — 487 escape baseline riil (2.151 mutan)
+
+| Kelas (teratas) | Escape → sisa | Kurikulum kunci | Status |
+|---|---|---|---|
+| Observability/CorrelationContext | 48 → 19 | W3C anchored + flags mask + tracestate 512 + token printable + agregat 4096/4097 programatik + biaya null/bool/int/float crossing + redaksi mixed-case | ✅ fase 6 |
+| Resource/FilterSpec+SortSpec | 64 → 56 | cap 32/8, truncation embeda, operator grammar, eq kanonik bool/float, GT numerik-vs-leksikal, raw 512/513, defaultDesc | ✅ fase 6 |
+| Job/CronExpression | 36 → 24 | lima-field grammar penuh, OR-semantika dom-dow, boundary nanodetik strictly-greater | ✅ fase 6 |
+| Observability/RetryBackoffPolicy + Job/RetryPolicy | 47 → 7 | eksponen + cap, round half-up, env clamp ±1, cap 0 | ✅ fase 6 |
+| Security/SecurityPolicy+Base32+Totp | 37 → 17 | default exact, env trim, error_log tmpfile, RFC 4648/4226/6238 + counter ≥2^32 | ✅ fase 6 |
+| Container/NamespaceRadixTree residual | 29 → 10 | mid-edge traversal, stats exact 2.2 & 12/7, ksort, fromArray cast | ✅ fase 6 |
+| Config/ModuleDefinition | 13 → 4 | trim-asli, dedup non-kontigu, koalesensi requires, continue-vs-break | ✅ fase 6 |
+
+Sisa 132 escape terinventarisasi jujur: self-consistent codec cursor, wire-size
+tak terjangkau struktural (568 < 8192), konstanta sama-dinilai (128=128),
+jitter random statistik, For_/negasi loop bermuara status sama, not-covered
+guard dedup.
+
 ## 5. Riwayat verifikasi (diisi per fase)
 
 | Fase | Chunk rerun | Escape sebelum→sesudah | MSI zona sebelum→sesudah | Bukti |
@@ -126,6 +143,7 @@ Escape di bawah = hitungan dari slice segar (pasca-ronde 2). Status diisi saat e
 | fase 4 (Http/Router/Kernel) | adapters-http; adapters-router-kernel (dipecah Router + Kernel) | HTTP 277→**51** escape (78→40 nc); Router 113→**57**; Kernel 147→**119** | HTTP **75→93** (covered 79→96); Router **65→85** (covered 68→87); Kernel 64→66 | EdgeMatrixHttpTest **82 test/274 asersi** + EdgeMatrixRouterKernelTest **33 test/131 asersi**; **+366 kill**; gate 69/74→**71/76**; v2.14.5 |
 | fase 5 (Observability) | src/Application/Observability (4 sub-run) | Telemetry 32→**30**; San+Log+Clock 15→**5**; Meter/Span/Tracer 7→**2**; BSP/Health/Propag 42→**32** | **85 / 95 / 98 / 86** | EdgeMatrixObservabilityTest **69 test / 349 asersi**; lingkungan dipulihkan dari ZIP v2.14.6 (bukti distribusi penuh); gate 71/76→**71.5/76**; v2.14.7 |
 | fase 5 (gate) | gate 66/71→**68/73**→**69/74**→**71/76**; 13 tool hijau; coverage 92.05→92.3% | — | — | CHANGELOG-v2.14.3 … v2.14.5 |
+| fase 6 (Domain inti) | 5 chunk: rescfg 73→**86**, sec 85→**95**, rest 64→**89**, core-a 72→**89**, core-b 59→**93** | escape **487→132** (+509 kill / 2.151 mutan) | EdgeMatrixF6Core/Rest/Mixed **124 test / 818 asersi** + Round2 **26 test / 87 asersi**; lingkungan dipulihkan dari 7z v2.14.7 (8 detik); gate 71.5/76→**75/80**; v2.14.8 |
 
 ## 6. Inventaris ekuivalen-mutant (jujur, tidak dipalsukan)
 

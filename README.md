@@ -38,12 +38,17 @@ v2025.1.15 di `vendor/bin/rr`, config siap-serve `.rr.yaml`, distribusi ZIP tanp
 pengecualian), serta v2.14.7 (fase 5 observability: pipeline telemetry penuh —
 zona **85 / 95 / 98 / 86**, escape chunk turun 94→**69** mayoritas ekuivalen
 triaged, **+63 test / 349 asersi** baru; lingkungan uji dibuktikan pulih penuh
-dari ZIP distribusi) — semua aditif, tanpa mengubah perilaku lama.
+dari ZIP distribusi), serta v2.14.8 (fase 6 Domain inti: lima chunk — Config
+**73→86**, Security **85→95**, Resource **64→89**, Container/Autowiring
+**72→89**, core Event/Message/CQRS/Cache/Job/Policy **59→93**; escape 487→**132**
+= **+509 kill** pada 2.151 mutan; kurikulum W3C/cron/backoff/resource-filtering/
+radix-tree/base32/totp RFC-vectors + counter ≥2^32; dua ronde uji 150 test /
+993 asersi) — semua aditif, tanpa mengubah perilaku lama.
 
-> ✅ Terverifikasi: **501/501** assertion self-test · **981 test PHPUnit native (13404 assertion)** ·
+> ✅ Terverifikasi: **501/501** assertion self-test · **1131 test PHPUnit native (14313 assertion)** ·
 > PHPStan **level max** + strict-rules · Deptrac 0 violations `--fail-on-uncovered` ·
-> phpcs+Slevomat 0 violations · coverage statement **92.87%** (gate CI 90%) · mutation gate **71.5/76** · 366 file lolos `php -l`.
-> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md).
+> phpcs+Slevomat 0 violations · coverage statement **92.87%** (gate CI 90%) · mutation gate **75/80** · 366 file lolos `php -l`.
+> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md) · [`docs/CHANGELOG-v2.14.8.md`](docs/CHANGELOG-v2.14.8.md).
 
 ---
 
