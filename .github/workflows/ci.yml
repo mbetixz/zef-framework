@@ -137,11 +137,13 @@ jobs:
         # --min-covered-msi=80. The v2.14.3 suite measured MSI 70.31 /
         # Covered MSI 75.51, bridged at 68/73 at integration time. The
         # upstream v2.14.4–v2.14.7 evolution (Edge-Case Matrix rounds 3–5)
-        # added ~230 adversarial tests and raised the script thresholds to
-        # 71.5/76 (conservative global estimate from measured chunk deltas;
-        # per docs/CHANGELOG-v2.14.5.md and v2.14.7.md). MSI now clears the
-        # 70 target; restoring Covered MSI to 80 remains the follow-up once
-        # the remaining escaped-mutant hotspots are covered.
+        # raised the script thresholds to 71.5/76, and the v2.14.8 phase-6
+        # Domain deep-dive (5 chunks, 487→132 escapes, +509 kills; per
+        # docs/CHANGELOG-v2.14.8.md) raised them further to 75/80 — the
+        # Covered MSI script threshold now matches the repo target gate
+        # outright. Residual escapes are inventoried in the changelog
+        # (self-consistent codec cursors, equivalent-constant swaps,
+        # statistical jitter mutants).
         run: composer mutation:ci
 
       - name: Rector (dry-run)
