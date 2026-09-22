@@ -242,6 +242,9 @@ final class EdgeMatrixF10KernelTest extends TestCase
             self::markTestSkipped('pcntl required for OTLP transport tests');
         }
         $buildDir = \dirname(__DIR__, 2) . '/build';
+        if (!\is_dir($buildDir)) {
+            \mkdir($buildDir, 0o777, true);
+        }
         $sink = $buildDir . '/f10_otlp_sink_' . \uniqid('', true) . '.jsonl';
         $server = @\stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
         self::assertNotFalse($server, "cannot bind OTLP test server: {$errstr}");
