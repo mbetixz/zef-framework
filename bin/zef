@@ -2,10 +2,11 @@
 <?php
 
 /**
- * ZEF Framework v2.7.0 — CLI binary.
+ * ZEF Framework v2.16.0 — CLI binary (thin composition root).
  *
  * Usage:
  *   bin/zef                        Show version banner.
+ *   bin/zef list [--json]          Print the full command catalog.
  *   bin/zef --self-test            Run the full self-test suite (v2.7.0 baseline
  *                                  + the v2.8.0 feature suite).
  *   bin/zef --self-test=<key>      Run only matching suites (case-insensitive
@@ -19,7 +20,7 @@
  *   bin/zef make:module <name>     Scaffold modules/<name>/ (ConfigProvider + handler).
  *   bin/zef make:handler <Name> [--module=<name>] [--path=/uri]
  *                                  Scaffold a PSR-15 handler inside a module.
- *   bin/zef make:middleware <Name> Scaffold an app/Middleware PSR-15 middleware.
+ *   bin/zef make:middleware <Name> Scaffold a src/Middleware PSR-15 middleware.
  *
  * v2.10.0 developer tools:
  *   bin/zef tinker [-e <expr>] [--no-boot] [--force]
@@ -27,6 +28,24 @@
  *                                  -e evaluates one expression and exits.
  *                                  --no-boot skips application boot.
  *                                  --force allows tinker when ZEF_ENV=production.
+ *
+ * v2.16.0 ZEF Maker — scaffold anything from the CLI:
+ *   bin/zef make:plugin <Name>     Scaffold plugins/<Name>/ (Provider+Service+Handler).
+ *   bin/zef make:config <Name> [--module=<name>]
+ *                                  Scaffold a module ConfigProvider.
+ *   bin/zef make:command <Name> [--module=<name>]
+ *                                  Scaffold a CQRS command + handler.
+ *   bin/zef make:query <Name> [--module=<name>]
+ *                                  Scaffold a CQRS query + handler.
+ *   bin/zef make:entity <Name> [--module=<name>]
+ *                                  Scaffold a Domain entity.
+ *   bin/zef make:valueobject <Name> [--module=<name>]
+ *                                  Scaffold a final readonly value object.
+ *   bin/zef make:service <Name> [--module=<name>]
+ *                                  Scaffold an application service.
+ *   bin/zef module:list            Print registered modules (boots the app).
+ *   bin/zef plugin:list            Print plugins found on disk.
+ *   bin/zef config:show [key]      Dump aggregated config / one dotted key.
  */
 
 declare(strict_types=1);
@@ -70,36 +89,49 @@ if ($serveIdx !== false) {
 }
 
 // ---------------------------------------------------------------------------
-// v2.8.0 developer experience commands
+// Developer experience commands
 // ---------------------------------------------------------------------------
 
 $command = $args[1] ?? null;
+$root = dirname(__DIR__);
+$io = new \Zef\Framework\Console\ConsoleIO();
+$maker = new \Zef\Framework\Console\ZefMaker($root, $io);
 
 if ($command === 'route:list') {
     exit(zef_route_list());
 }
 
-if ($command === 'make:module') {
-    exit(zef_make_module($args[2] ?? null));
+if ($command === 'module:list') {
+    $app = \Zef\App\Bootstrap::createApp(false);
+    $app->boot();
+    exit((new \Zef\Framework\Console\Inspector\ModuleLister($app->getModuleRegistry(), $io))->run());
 }
 
-if ($command === 'make:handler') {
-    exit(zef_make_handler($args[2] ?? null, $args));
+if ($command === 'plugin:list') {
+    exit((new \Zef\Framework\Console\Inspector\PluginLister($root, $io))->run());
 }
 
-if ($command === 'make:middleware') {
-    exit(zef_make_middleware($args[2] ?? null));
+if ($command === 'config:show') {
+    $app = \Zef\App\Bootstrap::createApp(false);
+    $app->boot();
+    try {
+        exit((new \Zef\Framework\Console\Inspector\ConfigShower($app->getConfigAggregator(), $io))->run($args[2] ?? null));
+    } catch (\Zef\Framework\Console\ConsoleException $e) {
+        $io->err($e->getMessage());
+        exit(1);
+    }
 }
 
-if ($command === 'tinker') {
-    exit(zef_tinker(array_slice($args, 2)));
+if ($command === 'list' || ($command !== null && str_starts_with((string) $command, 'make:'))) {
+    exit($maker->run($args));
 }
 
-if ($command !== null && str_starts_with((string) $command, 'make:')) {
-    fwrite(STDERR, "Unknown generator '{$command}'. Supported: make:module, make:handler, make:middleware.\n");
+if ($command !== null) {
+    fwrite(STDERR, "Unknown command '{$command}'. Run 'bin/zef list' for all commands.\n");
     exit(1);
 }
-fwrite(STDOUT, "ZEF Framework v" . \Zef\Framework\Foundation\ZefVersion::VERSION . "\nRun with --self-test for diagnostics, --serve for the dev server.\n");
+
+fwrite(STDOUT, "ZEF Framework v" . \Zef\Framework\Foundation\ZefVersion::VERSION . "\nRun 'bin/zef list' for all commands, --self-test for diagnostics, --serve for the dev server.\n");
 exit(0);
 
 // ---------------------------------------------------------------------------
@@ -124,288 +156,6 @@ function zef_route_list(): int
     printf("\n%d route(s)\n", count($routes));
     return 0;
 }
-
-function zef_class_name(?string $raw): string
-{
-    if ($raw === null || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $raw) !== 1) {
-        fwrite(STDERR, "Invalid class name '" . ($raw ?? '') . "'. Expected [A-Za-z_][A-Za-z0-9_]*.\n");
-        exit(1);
-    }
-    return $raw;
-}
-
-function zef_module_name(?string $raw): string
-{
-    $name = strtolower(trim((string) $raw));
-    if ($name === '' || preg_match('/^[a-z][a-z0-9_-]{0,31}$/', $name) !== 1) {
-        fwrite(STDERR, "Invalid module name '" . ($raw ?? '') . "'. Expected [a-z][a-z0-9_-]{0,31}.\n");
-        exit(1);
-    }
-    return $name;
-}
-
-function zef_write_file(string $path, string $contents): void
-{
-    if (file_exists($path)) {
-        fwrite(STDERR, "Refusing to overwrite existing file: {$path}\n");
-        exit(1);
-    }
-    $dir = dirname($path);
-    if (!is_dir($dir) && !mkdir($dir, 0777, true)) {
-        fwrite(STDERR, "Cannot create directory: {$dir}\n");
-        exit(1);
-    }
-    if (file_put_contents($path, $contents) === false) {
-        fwrite(STDERR, "Cannot write file: {$path}\n");
-        exit(1);
-    }
-    fwrite(STDOUT, "Created {$path}\n");
-}
-
-function zef_pascal(string $snake): string
-{
-    return str_replace('-', '', ucwords($snake, '_-'));
-}
-
-function zef_make_module(?string $raw): int
-{
-    $module = zef_module_name($raw);
-    $root = dirname(__DIR__);
-    $pascal = zef_pascal($module);
-    $dir = "{$root}/modules/{$pascal}";
-    if (is_dir($dir)) {
-        fwrite(STDERR, "Module directory already exists: {$dir}\n");
-        return 1;
-    }
-    $ns = "Zef\\Module\\{$pascal}";
-    zef_write_file("{$dir}/ConfigProvider.php", <<<PHP
-<?php
-
-declare(strict_types=1);
-
-/*
- * ZEF Framework — module '{$module}' (scaffolded by bin/zef make:module).
- */
-
-namespace {$ns};
-
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Zef\Framework\Config\ConfigProviderInterface;
-use Zef\Framework\Http\Response;
-
-final class ConfigProvider implements ConfigProviderInterface
-{
-    #[\\Override]
-    public function getModuleName(): string
-    {
-        return '{$module}';
-    }
-
-    #[\\Override]
-    public function getConfig(): array
-    {
-        return [
-            'services' => [
-                '{$module}.handler.home' => [
-                    'factory' => static fn(): HomeHandler => new HomeHandler(),
-                    'deps'    => [],
-                ],
-            ],
-            'routes' => [
-                ['method' => 'GET', 'path' => '/{$module}', 'handler' => '{$module}.handler.home', 'priority' => 100, 'name' => '{$module}.home'],
-            ],
-        ];
-    }
-}
-
-PHP);
-    zef_write_file("{$dir}/HomeHandler.php", <<<PHP
-<?php
-
-declare(strict_types=1);
-
-/*
- * ZEF Framework — module '{$module}' (scaffolded by bin/zef make:module).
- */
-
-namespace {$ns};
-
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Zef\Framework\Http\Response;
-
-final class HomeHandler implements RequestHandlerInterface
-{
-    #[\\Override]
-    public function handle(ServerRequestInterface \$request): ResponseInterface
-    {
-        return new Response(
-            200,
-            ['Content-Type' => 'application/json'],
-            json_encode(['module' => '{$module}', 'status' => 'ok'], JSON_THROW_ON_ERROR),
-        );
-    }
-}
-
-PHP);
-    fwrite(STDOUT, <<<TXT
-
-Next steps:
-  1. Register the module in app/Bootstrap.php:
-       use {$ns}\\ConfigProvider as {$pascal}ConfigProvider;
-       \$app->addProvider(new {$pascal}ConfigProvider());
-  2. Regenerate the zero-composer classmap:
-       php scripts/update_classmap.php   (or composer dump-autoload)
-
-TXT);
-    return 0;
-}
-
-function zef_resolve_module_dir(string $root, string $module): ?string
-{
-    $entries = is_dir("{$root}/modules") ? scandir("{$root}/modules") ?: [] : [];
-    foreach ($entries as $entry) {
-        if ($entry === '.' || $entry === '..') {
-            continue;
-        }
-        if (strtolower($entry) === strtolower($module) && is_dir("{$root}/modules/{$entry}")) {
-            return "{$root}/modules/{$entry}";
-        }
-    }
-    return null;
-}
-
-function zef_make_handler(?string $raw, array $argv): int
-{
-    $name = zef_class_name($raw);
-    $module = 'core';
-    $path = null;
-    foreach ($argv as $i => $arg) {
-        if (str_starts_with((string) $arg, '--module=')) {
-            $module = zef_module_name(substr((string) $arg, 9));
-        }
-        if (str_starts_with((string) $arg, '--path=')) {
-            $path = (string) substr((string) $arg, 7);
-        }
-    }
-    $root = dirname(__DIR__);
-    $moduleDir = zef_resolve_module_dir($root, $module);
-    if ($moduleDir === null) {
-        fwrite(STDERR, "Module '{$module}' does not exist (modules/{$module}). Create it first with make:module.\n");
-        return 1;
-    }
-    $modulePascal = basename($moduleDir);
-    $ns = "Zef\\Module\\{$modulePascal}";
-    $file = "{$moduleDir}/{$name}Handler.php";
-    $serviceId = "{$module}.handler." . strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $name));
-    $routePath = $path ?? '/' . $module . '/' . strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $name));
-    zef_write_file($file, <<<PHP
-<?php
-
-declare(strict_types=1);
-
-/*
- * ZEF Framework — handler scaffolded by bin/zef make:handler.
- */
-
-namespace {$ns};
-
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Zef\Framework\Http\Response;
-
-final class {$name}Handler implements RequestHandlerInterface
-{
-    #[\\Override]
-    public function handle(ServerRequestInterface \$request): ResponseInterface
-    {
-        return new Response(
-            200,
-            ['Content-Type' => 'application/json'],
-            json_encode(['handler' => '{$name}', 'status' => 'ok'], JSON_THROW_ON_ERROR),
-        );
-    }
-}
-
-PHP);
-    fwrite(STDOUT, <<<TXT
-
-Next steps — wire it into modules/{$modulePascal}/ConfigProvider.php:
-
-  'services' => [
-      ...
-      '{$serviceId}' => [
-          'factory' => static fn(): {$name}Handler => new {$name}Handler(),
-          'deps'    => [],
-      ],
-  ],
-  'routes' => [
-      ...
-      ['method' => 'GET', 'path' => '{$routePath}', 'handler' => '{$serviceId}', 'priority' => 100],
-  ],
-
-TXT);
-    return 0;
-}
-
-function zef_make_middleware(?string $raw): int
-{
-    $name = zef_class_name($raw);
-    $snake = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $name));
-    $root = dirname(__DIR__);
-    $file = "{$root}/app/Middleware/{$name}Middleware.php";
-    zef_write_file($file, <<<PHP
-<?php
-
-declare(strict_types=1);
-
-/*
- * ZEF Framework — middleware scaffolded by bin/zef make:middleware.
- */
-
-namespace Zef\\Middleware;
-
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-
-final class {$name}Middleware implements MiddlewareInterface
-{
-    #[\\Override]
-    public function process(ServerRequestInterface \$request, RequestHandlerInterface \$handler): ResponseInterface
-    {
-        // Before: inspect or enrich the request.
-        \$response = \$handler->handle(\$request);
-        // After: inspect or enrich the response.
-        return \$response;
-    }
-}
-
-PHP);
-    fwrite(STDOUT, <<<TXT
-
-Next steps — register it in your provider config, then add it to the stack:
-
-  'services' => [
-      'middleware.{$snake}' => [
-          'factory' => static fn(): {$name}Middleware => new {$name}Middleware(),
-          'deps'    => [],
-      ],
-  ],
-  'middleware.stack' => [
-      ...,
-      ['service' => 'middleware.{$snake}', 'priority' => 500],
-  ],
-
-TXT);
-    return 0;
-}
-
 
 function zef_tinker(array $argv): int
 {

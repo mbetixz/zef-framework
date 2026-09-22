@@ -1,0 +1,22 @@
+{
+  "source": {
+    "directories": [
+      "src/Application/Resource",
+      "src/Application/CQRS",
+      "src/Application/Event",
+      "src/Application/Message",
+      "src/Application/Cache",
+      "src/Application/Security",
+      "src/Application/Observability",
+      "src/Application/Container"
+    ]
+  },
+  "timeout": 90,
+  "logs": {
+    "text": "build/infection-f7-apprest-baseline.log",
+    "summary": "build/infection-summary-f7-apprest-baseline.json"
+  },
+  "mutators": {
+    "@default": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "source": {
+    "directories": [
+      "src/Application/Message",
+      "src/Application/Container",
+      "src/Application/Observability"
+    ]
+  },
+  "timeout": 90,
+  "logs": {
+    "text": "build/infection-f7-rest-c.log",
+    "summary": "build/infection-summary-f7-rest-c.json"
+  },
+  "mutators": {
+    "@default": true
+  }
+}

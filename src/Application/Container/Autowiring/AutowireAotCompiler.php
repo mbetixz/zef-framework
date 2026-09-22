@@ -91,6 +91,7 @@ final class AutowireAotCompiler
             $entries .= '        ' . self::generateServiceEntry($metadata, $result->factoryCode[$serviceId]);
         }
         $code = "<?php\n\n/* {$header} — generated file, do not edit. */\n\nreturn [\n{$entries}];\n";
+        // @infection-ignore-all Concat,ConcatOperandRemoval — ekuivalen: nama tmp hanya terlihat sebelum rename atomik; komposisi tak terobservasi
         $tmp = $path . '.tmp.' . getmypid();
         if (file_put_contents($tmp, $code, \LOCK_EX) === false) {
             throw new InvalidConfigurationException("Cannot write AOT export file '{$path}'.");

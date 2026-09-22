@@ -43,12 +43,18 @@ dari ZIP distribusi), serta v2.14.8 (fase 6 Domain inti: lima chunk — Config
 **72→89**, core Event/Message/CQRS/Cache/Job/Policy **59→93**; escape 487→**132**
 = **+509 kill** pada 2.151 mutan; kurikulum W3C/cron/backoff/resource-filtering/
 radix-tree/base32/totp RFC-vectors + counter ≥2^32; dua ronde uji 150 test /
-993 asersi) — semua aditif, tanpa mengubah perilaku lama.
+993 asersi), serta v2.14.9 (fase 8–9: **Infrastructure penuh + c3 Observability** —
+cache **96/98**, config **94/96**, security-infra **85/89**, obs-infra **90/91**,
+c3 Telemetry **83/89**, c3 Tracer/Span/BSP **82/82**, c3 Propagator/Health/Meter
+**96/96**; ekstensi APCu/phpredis + server Redis lokal dipasang → 6 test berhenti
+skip; inventaris ekuivalen jujur: transport-jaringan OTLP, timing BSP, guard antrean
+tak-terjangkau, `::class ≡ get_debug_type`; 18 test baru) — semua aditif, tanpa
+mengubah perilaku lama.
 
-> ✅ Terverifikasi: **501/501** assertion self-test · **1131 test PHPUnit native (14313 assertion)** ·
+> ✅ Terverifikasi: **501/501** assertion self-test · **1498 test PHPUnit native (16861 assertion)** ·
 > PHPStan **level max** + strict-rules · Deptrac 0 violations `--fail-on-uncovered` ·
-> phpcs+Slevomat 0 violations · coverage statement **92.87%** (gate CI 90%) · mutation gate **75/80** · 366 file lolos `php -l`.
-> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md) · [`docs/CHANGELOG-v2.14.8.md`](docs/CHANGELOG-v2.14.8.md).
+> phpcs+Slevomat 0 violations · coverage statement **94.49%** (gate CI 90%) · mutation gate **85/90** terjaga (MSI global 90.77% / covered 93.38% pada 9.419 mutan) · 417 file lolos `php -l`.
+> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md) · [`docs/CHANGELOG-v2.14.8.md`](docs/CHANGELOG-v2.14.8.md) · [`docs/CHANGELOG-v2.14.9.md`](docs/CHANGELOG-v2.14.9.md) · [`docs/CHANGELOG-v2.15.0.md`](docs/CHANGELOG-v2.15.0.md) · [`docs/CHANGELOG-v2.16.0.md`](docs/CHANGELOG-v2.16.0.md).
 
 ---
 
@@ -160,7 +166,7 @@ $cache = new \Zef\Framework\Cache\InMemoryCache(
 zef-framework/
 ├── autoload/zef_autoload.php   # classmap statis 353 kelas (zero-composer fallback)
 ├── bin/
-│   ├── zef                     # CLI: --self-test, --serve, route:list, make:*
+│   ├── zef                     # CLI: list, --self-test, --serve, route:list, make:* (10 generator), module:list, plugin:list, config:show, tinker
 │   └── worker.php              # worker RoadRunner (produksi)
 ├── public/index.php            # entrypoint HTTP (web SAPI)
 ├── src/                        # framework inti — 4 layer hexagonal + compat
@@ -197,7 +203,7 @@ zef-framework/
 | Security | AES-256-GCM + TOTP (RFC 6238) | `AesGcmEncryptor`, `Totp`, `Base32` |
 | Validation | Rules engine field-based | `Validator`, `FieldRules` |
 | Messaging | Dedup at-least-once | `DeduplicatingMiddleware` |
-| DX | `route:list`, `make:*` | `bin/zef` |
+| DX | `zef list`, `make:*` (10 generator), `module:list`, `plugin:list`, `config:show` | `src/Infrastructure/Console` + `bin/zef` |
 | DevOps | Docker, Compose, CI | `deploy/`, `.github/` |
 
 ## Sorotan Fitur v2.9.0 — Advanced Autowiring Engine
@@ -243,10 +249,21 @@ $r->group(['prefix' => '/api/v2', 'name' => 'api.v2.'], fn($r) => $r->add('GET',
 Detail lengkap: [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md).
 
 ```bash
+bin/zef list                            # katalog semua command (+ --json)
 bin/zef route:list                      # inspeksi rute + nama
 bin/zef make:module katalog             # scaffold modul baru
+bin/zef make:plugin Loyalitas           # scaffold plugin lengkap (Provider+Service+Handler)
 bin/zef make:handler Produk --module=katalog --path=/katalog/produk
-bin/zef make:middleware Tracing         # scaffold middleware PSR-15
+bin/zef make:middleware Tracing         # scaffold middleware PSR-15 (src/Middleware)
+bin/zef make:config Cache --module=katalog   # ConfigProvider modul (mekanisme config ZEF)
+bin/zef make:command PlaceOrder --module=katalog   # CQRS command + handler
+bin/zef make:query FindOrder --module=katalog      # CQRS query + handler
+bin/zef make:entity Pesanan --module=katalog       # entitas Domain (identity + equals)
+bin/zef make:valueobject Uang --module=katalog     # final readonly value object
+bin/zef make:service Stok --module=katalog         # service aplikasi + wiring snippet
+bin/zef module:list                     # modul terdaftar (boot nyata)
+bin/zef plugin:list                     # plugin on-disk
+bin/zef config:show katalog.cache       # dump config teragregasi (JSON-safe)
 bin/zef tinker                          # REPL dengan $app + $container siap pakai
 ```
 

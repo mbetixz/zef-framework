@@ -5,7 +5,8 @@
             "src/Domain",
             "src/Application",
             "src/Infrastructure",
-            "src/Adapters"
+            "src/Adapters",
+            "src/Middleware"
         ]
     },
     "timeout": 90,

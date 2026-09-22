@@ -88,6 +88,7 @@ final class ReflectionMetadataExtractor
         $defaultConstant = null;
         // Variadic parameters are always "optional" from a call perspective
         // but never carry a usable default value.
+        // @infection-ignore-all LogicalAnd — ekuivalen: getDefaultValue dan getDefaultValueConstantName sama-sama melempar ReflectionException tanpa default; catch dalam mengembalikan hasDefault=false
         if ($p->isDefaultValueAvailable() && !$p->isVariadic()) {
             try {
                 $default = $p->getDefaultValue();
@@ -142,6 +143,7 @@ final class ReflectionMetadataExtractor
             throw new InvalidConfigurationException("Cannot autowire {$owner}::\${$p->getName()}: {$e->getMessage()}", 0, $e);
         }
 
+        // @infection-ignore-all Coalesce — ekuivalen: Inject/Value/Target hanya punya satu properti; ?? menekan baca properti tak terdefinisi sehingga semua urutan berimpit
         return $instance->id ?? $instance->key ?? $instance->class;
     }
 }

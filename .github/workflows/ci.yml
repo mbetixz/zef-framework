@@ -134,16 +134,15 @@ jobs:
 
       - name: Mutation testing (Infection)
         # OD-50 (documented decision): the repo target gate is --min-msi=70 /
-        # --min-covered-msi=80. The v2.14.3 suite measured MSI 70.31 /
-        # Covered MSI 75.51, bridged at 68/73 at integration time. The
-        # upstream v2.14.4–v2.14.7 evolution (Edge-Case Matrix rounds 3–5)
-        # raised the script thresholds to 71.5/76, and the v2.14.8 phase-6
-        # Domain deep-dive (5 chunks, 487→132 escapes, +509 kills; per
-        # docs/CHANGELOG-v2.14.8.md) raised them further to 75/80 — the
-        # Covered MSI script threshold now matches the repo target gate
-        # outright. Residual escapes are inventoried in the changelog
-        # (self-consistent codec cursors, equivalent-constant swaps,
-        # statistical jitter mutants).
+        # --min-covered-msi=80, originally bridged at 68/73. The Edge-Case
+        # Matrix campaign closed it out: phases 6-9 (v2.14.8-v2.14.9, Domain
+        # core + Infrastructure + c3 Observability) raised the script gate to
+        # 77/82, and phase 10 (v2.15.0) brought src/Middleware into scope and
+        # raised the gate to 85/90 — verified by a full Infection run over
+        # 9,032 mutants (MSI 90.4 / Covered MSI 93.1). The v2.16.0 ZEF Maker
+        # Console namespace (387/387 mutants killed) composes to 9,419 total
+        # mutants at MSI 90.77 / Covered MSI 93.38. Campaign records per
+        # docs/CHANGELOG-v2.14.9.md, v2.15.0.md and v2.16.0.md.
         run: composer mutation:ci
 
       - name: Rector (dry-run)
