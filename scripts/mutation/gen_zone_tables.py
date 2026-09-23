@@ -14,6 +14,26 @@ Zones without a measurement yet are written as UNKNOWN with a reason, so the gat
 still sees a complete zone set while a campaign is in flight. Re-run this script
 after the campaign finishes to replace those rows with real numbers.
 
+SINGLE SOURCE OF TRUTH
+----------------------
+The numbers in a row are derived from the evidence file the row CITES, not from the
+campaign aggregate (build/zone-campaign-results.json). Deriving them from the
+aggregate while citing a different file is what allowed a row to report one run's
+score next to another run's evidence — e.g. a zone whose cited summary said
+`Killed 103 / Escaped 10` (MSI 88.03) sitting behind a row that said 87.18 because
+the aggregate came from a later measurement.
+
+The evidence file chosen for a zone is the STRICTER of the two candidates:
+
+  * docs/mutation/evidence/infection-summary-<zone>.json  (already committed)
+  * build/infection-summary-<zone>.json                   (this campaign)
+
+A weaker measurement never overwrites a stronger committed one, so re-running this
+script cannot lower a recorded floor — mutation scores wobble by a mutant between
+runs, and silently freezing the lower number would weaken the ratchet (AR-2:
+never weaken a gate so a cycle passes). When the committed evidence is the weaker
+of the two, the row records that in the reason column instead of hiding it.
+
 Usage:
   python3 build/gen_zone_tables.py [--report PATH]
 """
@@ -42,31 +62,95 @@ def canonical_zones() -> list[str]:
     return zones
 
 
-def row_for(zone: str, r: dict | None) -> list[str]:
-    if not r or not r.get("total"):
+def parse_summary(path: Path) -> dict | None:
+    """Parse Infection's text summary into counts. Mirrors zone_campaign.parse_summary."""
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    counts: dict[str, int] = {}
+    for line in path.read_text().splitlines():
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        value = value.strip()
+        if value.isdigit():
+            counts[key.strip().lower()] = int(value)
+    total = counts.get("total", 0)
+    if not total:
+        return None
+    not_covered = counts.get("not covered", 0)
+    covered = total - not_covered
+    killed = counts.get("killed by test framework", 0) + counts.get("killed by static analysis", 0)
+    return {
+        "total": total,
+        "not_covered": not_covered,
+        "covered": covered,
+        "killed": killed,
+        "escaped": counts.get("escaped", 0),
+        "timed_out": counts.get("timed out", 0),
+        "errored": counts.get("errored", 0),
+        "msi": round(killed / total * 100.0, 2),
+        "covered_msi": round(killed / covered * 100.0, 2) if covered else 0.0,
+        "source": path.name,
+    }
+
+
+def resolve(zone: str) -> tuple[dict | None, Path, str]:
+    """Return (measurement, evidence path, note).
+
+    The strictest available measurement wins, so a weaker capture can never lower a
+    floor that a previous campaign recorded.
+    """
+    evidence = EVIDENCE_DIR / f"infection-summary-{zone}.json"
+    build = REPO / "build" / f"infection-summary-{zone}.json"
+    committed = parse_summary(evidence)
+    campaign = parse_summary(build)
+
+    if committed and campaign:
+        if campaign["msi"] > committed["msi"] + 1e-9:
+            note = (
+                f"campaign re-measurement is stricter ({campaign['msi']:.2f} vs committed "
+                f"{committed['msi']:.2f}); committed evidence retained until refreshed"
+            )
+            return committed, evidence, note
+        if committed["msi"] > campaign["msi"] + 1e-9:
+            note = (
+                f"re-measurement measured {campaign['msi']:.2f}, weaker than the committed "
+                f"{committed['msi']:.2f}; the stricter committed evidence is kept"
+            )
+            return committed, evidence, note
+        return committed, evidence, ""
+    if committed:
+        return committed, evidence, ""
+    if campaign:
+        return campaign, evidence, ""
+    return None, evidence, ""
+
+
+def row_for(zone: str, measurement: dict | None, note: str) -> list[str]:
+    if not measurement:
         return [
             zone,
             "-",
             "-",
             "-",
             "UNKNOWN",
-            "build/zone-campaign-results.json (not yet measured)",
+            "docs/mutation/evidence/ (no summary yet)",
             "no per-zone measurement yet in this campaign; see docs/mutation/README.md",
         ]
-    msi = float(r["msi"])
+    msi = float(measurement["msi"])
     status = "OK" if msi + 1e-9 >= FLOOR else "DEBT"
     reason = "" if status == "OK" else f"measured MSI {msi:.2f} below the {FLOOR:.0f} target"
+    if note:
+        reason = f"{reason}; {note}" if reason else note
     # The evidence must live IN the repository: build/ is git-ignored, so a path
-    # into it would point at a file no reviewer can open. The summary is copied
-    # into docs/mutation/evidence/ below.
-    evidence = f"docs/mutation/evidence/infection-summary-{zone}.json"
+    # into it would point at a file no reviewer can open.
     return [
         zone,
         f"{msi:.2f}",
-        f"{float(r['covered_msi']):.2f}",
-        str(r["total"]),
+        f"{float(measurement['covered_msi']):.2f}",
+        str(measurement["total"]),
         status,
-        evidence,
+        f"docs/mutation/evidence/infection-summary-{zone}.json",
         reason,
     ]
 
@@ -83,17 +167,26 @@ def main() -> int:
     args = ap.parse_args()
 
     zones = canonical_zones()
-    results = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
-    rows = [row_for(z, results.get(z)) for z in zones]
-
-    # Commit the evidence alongside the numbers: build/ is ignored, docs/ is not.
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
-    copied = 0
+
+    rows: list[list[str]] = []
+    published = 0
+    notes = 0
     for zone in zones:
-        src = REPO / "build" / f"infection-summary-{zone}.json"
-        if src.exists() and src.stat().st_size > 0:
-            (EVIDENCE_DIR / src.name).write_text(src.read_text())
-            copied += 1
+        measurement, evidence, note = resolve(zone)
+        # Publish the strictest capture as the committed evidence for this zone:
+        # copy the campaign summary only when it is not weaker than what is there.
+        build = REPO / "build" / f"infection-summary-{zone}.json"
+        if measurement and build.exists() and build.stat().st_size > 0:
+            campaign = parse_summary(build)
+            committed = parse_summary(evidence)
+            if campaign and (not committed or campaign["msi"] >= committed["msi"] - 1e-9):
+                if not evidence.exists() or evidence.read_text() != build.read_text():
+                    evidence.write_text(build.read_text())
+                    published += 1
+        if note:
+            notes += 1
+        rows.append(row_for(zone, measurement, note))
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     hdr = "# zone|msi|covered_msi|total|status|evidence|reason  (generated by build/gen_zone_tables.py)"
@@ -103,7 +196,10 @@ def main() -> int:
     measured = sum(1 for r in rows if r[4] != "UNKNOWN")
     ok = sum(1 for r in rows if r[4] == "OK")
     print(f"zones.tsv + baseline.tsv written: {len(rows)} zones, {measured} measured, {ok} at/above {FLOOR:.0f}%")
-    print(f"evidence summaries copied into docs/mutation/evidence/: {copied}")
+    print(f"evidence summaries published into docs/mutation/evidence/: {published}")
+    if notes:
+        print(f"rows carrying a measurement-disagreement note: {notes}")
+    print("row numbers are derived from the cited evidence file (single source of truth)")
 
     if args.report:
         md = [
@@ -111,9 +207,14 @@ def main() -> int:
             "|---|---:|---:|---:|---|---|",
         ]
         for r in rows:
-            md.append(f"| `{r[0]}` | {r[1]} | {r[2]} | {r[3]} | {r[4]} | `build/infection-summary-{r[0]}.json` |")
+            md.append(f"| `{r[0]}` | {r[1]} | {r[2]} | {r[3]} | {r[4]} | `{r[5]}` |")
         Path(args.report).write_text("\n".join(md) + "\n")
-        print(f"markdown table written to {args.report}")
+
+    # Propagate a contract violation instead of shipping a silently wrong table.
+    for r in rows:
+        if r[4] != "UNKNOWN" and r[5] != f"docs/mutation/evidence/infection-summary-{r[0]}.json":
+            print(f"CONSISTENCY_VIOLATION: {r[0]} cites {r[5]}", file=sys.stderr)
+            return 1
 
     return 0
 

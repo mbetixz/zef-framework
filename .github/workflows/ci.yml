@@ -9,8 +9,10 @@ on:
     - cron: "0 0 * * 0"
   workflow_dispatch:
 
-# Cancel superseded runs for the same ref instead of queueing ~30 minutes
-# of Infection compute behind them (restored from main's policy).
+# Cancel superseded runs for the same ref instead of queueing work behind them.
+# Since the Infection suite moved to mutation.yml this job is fast; the policy is
+# kept because the cheap per-zone ratchet still fails a pull request within
+# minutes of the push, and superseding a stale run keeps that signal current.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -42,9 +44,10 @@ jobs:
     # required status check open forever. Without this bound, a hung run is
     # indistinguishable from a slow one from the outside (the run's updated_at
     # freezes at job start), and the required context can stay pending
-    # indefinitely. Budget: the full local profile is ~45-60 min (Infection
-    # dominates); 90 min gives headroom without allowing an unbounded hang.
-    timeout-minutes: 90
+    # indefinitely. Budget: with the Infection suite relocated to mutation.yml
+    # this job is a few minutes (lint, static analysis, coverage, zone ratchet);
+    # 45 min is generous headroom without allowing an unbounded hang.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -125,6 +128,16 @@ jobs:
       - name: PHPStan (level max + strict-rules + frozen baseline)
         run: vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --memory-limit=1G --no-progress
 
+      - name: PHPStan baseline ratchet (no-new-debt)
+        # The step above reports 0 errors because phpstan-baseline.neon suppresses
+        # every finding it lists — the static-analysis debt is invisible to CI and
+        # there was nothing stopping `--generate-baseline` from absorbing new errors.
+        # This gate freezes the suppressed count in phpstan-baseline.limit and fails
+        # when it grows; a cleanup PR that removes entries is reported as a ratchet
+        # opportunity instead of being blocked.
+        # See docs/quality/phpstan-baseline-ratchet.md.
+        run: composer stan:ratchet
+
       - name: Architecture rules (deptrac)
         run: vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress
 
@@ -153,21 +166,17 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-      - name: Mutation testing (Infection)
-        # OD-50 (documented decision): the repo target gate is --min-msi=70 /
-        # --min-covered-msi=80, originally bridged at 68/73. The Edge-Case
-        # Matrix campaign closed it out: phases 6-9 (v2.14.8-v2.14.9, Domain
-        # core + Infrastructure + c3 Observability) raised the script gate to
-        # 77/82, and phase 10 (v2.15.0) brought src/Middleware into scope and
-        # raised the gate to 85/90 — verified by a full Infection run over
-        # 9,032 mutants (MSI 90.4 / Covered MSI 93.1). The v2.16.0 ZEF Maker
-        # Console namespace (387/387 mutants killed) composes to 9,419 total
-        # mutants at MSI 90.77 / Covered MSI 93.38. Campaign records per
-        # docs/CHANGELOG-v2.14.9.md, v2.15.0.md and v2.16.0.md.
-        run: composer mutation:ci
-
       - name: Zone mutation ratchet
-        # The enforced mutation gate above is AGGREGATE (--min-msi=85 /
+        # Kept on the push/PR path ON PURPOSE. The aggregate Infection suite this
+        # ratchet complements moved to mutation.yml (release tags and dispatch) —
+        # see docs/GOVERNANCE.md 2.5 — because its verdict is a property of the
+        # committed tree, not of the change under review, and it held the
+        # required check open for ~55 minutes per push. This ratchet is what
+        # still fails a pull request minutes after the push when a zone
+        # regressed, instead of deferring that discovery to release time. It
+        # re-runs no suite, so the cost it adds to a PR is a table read.
+        #
+        # The enforced aggregate gate it complements is AGGREGATE (--min-msi=85 /
         # --min-covered-msi=90 over ~9.4k mutants). It cannot see a single area:
         # one zone may regress from 94% to 60% and the aggregate absorbs it, so
         # the owner target of "MSI >= 95% per area/module" had no gate at all.

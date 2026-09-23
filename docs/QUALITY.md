@@ -61,8 +61,13 @@ dieksekusi test, melainkan seberapa banyak **mutan** yang benar-benar terbunuh.
 
 ```bash
 composer mutation                          # gate skrip: --min-msi=85 --min-covered-msi=90
-composer mutation:ci                       # + --logger-github (anotasi inline di PR)
+composer mutation:ci                       # versi CI (+ --logger-github) — dijalankan mutation.yml
 ```
+
+Penempatan gate: suite agregat `mutation:ci` kini dijalankan oleh `mutation.yml`
+(tag rilis + `workflow_dispatch`) dan **dituntut** oleh `release.yml` sebelum
+rilis dipublikasikan; ratchet per-zona `mutation:zones` tetap berjalan di
+`ci.yml` pada setiap push/PR. Lihat `docs/GOVERNANCE.md` 2.1 dan 2.5.
 
 Konfigurasi kanonik: `infection.json5` (`source.directories` = `src/Domain`,
 `src/Application`, `src/Infrastructure`, `src/Adapters`, `src/Middleware`;
@@ -209,7 +214,7 @@ job `Build API documentation`.
 - [ ] `composer lint` bersih
 - [ ] `composer test` hijau (tanpa penurunan jumlah test)
 - [ ] `composer coverage:gate` lulus (≥ 90% statement)
-- [ ] `composer mutation` lulus dan **setiap zona yang disentuh** punya MSI baru ≥ 95%
+- [ ] `composer mutation` lulus **secara lokal** (suite agregat kini dijalankan saat rilis oleh `mutation.yml`) dan **setiap zona yang disentuh** punya MSI baru ≥ 95%
 - [ ] `composer stan` 0 error di luar baseline
 - [ ] `composer deptrac` 0 pelanggaran, 0 uncovered
 - [ ] `composer format:check`, `composer phpcs`, `composer rector:check` bersih
