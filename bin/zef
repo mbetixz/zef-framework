@@ -122,6 +122,10 @@ if ($command === 'config:show') {
     }
 }
 
+if ($command === 'tinker') {
+    exit(zef_tinker($args));
+}
+
 if ($command === 'list' || ($command !== null && str_starts_with((string) $command, 'make:'))) {
     exit($maker->run($args));
 }

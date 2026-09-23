@@ -1,4 +1,4 @@
-# ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.13.0 Hardening Release)
+# ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.17.0)
 
 Framework PHP 8.4 berarsitektur **Hexagonal (Ports & Adapters)** hasil pemecahan monolith
 `zef_framework_v2.7.0.php` (12.639 baris, 1 file) menjadi struktur PSR-4 multi-file per layer.
@@ -54,6 +54,10 @@ mengubah perilaku lama.
 > ✅ Terverifikasi: **501/501** assertion self-test · **1498 test PHPUnit native (16861 assertion)** ·
 > PHPStan **level max** + strict-rules · Deptrac 0 violations `--fail-on-uncovered` ·
 > phpcs+Slevomat 0 violations · coverage statement **94.49%** (gate CI 90%) · mutation gate **85/90** terjaga (MSI global 90.77% / covered 93.38% pada 9.419 mutan) · 417 file lolos `php -l`.
+> 📚 **Dokumentasi resmi (v2.17.0):** <https://mbetixz.github.io/zef-framework/> — 10 halaman panduan
+> (instalasi, CLI, arsitektur, kualitas/mutasi, deployment) di samping API reference Doctum.
+> Ringkasan rilisan terbaru: [`docs/CHANGELOG-v2.17.0.md`](docs/CHANGELOG-v2.17.0.md).
+>
 > Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md) · [`docs/CHANGELOG-v2.14.8.md`](docs/CHANGELOG-v2.14.8.md) · [`docs/CHANGELOG-v2.14.9.md`](docs/CHANGELOG-v2.14.9.md) · [`docs/CHANGELOG-v2.15.0.md`](docs/CHANGELOG-v2.15.0.md) · [`docs/CHANGELOG-v2.16.0.md`](docs/CHANGELOG-v2.16.0.md).
 
 ---
@@ -158,6 +162,35 @@ $cache = new \Zef\Framework\Cache\InMemoryCache(
     new \Zef\Framework\Cache\InMemoryCacheStore(),
     new \Zef\Framework\Cache\SystemCacheClock(),
 );
+```
+
+## Dokumentasi
+
+Dokumentasi resmi diterbitkan otomatis ke GitHub Pages oleh
+`.github/workflows/pages.yml` (setiap push ke `main`) dan dapat dibaca sebagai
+situs di **<https://mbetixz.github.io/zef-framework/>** atau langsung dari Markdown
+di repositori:
+
+| Dokumen | Isi |
+|---------|-----|
+| [`docs/README.md`](docs/README.md) | indeks dokumentasi |
+| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | persyaratan, Composer & zero-composer, RoadRunner, Docker/K8s, variabel lingkungan |
+| [`docs/CLI.md`](docs/CLI.md) | referensi lengkap `bin/zef` (`--self-test`, `--serve`, inspector, 10 generator, `tinker`) |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | pemecahan monolith, layer hexagonal, aturan arah dependensi |
+| [`docs/QUALITY.md`](docs/QUALITY.md) | tujuh gerbang kualitas, **mutation testing (MSI per area)**, triage mutan ekuivalen |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | RoadRunner persistent worker, state lintas-request, observabilitas, keamanan runtime |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | rencana & status fitur |
+| [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) | kurikulum uji edge-case per fase kampanye mutasi |
+| [`docs/security/php-sast.md`](docs/security/php-sast.md) | panduan SAST PHP |
+
+Situs dokumentasi dirakit oleh `scripts/build_docs.php` (Markdown → HTML statis,
+`parsedown/parsedown` mode aman sebagai dependensi transitif Doctum); API reference
+Doctum di-*merge* ke `build/docs/api` sehingga dokumentasi resmi dan API dapat
+diakses dari satu akar.
+
+```bash
+composer docs                  # API reference -> build/api
+php scripts/build_docs.php     # situs dokumentasi -> build/docs
 ```
 
 ## Struktur Direktori

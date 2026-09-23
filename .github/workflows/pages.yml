@@ -40,13 +40,24 @@ jobs:
       - name: Generate API documentation (Doctum)
         run: composer docs
 
+      # Official documentation: curated Markdown under docs/ plus the root
+      # README, rendered to static HTML by scripts/build_docs.php. The Doctum
+      # API reference is merged under build/docs/api so both surfaces are
+      # served from one Pages root (previously Pages served build/api alone).
+      - name: Build official documentation site
+        run: |
+          set -euo pipefail
+          php scripts/build_docs.php
+          mkdir -p build/docs/api
+          cp -R build/api/. build/docs/api/
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
-          path: build/api
+          path: build/docs
 
   deploy:
     name: Deploy API documentation
