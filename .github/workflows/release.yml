@@ -48,12 +48,38 @@ jobs:
           set -euo pipefail
           sha="$(git rev-list -n 1 "$GITHUB_REF")"
 
+          # A tag may legitimately be pushed while the commit's
+          # pull_request runs are still queued or in progress. Judging a
+          # non-terminal run as a failure made a valid release fail
+          # spuriously (run 35810165581: ci.yml was still in_progress, so
+          # the conclusion came back empty and the gate aborted). Wait for
+          # each required workflow to reach a terminal state — bounded, so
+          # a permanently stuck run still fails closed instead of hanging
+          # until the job timeout — and only then evaluate its conclusion.
+          deadline=$((SECONDS + 2700))
           for workflow in "ci.yml" "secret-scan.yml" "phpbench.yml"; do
-            conclusion="$(gh run list --repo "${{ github.repository }}" --workflow "$workflow" --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion // ""' 2>/dev/null || true)"
+            status=""
+            conclusion=""
+            while :; do
+              line="$(gh run list --repo "${{ github.repository }}" --workflow "$workflow" --commit "$sha" --limit 1 --json status,conclusion --jq '.[0] // {} | "\(.status // "none") \(.conclusion // "none")"' 2>/dev/null || true)"
+              status="${line%% *}"
+              conclusion="${line##* }"
+              if [ "$status" != "completed" ]; then
+                if [ "$SECONDS" -ge "$deadline" ]; then
+                  echo "$workflow did not reach a terminal state for $sha: ${status:-unknown}"
+                  exit 1
+                fi
+                echo "$workflow is ${status:-unknown} for $sha - waiting"
+                sleep 30
+                continue
+              fi
+              break
+            done
             if [ "$conclusion" != "success" ]; then
               echo "$workflow has not passed for $sha: $conclusion"
               exit 1
             fi
+            echo "$workflow passed for $sha"
           done
 
       - name: Setup PHP
