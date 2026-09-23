@@ -5,3 +5,18 @@
 /infection.log
 composer.phar
 /.deptrac.cache
+
+# RoadRunner worker binary.
+# `bin/rr` is a downloaded release asset (~62 MB), not source. It was sitting
+# untracked in the working tree with no ignore rule, so an unguarded
+# `git add -A` would have committed a 62 MB binary into the repository.
+/bin/rr
+
+# Ad-hoc per-zone Infection configs.
+# The canonical config is /infection.json5. The committed
+# infection-chunk-*.json5 and infection-fullrun.json5 files are historical
+# campaign records (mapped in docs/QUALITY.md). Generated per-zone configs
+# (e.g. `infection-zone-<name>.json5`, written by the mutation-campaign
+# tooling at the repository root because Infection resolves relative source
+# paths against the CONFIG FILE's directory) must never be committed.
+/infection-zone-*.json5

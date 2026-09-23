@@ -87,6 +87,11 @@ final class CommandGenerator implements GeneratorInterface
                     #[\\Override]
                     public function __invoke(object \$command, CqrsContext \$context): mixed
                     {
+                        // The scaffold intentionally stops here: the handler is a
+                        // compile-checked placeholder, not a finished use case.
+                        // This TODO is a PLANNED extension point, not unpaid debt —
+                        // it is surfaced by `bin/zef make:command` in generated
+                        // projects and is not a marker of unfinished work here.
                         // TODO: perform the side-effect and return a result (or null).
                         return null;
                     }

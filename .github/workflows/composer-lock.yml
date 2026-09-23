@@ -13,6 +13,9 @@ on:
 # only appears in explicit manual dispatch runs, where a skip truthfully
 # means "lockfile already synchronized".
 
+# IMPORTANT: manual-only is intentional; see the header of auto-fix.yml for
+# the full rationale (a trigger would reintroduce a permanently-skipped job).
+
 # Baseline: no workflow-level write authority. Only the commit job may write.
 permissions:
   contents: read
@@ -27,6 +30,7 @@ jobs:
   resolve:
     name: Resolve composer.lock (read-only)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -85,6 +89,7 @@ jobs:
     needs: resolve
     if: needs.resolve.outputs.needed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 

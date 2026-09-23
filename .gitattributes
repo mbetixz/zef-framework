@@ -1,0 +1,26 @@
+# Normalise line endings for the whole repository.
+* text=auto eol=lf
+
+# PHP and documentation are text.
+*.php   text eol=lf
+*.md    text eol=lf
+*.json5 text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Binary assets: never attempt newline conversion or text diffing.
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.phar  binary
+
+# The RoadRunner worker binary is a downloaded release asset, not source. It is
+# already excluded from git via .gitignore; `binary` also stops git from
+# treating it as text if it is ever staged, and `export-ignore` keeps it out of
+# release archives.
+/bin/rr binary export-ignore
+
+# Keep contribution/governance metadata out of published source archives.
+/.github/       export-ignore
+/.gitattributes export-ignore
+/.gitignore     export-ignore
