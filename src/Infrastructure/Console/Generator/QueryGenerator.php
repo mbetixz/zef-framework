@@ -87,6 +87,11 @@ final class QueryGenerator implements GeneratorInterface
                     #[\\Override]
                     public function __invoke(object \$query, CqrsContext \$context): mixed
                     {
+                        // The scaffold intentionally stops here: the handler is a
+                        // compile-checked placeholder, not a finished use case.
+                        // This TODO is a PLANNED extension point, not unpaid debt —
+                        // it is surfaced by `bin/zef make:query` in generated
+                        // projects and is not a marker of unfinished work here.
                         // TODO: read from a repository/port and return the projection.
                         return null;
                     }

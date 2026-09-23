@@ -1,5 +1,21 @@
 # ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.17.0)
 
+[![CodeQL](https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql)
+[![API Documentation Check](https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml)
+[![Auto Fix Code Style](https://github.com/mbetixz/zef-framework/actions/workflows/auto-fix.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/auto-fix.yml)
+[![ci](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml)
+[![Composer Lock Bootstrap](https://github.com/mbetixz/zef-framework/actions/workflows/composer-lock.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/composer-lock.yml)
+[![Dependency Review](https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml)
+[![Documentation & GitHub Pages](https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml)
+[![GitHub Advanced Security](https://github.com/mbetixz/zef-framework/actions/workflows/agents/github-advanced-security/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/agents/github-advanced-security)
+[![PHP SAST](https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml)
+[![PHPBench Performance](https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml)
+[![Release](https://github.com/mbetixz/zef-framework/actions/workflows/release.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/release.yml)
+[![Release Drafter](https://github.com/mbetixz/zef-framework/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/release-drafter.yml)
+[![SBOM](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml)
+[![Secret Scan](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml)
+[![Zone mutation ratchet](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml)
+
 Framework PHP 8.4 berarsitektur **Hexagonal (Ports & Adapters)** hasil pemecahan monolith
 `zef_framework_v2.7.0.php` (12.639 baris, 1 file) menjadi struktur PSR-4 multi-file per layer.
 Rilis lanjutan **v2.8.0** (25+ kelas fitur), **v2.9.0** (Advanced Autowiring Engine),
