@@ -127,9 +127,9 @@ final class ImmutabilityFreezeTest extends TestCase
     {
         $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
-            63,
+            77,
             $current,
-            sprintf('Jumlah kelas `readonly` menurun (%d < 63) — regresi kebijakan immutability.', $current),
+            sprintf('Jumlah kelas `readonly` menurun (%d < 77) — regresi kebijakan immutability.', $current),
         );
     }
 
