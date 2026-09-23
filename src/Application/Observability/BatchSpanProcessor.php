@@ -11,7 +11,8 @@ declare(strict_types=1);
 namespace Zef\Framework\Observability;
 
 use Zef\Framework\Foundation\Env;
-use Zef\Framework\Runtime\BlockingSleeper;
+use Zef\Framework\Runtime\SleeperInterface;
+use Zef\Framework\Runtime\SystemSleeper;
 
 final class BatchSpanProcessor
 {
@@ -25,6 +26,7 @@ final class BatchSpanProcessor
         private readonly SpanExporterInterface $exporter,
         private readonly int $maxQueueSize = 2048,
         private readonly int $batchSize = 256,
+        private readonly SleeperInterface $sleeper = new SystemSleeper(),
     ) {
         if ($maxQueueSize < 1) {
             throw new \InvalidArgumentException('maxQueueSize must be >= 1.');
@@ -64,7 +66,7 @@ final class BatchSpanProcessor
                     }
                     $sleep = $policy->delayMs($retryIndex);
                     if ($sleep > 0) {
-                        BlockingSleeper::sleepMilliseconds($sleep);
+                        $this->sleeper->sleepMilliseconds($sleep);
                     }
                     ++$retryIndex;
                 }

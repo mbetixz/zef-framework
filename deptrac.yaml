@@ -9,24 +9,28 @@
 #
 # Exception layers (deliberate, documented deviations):
 #   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
-#   - EnvConfig:     Zef\Framework\Foundation\Env — kernel env reader; the
-#                    framework's own components read their configuration
-#                    directly through it (24 call sites). Replacing this with
-#                    an EnvInterface port is tracked as future work.
 #   - RouteDefSpec:  Zef\Framework\Router\RouteDefinition — route spec value
 #                    object consumed by the Domain config aggregator.
 #   - TrustedProxy:  Zef\Framework\Http\TrustedProxyMatcher — consumed by
 #                    the Application-layer client address resolver.
 #   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
 #                    default exporter wired by the Telemetry facade.
-#   - KernelSleeper: Zef\Framework\Runtime\BlockingSleeper — in-process
-#                    sleep primitive for the batch span processor and job
-#                    worker.
 #   - OriginPolicySpec: Zef\Framework\Security\OriginPolicy — consumed by
 #                    the Domain security policy aggregator.
 #   - ContainerImpl: Zef\Framework\Container\Container — the provider
 #                    contracts (ServiceProviderInterface & friends) expose
 #                    the concrete container in their signatures.
+#
+# Retired carve-outs (issue #36 exit ramp — history, kept honest):
+#   - EnvConfig:     Zef\Framework\Foundation\Env — moved unchanged to
+#                    src/Domain/Foundation (pure typed getenv() wrapper); all
+#                    38 static call sites now resolve to a Domain class. A
+#                    future instance-based EnvInterface port for
+#                    composition-root injection stays open on issue #36.
+#   - KernelSleeper: Zef\Framework\Runtime\BlockingSleeper — replaced by the
+#                    SleeperInterface port + SystemSleeper default in
+#                    src/Domain/Runtime; BlockingSleeper itself stays in
+#                    Adapters as the untouched static public API.
 deptrac:
     paths:
         - ./src
@@ -44,11 +48,11 @@ deptrac:
         -   name: Infrastructure
             collectors:
                 -   type: directory
-                    value: src/Infrastructure/(?!Foundation/Env\.php|Observability/OtlpHttpJsonExporter\.php).*
+                    value: src/Infrastructure/(?!Observability/OtlpHttpJsonExporter\.php).*
         -   name: Adapters
             collectors:
                 -   type: directory
-                    value: src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php|Runtime/BlockingSleeper\.php).*
+                    value: src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php).*
         -   name: Compat
             collectors:
                 -   type: directory
@@ -67,10 +71,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: plugins/.*
-        -   name: EnvConfig
-            collectors:
-                -   type: directory
-                    value: src/Infrastructure/Foundation/Env\.php
         -   name: RouteDefSpec
             collectors:
                 -   type: directory
@@ -83,10 +83,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: src/Infrastructure/Observability/OtlpHttpJsonExporter\.php
-        -   name: KernelSleeper
-            collectors:
-                -   type: directory
-                    value: src/Adapters/Runtime/BlockingSleeper\.php
         -   name: OriginPolicySpec
             collectors:
                 -   type: directory
@@ -98,14 +94,11 @@ deptrac:
     ruleset:
         Domain:
             - Compat
-            - EnvConfig
             - RouteDefSpec
             - TrustedProxy
             - OriginPolicySpec
             - ContainerImpl
         Compat: []
-        EnvConfig:
-            - Compat
         RouteDefSpec:
             - Domain
             - Compat
@@ -116,16 +109,10 @@ deptrac:
             - Domain
             - Application
             - Infrastructure
-            - EnvConfig
-            - Compat
-        KernelSleeper:
-            - Adapters
-            - EnvConfig
             - Compat
         OriginPolicySpec:
             - Domain
             - Adapters
-            - EnvConfig
             - Compat
         ContainerImpl:
             - Domain
@@ -134,22 +121,18 @@ deptrac:
         Application:
             - Domain
             - Compat
-            - EnvConfig
             - TrustedProxy
             - OtlpExporter
-            - KernelSleeper
             - ContainerImpl
         Infrastructure:
             - Domain
             - Application
             - Compat
-            - EnvConfig
         Adapters:
             - Domain
             - Application
             - Infrastructure
             - Compat
-            - EnvConfig
             - ContainerImpl
             - TrustedProxy
             - OriginPolicySpec
@@ -159,7 +142,6 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - EnvConfig
             - ContainerImpl
             - OriginPolicySpec
             - Module
@@ -170,7 +152,6 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - EnvConfig
             - ContainerImpl
         Plugin:
             - Domain
@@ -178,5 +159,4 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - EnvConfig
             - ContainerImpl
