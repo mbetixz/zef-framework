@@ -34,12 +34,12 @@ use Zef\Framework\Database\SqlQuery;
  * `createSchema()` issues portable DDL (TEXT columns, no driver-specific
  * index syntax); production tuning belongs in user migrations.
  */
-final class PdoEventStore implements EventStoreInterface
+final readonly class PdoEventStore implements EventStoreInterface
 {
-    private readonly string $table;
+    private string $table;
 
     /** @var (\Closure(): int) */
-    private readonly \Closure $clock;
+    private \Closure $clock;
 
     /**
      * @param ConnectionInterface    $connection database port (shared connection enables atomic persist)
@@ -47,7 +47,7 @@ final class PdoEventStore implements EventStoreInterface
      * @param null|(\Closure(): int) $clock      recordedAt source (default: realtime nanoseconds)
      */
     public function __construct(
-        private readonly ConnectionInterface $connection,
+        private ConnectionInterface $connection,
         string $table = 'zef_events',
         ?\Closure $clock = null,
     ) {

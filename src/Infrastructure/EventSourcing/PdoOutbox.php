@@ -26,13 +26,13 @@ use Zef\Framework\Database\SqlQuery;
  *   joins an open transaction, so repository.persist commits events and
  * outbox entries atomically over one connection.
  */
-final class PdoOutbox implements OutboxStoreInterface
+final readonly class PdoOutbox implements OutboxStoreInterface
 {
     private const array COLUMNS = ['id', 'message_type', 'payload', 'metadata', 'attempts', 'status', 'next_attempt_at', 'last_error', 'created_at'];
-    private readonly string $table;
+    private string $table;
 
     /** @var (\Closure(): int) */
-    private readonly \Closure $clock;
+    private \Closure $clock;
 
     /**
      * @param ConnectionInterface    $connection database port (shared connection enables atomic persist)
@@ -40,7 +40,7 @@ final class PdoOutbox implements OutboxStoreInterface
      * @param null|(\Closure(): int) $clock      createdAt/now source (default: realtime nanoseconds)
      */
     public function __construct(
-        private readonly ConnectionInterface $connection,
+        private ConnectionInterface $connection,
         string $table = 'zef_outbox',
         ?\Closure $clock = null,
     ) {

@@ -26,7 +26,7 @@ use Zef\Framework\Database\ConnectionInterface;
  * a transaction, enqueue + append commit atomically — the essence of the
  * transactional outbox pattern.
  */
-final class OutboxRecorder
+final readonly class OutboxRecorder
 {
     /**
      * @param OutboxStoreInterface      $outbox     outbox port
@@ -35,8 +35,8 @@ final class OutboxRecorder
      *                                              instead of opening its own
      */
     public function __construct(
-        private readonly OutboxStoreInterface $outbox,
-        private readonly ?ConnectionInterface $connection = null,
+        private OutboxStoreInterface $outbox,
+        private ?ConnectionInterface $connection = null,
     ) {}
 
     /**

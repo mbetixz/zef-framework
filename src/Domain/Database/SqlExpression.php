@@ -17,10 +17,10 @@ namespace Zef\Framework\Database;
  * the ONLY way to smuggle raw SQL into QueryBuilder, so call sites stay
  * greppable and code review sees every raw fragment.
  */
-final class SqlExpression implements \Stringable
+final readonly class SqlExpression implements \Stringable
 {
     public function __construct(
-        public readonly string $expression,
+        public string $expression,
     ) {
         if (trim($expression) === '') {
             throw new QueryException('SqlExpression must not be empty.');

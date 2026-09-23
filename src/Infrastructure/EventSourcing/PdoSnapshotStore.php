@@ -21,12 +21,12 @@ use Zef\Framework\Database\SqlQuery;
  * transaction) — no driver-specific ON CONFLICT syntax. Like the event
  * store it joins an ambient transaction when one is open.
  */
-final class PdoSnapshotStore implements SnapshotStoreInterface
+final readonly class PdoSnapshotStore implements SnapshotStoreInterface
 {
-    private readonly string $table;
+    private string $table;
 
     public function __construct(
-        private readonly ConnectionInterface $connection,
+        private ConnectionInterface $connection,
         string $table = 'zef_snapshots',
     ) {
         new QueryBuilder()->quoteIdentifier($table, 'table');

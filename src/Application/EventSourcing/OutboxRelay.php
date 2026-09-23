@@ -24,14 +24,14 @@ use Zef\Framework\Event\EventBusInterface;
  * Delivery is at-least-once: a listener crash after side effects but before
  * the commit replays the entry — consumers must be idempotent.
  */
-final class OutboxRelay
+final readonly class OutboxRelay
 {
     public const int DEFAULT_MAX_ATTEMPTS = 5;
     public const int DEFAULT_BACKOFF_BASE_MS = 1_000;
     public const int DEFAULT_BACKOFF_CAP_MS = 60_000;
 
     /** @var (\Closure(): int) */
-    private readonly \Closure $clock;
+    private \Closure $clock;
 
     /**
      * @param OutboxStoreInterface  $outbox        outbox port
@@ -42,12 +42,12 @@ final class OutboxRelay
      * @param int                   $backoffCapMs  >= backoffBaseMs — retry delay ceiling
      */
     public function __construct(
-        private readonly OutboxStoreInterface $outbox,
-        private readonly EventBusInterface $bus,
+        private OutboxStoreInterface $outbox,
+        private EventBusInterface $bus,
         ?\Closure $clock = null,
-        private readonly int $maxAttempts = self::DEFAULT_MAX_ATTEMPTS,
-        private readonly int $backoffBaseMs = self::DEFAULT_BACKOFF_BASE_MS,
-        private readonly int $backoffCapMs = self::DEFAULT_BACKOFF_CAP_MS,
+        private int $maxAttempts = self::DEFAULT_MAX_ATTEMPTS,
+        private int $backoffBaseMs = self::DEFAULT_BACKOFF_BASE_MS,
+        private int $backoffCapMs = self::DEFAULT_BACKOFF_CAP_MS,
     ) {
         if ($maxAttempts < 1) {
             throw new EventSourcingException("maxAttempts must be >= 1 (got {$maxAttempts}).");

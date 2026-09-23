@@ -17,12 +17,12 @@ namespace Zef\Framework\EventSourcing;
  *
  * Version 0 (empty aggregate) never snapshots.
  */
-final class SnapshotPolicy
+final readonly class SnapshotPolicy
 {
     public const int DEFAULT_INTERVAL = 100;
 
     private function __construct(
-        private readonly int $interval,
+        private int $interval,
     ) {}
 
     public static function every(int $interval): self
