@@ -190,7 +190,7 @@ final class DatabaseMigratorTest extends TestCase
 
         // Simulate a crashed runner: insert a stale lock row directly.
         $this->conn->execute(
-            QueryBuilder::table(Migrator::LOCK_TABLE)->insert(['id' => 1, 'locked_at' => $this->now - 100])->build(),
+            QueryBuilder::table(Migrator::LOCK_TABLE)->insert(['id' => 1, 'locked_at' => $this->now - 100, 'ttl' => 300.0])->build(),
         );
 
         $third = $this->migrator(300.0);
@@ -202,7 +202,10 @@ final class DatabaseMigratorTest extends TestCase
             self::assertSame('Migration lock is already held (age 100s, ttl 300s).', $e->getMessage());
         }
 
-        // After ttl the lock is stolen.
+        // After the ROW's declared ttl expires the lock is stolen — the
+        // row ttl (300s, set by the crashed holder) is authoritative,
+        // not the recovering runner's default (50s). Push past it.
+        $this->now += 200; // age 300s >= row ttl 300s
         $stale = $this->migrator(50.0);
         $stale->migrate();
         self::assertSame([], $this->conn->fetchAll(
@@ -213,7 +216,7 @@ final class DatabaseMigratorTest extends TestCase
     public function testLockReentrancyRejected(): void
     {
         $this->conn->execute(SqlQuery::raw(
-            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL, "ttl" REAL NOT NULL)',
         ));
 
         $m = $this->migrator();
@@ -275,6 +278,11 @@ final class DatabaseMigratorTest extends TestCase
             public function version(): string
             {
                 return $this->v;
+            }
+
+            public function getLockTtl(): ?float
+            {
+                return null;
             }
 
             public function name(): string

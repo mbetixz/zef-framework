@@ -125,6 +125,11 @@ final class DatabaseKillRound4Test extends TestCase
                 return $this->v;
             }
 
+            public function getLockTtl(): ?float
+            {
+                return null;
+            }
+
             public function name(): string
             {
                 return 'noop';
