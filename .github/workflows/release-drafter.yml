@@ -11,6 +11,7 @@ permissions:
 jobs:
   update-release-draft:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write # required: creates/updates the draft release
       pull-requests: read # required: reads merged PRs to build the changelog

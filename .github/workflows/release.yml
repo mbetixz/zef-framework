@@ -19,6 +19,7 @@ jobs:
   build:
     name: Build release artifact
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       id-token: write # required for keyless (OIDC) build-provenance attestation
@@ -135,6 +136,7 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
 

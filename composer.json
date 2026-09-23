@@ -73,6 +73,7 @@
         "deptrac": "deptrac analyse --config-file=deptrac.yaml --no-progress --fail-on-uncovered",
         "mutation": "infection --threads=max --min-msi=85 --min-covered-msi=90",
         "mutation:ci": "infection --threads=max --min-msi=85 --min-covered-msi=90 --logger-github",
+        "mutation:zones": "php scripts/ci/assert-zone-coverage.php --floor=95",
         "bench": "phpbench run --report=aggregate --progress=none",
         "lint": "@php scripts/lint.php",
         "serve": "@php -S 0.0.0.0:8080 public/index.php"

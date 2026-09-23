@@ -1,0 +1,60 @@
+name: Bug report
+about: Something in the framework behaves incorrectly
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please include enough detail to reproduce. For a security issue, do
+        **not** open a public issue — follow SECURITY.md instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Release tag, or the commit SHA you are running.
+      placeholder: v2.17.0 or 0680028f
+    validations:
+      required: true
+
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+      placeholder: "8.4.25"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the exception type and message verbatim when there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: |
+        A failing test case is the fastest route to a fix. If the issue only
+        appears under RoadRunner (long-lived worker), say so explicitly —
+        cross-request state behaves differently there than under PHP-FPM.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Runtime
+      description: RoadRunner vs PHP-FPM, worker mode, relevant env switches (names only — never paste values).
+    validations:
+      required: false
