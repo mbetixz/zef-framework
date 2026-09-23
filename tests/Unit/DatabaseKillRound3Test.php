@@ -91,7 +91,7 @@ final class DatabaseKillRound3Test extends TestCase
     {
         $conn = new PdoConnection(ConnectionConfig::fromArray(['driver' => 'sqlite', 'dbname' => ':memory:']));
         $conn->execute(SqlQuery::raw(
-            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL, "ttl" REAL NOT NULL)',
         ));
         $conn->execute(SqlQuery::raw('CREATE TABLE x (id INTEGER)'));
 
@@ -106,6 +106,11 @@ final class DatabaseKillRound3Test extends TestCase
             public function version(): string
             {
                 return '20260101000001';
+            }
+
+            public function getLockTtl(): ?float
+            {
+                return null;
             }
 
             public function name(): string
@@ -202,6 +207,11 @@ final class DatabaseKillRound3Test extends TestCase
             public function version(): string
             {
                 return $this->v;
+            }
+
+            public function getLockTtl(): ?float
+            {
+                return null;
             }
 
             public function name(): string

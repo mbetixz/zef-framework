@@ -51,6 +51,20 @@ interface ConnectionInterface
     /**
      * Begin a transaction. Calling it while already inside one opens a
      * SAVEPOINT (nesting); $isolation may only be requested at level 0.
+     *
+     * Isolation semantics (v2.18.0 audit clarification):
+     * - the isolation level is applied ONCE, via
+     *   `SET TRANSACTION ISOLATION LEVEL`, immediately before the
+     *   outermost BEGIN, and governs the ENTIRE transaction scope
+     *   (including every savepoint opened within it);
+     * - requesting an isolation level while nested (level > 0) throws
+     *   TransactionException — savepoints cannot change isolation on
+     *   most RDBMS, so the adapter refuses loudly rather than silently
+     *   ignoring the request;
+     * - SQLite rejects isolation levels outright (ConnectionException).
+     *
+     * @throws TransactionException when nested and $isolation requested
+     * @throws ConnectionException  on SQLite with $isolation requested
      */
     public function beginTransaction(?IsolationLevel $isolation = null): void;
 
@@ -75,6 +89,22 @@ interface ConnectionInterface
     /**
      * Run $fn inside a transaction, rolling back on any throwable.
      * Calls may nest — inner calls transparently become savepoints.
+     *
+     * Isolation semantics (v2.18.0 audit clarification — read this
+     * before relying on $isolation in nested calls):
+     * - $isolation is honoured ONLY when this call opens the OUTERMOST
+     *   transaction (transactionLevel() === 0 on entry);
+     * - in a NESTED call the $isolation argument is SILENTLY DROPPED:
+     *   the inner scope is a SAVEPOINT of the already-running outer
+     *   transaction, which keeps the isolation level chosen at the
+     *   outermost begin. Most RDBMS cannot change isolation mid-
+     *   transaction, so attempting it per-savepoint is impossible —
+     *   the framework chooses the predictable "ignore" behaviour here
+     *   (as opposed to beginTransaction(), which throws when nested).
+     *   Do NOT pass $isolation from library code that may run nested —
+     *   it will not do what the caller expects;
+     * - the effective level therefore comes from the OUTERMOST
+     *   transaction() / beginTransaction() call on the connection.
      *
      * @template T
      *

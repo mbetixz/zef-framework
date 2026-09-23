@@ -26,6 +26,7 @@ final class SqlQuery
     public function __construct(
         public readonly string $sql,
         public readonly array $params = [],
+        public readonly bool $unbounded = false,
     ) {
         if ($sql === '') {
             throw new QueryException('SQL statement must not be empty.');

@@ -57,8 +57,13 @@ sudah tersedia di PHP 8.4.
 - `plan()` tanpa efek, `migrate()`, `rollback(steps)` descending dengan
   guard jumlah langkah dan versi tidak-terdaftar.
 - Lock satu-baris `zef_migrations_lock` dengan TTL + clock injectable:
-  runner kedua ditolak dengan pesan `age Ns, ttl Ns`; lock stale
-  (age ≥ TTL) direbut. Lock dilepas di `finally` bahkan saat gagal.
+  runner kedua ditolak dengan pesan `age Ns, ttl Ns`; lock stale ditentukan
+  oleh **TTL yang tercatat di baris lock** (bukan TTL runner penyerang).
+  Sebelum setiap step, runner melakukan **heartbeat renewal** dengan TTL
+  efektif (override per-migrasi via `MigrationInterface::getLockTtl()`,
+  default `300.0`) sehingga step sah yang lambat (mis. `ALTER TABLE`
+  miliaran baris, rebuild index besar) tidak pernah direbut mid-flight.
+  Lock dilepas di `finally` bahkan saat gagal.
 - up() yang melempar → transaksi rollback, catatan tidak tertulis, lock
   tetap lepas (diverifikasi tes).
 
@@ -69,18 +74,43 @@ sudah tersedia di PHP 8.4.
   `update()/delete()` tanpa kriteria ditolak di level repository.
 - Sengaja BUKAN ORM: tanpa identity map/lazy relation/change tracking.
 
+## Hardening pasca-audit Guild (rekomendasi review v2.18.0)
+
+1. **Lock renewal + TTL per-migrasi** — `MigrationInterface::getLockTtl():
+   ?float` menaikkan headroom TTL untuk step berat; `Migrator` me-renew
+   baris lock (kolom `ttl` kini tersimpan di baris) sebelum setiap
+   up()/down(), dan keputusan pencurian lock membaca TTL dari baris.
+   Override ≤ 0 ditolak dengan `InvalidArgumentException`.
+2. **Auditability `allowUnbounded()`** — `SqlQuery::$unbounded` menandai
+   hanya UPDATE/DELETE tanpa WHERE yang dikonfirmasi; eksekusinya di
+   `PdoConnection` memancarkan counter `zef.db.unbounded_statement`
+   (`MeterInterface`) + record WARN dengan SQL penuh (`LogExporter-`
+   `Interface`) untuk jejak audit keamanan. Kedua port opsional
+   (default null) — tanpa observability, tanpa biaya.
+3. **Isolation pada nested transaction terdokumentasi tegas** —
+   `ConnectionInterface::transaction()`/`beginTransaction()` kini
+   menjelaskan: isolation hanya berlaku di transaksi terluar; nested
+   `transaction()` **membuang diam-diam** argumen isolation (savepoint
+   tidak bisa mengubah isolation di kebanyakan RDBMS), sementara nested
+   `beginTransaction(isolation)` melempar `TransactionException`.
+4. **DX `SqlExpression`** — ketika fragmen SQL mentah disalahkan sebagai
+   identifier (mengandung spasi/`(`/`,`/operator), `QueryBuilder` kini
+   menunjuk langsung jalur yang benar: `new SqlExpression(...)`,
+   `selectRaw(...)`, atau `SqlQuery::raw(...)` — menjaga raw SQL tetap
+   greppable tanpa mengunduh workaround tidak aman.
+
 ## Verifikasi
 
 | Pintu | Hasil |
 | --- | --- |
 | php -l | 425 file, 0 gagal |
 | `bin/zef --self-test` | 501/501 |
-| PHPUnit | **1647 tes / 17.255 asersi** (5 skip kondisional) |
+| PHPUnit | **1668 tes / 17.307 asersi** (5 skip kondisional) |
 | PHPStan level max + strict | 0 |
 | PHPCS (Slevomat) | 0 |
 | PHP-CS-Fixer / Rector | 0 / 0 |
 | Deptrac | 0 pelanggaran layer |
-| Infection zona Database (1000 mutan) | **MSI 90% / Covered 94%** |
+| Infection zona Database (1068 mutan) | **MSI 89.1% / Covered 93%** |
 | Coverage zona baru | 94%+ (SQLite in-memory nyata, bukan mock) |
 
 Kurikulum mutasi 4 ronde: ronde 1 baseline MSI 82%, ronde 2–4 menargetkan

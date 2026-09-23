@@ -116,7 +116,9 @@ final class DatabaseKillRound2Test extends TestCase
             QueryBuilder::table('t')->select('x y AS z');
             self::fail('multi-word path must be rejected');
         } catch (QueryException $e) {
-            self::assertSame("Invalid column 'x y AS z'.", $e->getMessage());
+            self::assertStringStartsWith("Invalid column 'x y AS z'.", $e->getMessage());
+            // v2.18.0 audit: raw-SQL-looking mistakes point at the escape hatch.
+            self::assertStringContainsString('SqlExpression', $e->getMessage());
         }
 
         // Trailing junk after the alias must NOT be silently accepted.
@@ -281,6 +283,11 @@ final class DatabaseKillRound2Test extends TestCase
                 return '20260101000001';
             }
 
+            public function getLockTtl(): ?float
+            {
+                return null;
+            }
+
             public function name(): string
             {
                 return 'probe';
@@ -325,6 +332,11 @@ final class DatabaseKillRound2Test extends TestCase
                 return $this->v;
             }
 
+            public function getLockTtl(): ?float
+            {
+                return null;
+            }
+
             public function name(): string
             {
                 return $this->t;
@@ -364,12 +376,12 @@ final class DatabaseKillRound2Test extends TestCase
     {
         $conn = $this->conn;
         $conn->execute(SqlQuery::raw(
-            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL, "ttl" REAL NOT NULL)',
         ));
         // age = 300 == ttl 300 → steal (not blocked).
         $conn->execute(
             QueryBuilder::table(Migrator::LOCK_TABLE)
-                ->insert(['id' => 1, 'locked_at' => 100 - 300])->build(),
+                ->insert(['id' => 1, 'locked_at' => 100 - 300, 'ttl' => 300.0])->build(),
         );
         $m = new Migrator($conn, static fn (): int => 100, 300.0);
         self::assertSame([], $m->migrate());
@@ -379,12 +391,12 @@ final class DatabaseKillRound2Test extends TestCase
     {
         $conn = $this->conn;
         $conn->execute(SqlQuery::raw(
-            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL)',
+            'CREATE TABLE IF NOT EXISTS "' . Migrator::LOCK_TABLE . '" ("id" INTEGER NOT NULL PRIMARY KEY, "locked_at" INTEGER NOT NULL, "ttl" REAL NOT NULL)',
         ));
         // age = 299 < ttl 300 → blocked.
         $conn->execute(
             QueryBuilder::table(Migrator::LOCK_TABLE)
-                ->insert(['id' => 1, 'locked_at' => 100 - 299])->build(),
+                ->insert(['id' => 1, 'locked_at' => 100 - 299, 'ttl' => 300.0])->build(),
         );
         $blocked = new Migrator($conn, static fn (): int => 100, 300.0);
 
@@ -432,6 +444,11 @@ final class DatabaseKillRound2Test extends TestCase
             public function version(): string
             {
                 return $this->v;
+            }
+
+            public function getLockTtl(): ?float
+            {
+                return null;
             }
 
             public function name(): string

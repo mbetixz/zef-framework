@@ -438,7 +438,18 @@ final class QueryBuilder
             );
         }
         if (preg_match(self::IDENT_RE, $identifier) !== 1) {
-            throw new QueryException("Invalid {$context} '{$identifier}'.");
+            $message = "Invalid {$context} '{$identifier}'.";
+            // DX (v2.18.0 audit): make the SqlExpression escape hatch obvious
+            // when a raw SQL fragment is mistakenly passed as an identifier —
+            // keeps raw SQL greppable instead of inviting unsafe workarounds.
+            if (preg_match('/[\s()*,<>=]/', $identifier) === 1) {
+                $message .= ' Identifiers must match [A-Za-z_][A-Za-z0-9_]{0,63}'
+                    . ' (optionally table.column or column AS alias); for raw SQL pass an'
+                    . ' explicit SqlExpression instead — e.g. new SqlExpression(...),'
+                    . ' selectRaw(...), or SqlQuery::raw(...).';
+            }
+
+            throw new QueryException($message);
         }
 
         return '"' . $identifier . '"';
@@ -682,7 +693,11 @@ final class QueryBuilder
         }
         $sql = 'UPDATE ' . $this->table . ' SET ' . implode(', ', $sets) . $this->renderWhereSuffix();
 
-        return new SqlQuery($sql, array_merge($params, $this->params));
+        return new SqlQuery(
+            $sql,
+            array_merge($params, $this->params),
+            $this->whereParts === [], // only reached when allowUnbounded() was set
+        );
     }
 
     private function buildDelete(): SqlQuery
@@ -697,7 +712,11 @@ final class QueryBuilder
         }
         $sql = 'DELETE FROM ' . $this->table . $this->renderWhereSuffix();
 
-        return new SqlQuery($sql, $this->params);
+        return new SqlQuery(
+            $sql,
+            $this->params,
+            $this->whereParts === [], // only reached when allowUnbounded() was set
+        );
     }
 
     private function renderWhereSuffix(): string
