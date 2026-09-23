@@ -99,6 +99,13 @@ final class ZefCliDispatchTest extends TestCase
         self::assertStringContainsString('Unknown command', $output);
     }
 
+    /**
+     * Run `bin/zef` as a real subprocess.
+     *
+     * @param array<string, string> $extraEnv
+     *
+     * @return array{0: int, 1: string}
+     */
     private function runCli(string $arguments, array $extraEnv = []): array
     {
         $bin = __DIR__ . '/../bin/zef';
@@ -106,12 +113,11 @@ final class ZefCliDispatchTest extends TestCase
         self::assertFileExists($bin);
 
         $prefix = '';
-        $suffix = '';
         foreach ($extraEnv as $name => $value) {
-            $prefix .= $name . '=' . \escapeshellarg((string) $value) . ' ';
+            $prefix .= $name . '=' . \escapeshellarg($value) . ' ';
         }
 
-        $cmd = $prefix . \escapeshellarg(\PHP_BINARY) . ' ' . \escapeshellarg($bin) . ' ' . $arguments . ' 2>&1' . $suffix;
+        $cmd = $prefix . \escapeshellarg(\PHP_BINARY) . ' ' . \escapeshellarg($bin) . ' ' . $arguments . ' 2>&1';
 
         $lines = [];
         $exitCode = 0;
