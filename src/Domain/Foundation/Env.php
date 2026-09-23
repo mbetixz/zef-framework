@@ -3,9 +3,19 @@
 declare(strict_types=1);
 
 /*
- * ZEF Framework v2.7.0 — Infrastructure layer (outbound adapters)
+ * ZEF Framework v2.7.0 — Domain layer (ports, contracts, value objects)
  * Extracted from monolith zef_framework_v2.7.0.php during the
  * hexagonal refactor (move-only, no behavioural changes).
+ *
+ * Issue #36 exit ramp: relocated Infrastructure -> Domain with the same
+ * FQN and namespace (classmap + PSR-4 multi-directory both resolve it),
+ * so the 38 static call sites across layers are untouched. The class is
+ * a pure typed reader over process environment state — no side effects,
+ * no cross-layer references — matching the getenv()/filter_var() calls
+ * the Domain layer already performs directly (see SecurityPolicy).
+ * A future instance-based EnvInterface port for composition-root
+ * injection remains open on issue #36 and is no longer blocked by the
+ * carve-out inventory.
  */
 
 namespace Zef\Framework\Foundation;

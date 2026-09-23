@@ -10,7 +10,8 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Job;
 
-use Zef\Framework\Runtime\BlockingSleeper;
+use Zef\Framework\Runtime\SleeperInterface;
+use Zef\Framework\Runtime\SystemSleeper;
 use Zef\Framework\Validation\Identifier;
 
 final class InProcessJobWorker
@@ -33,6 +34,7 @@ final class InProcessJobWorker
         private readonly ?JobIdempotencyStoreInterface $idempotency = null,
         private readonly ?JobQueueInterface $deadLetterQueue = null,
         private readonly int $pollIntervalMs = 10,
+        private readonly SleeperInterface $sleeper = new SystemSleeper(),
     ) {
         if ($pollIntervalMs < 0 || $pollIntervalMs > 60_000) {
             throw new \InvalidArgumentException('Invalid job poll interval.');
@@ -122,7 +124,7 @@ final class InProcessJobWorker
                     // pollIntervalMs=0 previously busy-spun (~470k
                     // iterations/s on an empty queue). Enforce a 1ms floor
                     // for the idle path.
-                    BlockingSleeper::sleepMilliseconds(max(1, $this->pollIntervalMs));
+                    $this->sleeper->sleepMilliseconds(max(1, $this->pollIntervalMs));
 
                     continue;
                 }
