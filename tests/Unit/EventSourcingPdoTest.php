@@ -32,11 +32,6 @@ use Zef\Framework\EventSourcing\StoredEvent;
  *
  * @internal
  */
-require_once __DIR__ . '/EventSourcingTestAccount.php';
-
-/**
- * @internal
- */
 final class EventSourcingPdoTest extends TestCase
 {
     private const int NANO = 1_700_000_000_000_000_000;

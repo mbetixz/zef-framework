@@ -13,9 +13,6 @@ use Zef\Framework\EventSourcing\RowCast;
  *
  * @internal
  */
-/**
- * Test fixture aggregate: balance-only state with an event log.
- */
 final class EventSourcingTestAccount extends AggregateRoot
 {
     /** @var list<string> */

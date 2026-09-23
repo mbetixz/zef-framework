@@ -35,8 +35,6 @@ use Zef\Framework\EventSourcing\Snapshot;
 use Zef\Framework\EventSourcing\SnapshotPolicy;
 use Zef\Framework\EventSourcing\StoredEvent;
 
-require_once __DIR__ . '/EventSourcingTestAccount.php';
-
 /**
  * v2.19.0 — Event Sourcing mutation round 2: kills grammar-assert removals,
  * JSON error-message shape, default-clock drift, sequence continuation,
@@ -499,29 +497,10 @@ final class EdgeMatrixEventSourcingRound2Test extends TestCase
             new PendingEvent('e2'),
             new PendingEvent('e3'),
         );
-        $counter = static fn (string $id, array $handles): ProjectionInterface => new readonly class($id, $handles) implements ProjectionInterface { // @phpstan-ignore-line closure passes generic array by design
-            /** @param list<string> $handles */
-            public function __construct(
-                private string $id,
-                private array $handles,
-            ) {}
 
-            public function projectionId(): string
-            {
-                return $this->id;
-            }
-
-            /** @return list<string> */
-            public function handles(): array
-            {
-                return $this->handles;
-            }
-
-            public function handle(StoredEvent $event): void {}
-        };
         $projector = new Projector($store, new InMemoryCheckpointStore(), [
-            $counter('one', ['e1', 'e2']),
-            $counter('two', ['e3']),
+            $this->projection('one', ['e1', 'e2']),
+            $this->projection('two', ['e3']),
         ]);
         self::assertSame(3, $projector->run(), 'run() must SUM applied counts across projections');
     }
@@ -920,6 +899,31 @@ final class EdgeMatrixEventSourcingRound2Test extends TestCase
         $page = $outbox->due(1, self::NANO);
         self::assertCount(1, $page);
         self::assertSame(2, $outbox->countPending());
+    }
+
+    /** @param list<string> $handles */
+    private function projection(string $id, array $handles): ProjectionInterface
+    {
+        return new readonly class($id, $handles) implements ProjectionInterface {
+            /** @param list<string> $handles */
+            public function __construct(
+                private string $id,
+                private array $handles,
+            ) {}
+
+            public function projectionId(): string
+            {
+                return $this->id;
+            }
+
+            /** @return list<string> */
+            public function handles(): array
+            {
+                return $this->handles;
+            }
+
+            public function handle(StoredEvent $event): void {}
+        };
     }
 
     private function alwaysFailingBus(): EventBusInterface

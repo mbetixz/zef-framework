@@ -33,8 +33,6 @@ use Zef\Framework\EventSourcing\Snapshot;
 use Zef\Framework\EventSourcing\SnapshotPolicy;
 use Zef\Framework\EventSourcing\StoredEvent;
 
-require_once __DIR__ . '/EventSourcingTestAccount.php';
-
 /**
  * v2.19.0 — Event Sourcing edge-case matrix (adversarial): grammar
  * boundaries ±1, JSON depth cliffs, sequence-burning, MAX_PAGE pagination,
