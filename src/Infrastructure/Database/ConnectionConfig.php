@@ -16,7 +16,7 @@ namespace Zef\Framework\Database;
  * surfaces at construction time with an exact message instead of deep
  * inside a driver connect call. Supported drivers: mysql, pgsql, sqlite.
  */
-final class ConnectionConfig
+final readonly class ConnectionConfig
 {
     public const array DRIVERS = ['mysql', 'pgsql', 'sqlite'];
 
@@ -27,14 +27,14 @@ final class ConnectionConfig
      * @param array<string, mixed> $options
      */
     private function __construct(
-        public readonly string $driver,
-        public readonly ?string $host,
-        public readonly ?int $port,
-        public readonly string $dbname,
-        public readonly ?string $user,
-        public readonly ?string $password,
-        public readonly ?string $charset,
-        public readonly array $options,
+        public string $driver,
+        public ?string $host,
+        public ?int $port,
+        public string $dbname,
+        public ?string $user,
+        public ?string $password,
+        public ?string $charset,
+        public array $options,
     ) {}
 
     /**

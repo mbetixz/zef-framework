@@ -18,15 +18,15 @@ namespace Zef\Framework\Database;
  * Use {@see SqlQuery::raw()} for statements that carry no parameters
  * (typically DDL issued by the migrator).
  */
-final class SqlQuery
+final readonly class SqlQuery
 {
     /**
      * @param list<mixed> $params
      */
     public function __construct(
-        public readonly string $sql,
-        public readonly array $params = [],
-        public readonly bool $unbounded = false,
+        public string $sql,
+        public array $params = [],
+        public bool $unbounded = false,
     ) {
         if ($sql === '') {
             throw new QueryException('SQL statement must not be empty.');
