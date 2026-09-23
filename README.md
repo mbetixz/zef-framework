@@ -15,6 +15,7 @@
 [![SBOM](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml)
 [![Secret Scan](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml)
 [![Zone mutation ratchet](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml)
+[![Mutation release gate](https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml)
 
 Framework PHP 8.4 berarsitektur **Hexagonal (Ports & Adapters)** hasil pemecahan monolith
 `zef_framework_v2.7.0.php` (12.639 baris, 1 file) menjadi struktur PSR-4 multi-file per layer.

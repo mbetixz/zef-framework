@@ -108,16 +108,23 @@ Notes learned the hard way:
   a legitimately empty zone are indistinguishable.
 - **A missing Redis makes every zone silently empty.** `RedisStoreTest` aborts the
   initial suite, Infection exits before generating mutants, and the per-zone summary is
-  never written. `ci.yml` starts Redis as an explicit step; a local campaign must too.
+  never written. `mutation.yml` starts Redis as an explicit step (so does `ci.yml`, for
+  the PHPUnit suites); a local campaign must too.
 
 ## Relationship to the aggregate gate
 
-Both gates run and both matter:
+Both gates run and both matter — but they run on **different triggers**:
 
 | Gate | Scope | Threshold | Step |
 |---|---|---|---|
-| `composer mutation:ci` | all mutants, aggregate | MSI 85 / Covered 90 | `ci.yml` → `Mutation testing (Infection)` |
-| `composer mutation:zones` | per canonical zone, ratcheted | floor 95, bounded open items | `ci.yml` → `Zone mutation ratchet` |
+| `composer mutation:ci` | all mutants, aggregate | MSI 85 / Covered 90 | `mutation.yml` → `Mutation testing (Infection)` — release tags and dispatch |
+| `composer mutation:zones` | per canonical zone, ratcheted | floor 95, bounded open items | `ci.yml` → `Zone mutation ratchet` — every push and PR |
+
+The aggregate suite is release-time only (see `docs/GOVERNANCE.md` 2.5). It was
+relocated there, not weakened: the threshold and scope are unchanged, and
+`release.yml` refuses to publish unless `mutation.yml` concluded `success`. The
+cheap ratchet deliberately stayed on the push/PR path so a zone regression still
+fails a pull request minutes after the push rather than at release time.
 
 The per-zone ratchet is deliberately **cheap and fast**: it reads this directory and
 fails on drift. Closing a zone from `DEBT` to `OK` is done by writing tests and

@@ -1,0 +1,133 @@
+name: Mutation release gate
+
+# WHY THIS IS NOT IN ci.yml
+# -------------------------
+# Infection is ~55 of ci.yml's ~66 minutes and it used to run on EVERY push and
+# every pull request. On that path its verdict cannot change what is merged: the
+# mutation score is a property of the committed source tree, not of the change
+# under review, and the job re-ran the whole aggregate suite for a one-line docs
+# edit. Meanwhile it held the required status check "PHP lint, audit, static
+# analysis and style" open for about an hour per merge.
+#
+# The gate was RELOCATED, NOT WEAKENED:
+#   * same threshold -> composer mutation:ci (--min-msi=85 --min-covered-msi=90)
+#   * same scope     -> src/Domain, Application, Infrastructure, Adapters, Middleware
+#   * same blocker   -> release.yml waits for this workflow and fails on anything
+#                       but success, so nothing is published unless it passes
+#   * same evidence  -> logs uploaded as an artifact even when the gate fails
+# The cheap per-zone ratchet (evidence-only, it re-runs no suite) deliberately
+# STAYS in ci.yml, so a zone that regressed below its frozen floor fails the pull
+# request minutes after the push instead of being discovered at release time.
+# See docs/GOVERNANCE.md 2.1 and 2.5.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to measure (branch, tag or SHA). Defaults to the triggering ref."
+        required: false
+        type: string
+
+# Least privilege: checkout, install, measure. Nothing is written back.
+permissions:
+  contents: read
+
+# One mutation run per ref; a newer dispatch supersedes a queued one instead of
+# queueing an hour of compute behind it.
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COMPOSER_NO_AUDIT: "1"
+
+jobs:
+  mutation:
+    name: Mutation gate (Infection)
+    runs-on: ubuntu-latest
+    # Bound the job so a stuck Infection self-terminates instead of holding a
+    # release open forever: a hung run's updated_at freezes at job start, so
+    # without this bound a hang is indistinguishable from a slow run. Budget:
+    # the full profile is ~45-60 min locally and ~55 min on a runner, so 120 min
+    # is headroom, not a target. Every job must declare one — see
+    # docs/GOVERNANCE.md 2.3.
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          # Xdebug, not pcov: the initial suite and the coverage figures were
+          # calibrated against Xdebug's statement counting.
+          coverage: xdebug
+          # redis is REQUIRED, not optional. Without the phpredis extension
+          # RedisStoreTest self-skips, the initial suite aborts and Infection
+          # exits BEFORE generating mutants — which presents as an empty run
+          # rather than a failed one. See docs/mutation/README.md, "A missing
+          # Redis makes every zone silently empty".
+          extensions: mbstring, dom, xml, xmlwriter, apcu, redis
+          ini-values: apc.enable_cli=1
+          # Pinned toolchain: provisioned by the SHA-pinned setup-php action
+          # instead of piping getcomposer.org straight into php.
+          tools: composer:2.10.3
+
+      - name: Start Redis test server (127.0.0.1:6399)
+        # RedisStoreTest connects to 127.0.0.1:6399 with password
+        # 'zef-test-secret' (see tests/Unit/RedisStoreTest.php). Without a live
+        # server the phpredis-backed tests cannot run and Infection never
+        # generates a mutant.
+        run: |
+          docker run -d --name zef-redis \
+            -p 127.0.0.1:6399:6399 \
+            redis:7-alpine redis-server --port 6399 --requirepass zef-test-secret
+          for i in $(seq 1 30); do
+            if docker exec zef-redis redis-cli -p 6399 -a zef-test-secret --no-auth-warning ping 2>/dev/null | grep -q PONG; then
+              echo "Redis test server ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Redis test server failed to become ready."
+          docker logs zef-redis
+          exit 1
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Mutation testing (Infection)
+        # The enforced aggregate gate: --min-msi=85 --min-covered-msi=90 over
+        # every first-party source directory (~9.4k mutants). Logs are written to
+        # build/infection.log and build/infection-summary.log (see infection.json5).
+        run: composer mutation:ci
+
+      - name: Upload mutation evidence
+        # Always, including on failure: the log is the only record of WHICH
+        # mutants survived, and without it a red gate can only be re-diagnosed by
+        # re-running the entire suite.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-evidence
+          path: |
+            build/infection.log
+            build/infection-summary.log
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Per-zone mutation ratchet
+        # The aggregate gate cannot see a single area: one zone may regress from
+        # 94% to 60% and the aggregate absorbs it, so the owner target of
+        # "MSI >= 95% per area/module" would have no gate at all. This re-runs no
+        # mutation suite — it ratchets the committed evidence in docs/mutation/
+        # (baseline.tsv versus zones.tsv, for exactly the zones listed in
+        # scripts/f16_zones.tsv) and refuses a silent regression or a DEBT->OK
+        # promotion whose measurement is still short of the floor.
+        run: composer mutation:zones
