@@ -1,0 +1,47 @@
+# CODEOWNERS
+#
+# Why this file exists: branch protection on `main` sets
+#   require_code_owner_review: true
+# while the repository contained NO CODEOWNERS file. A governance rule that
+# references an artifact which does not exist cannot be satisfied, so the rule
+# was either silently ineffective or silently blocking. This file materialises
+# the referenced artifact.
+#
+# Ownership model: the repository owner reviews every path. The high-risk
+# surfaces are listed explicitly (rather than relying on a bare `*`) so that a
+# future co-maintainer can be added to one surface at a time without weakening
+# review on the others, and so that an accidental change of the catch-all does
+# not quietly remove review from the security/release paths.
+
+# Default owner for everything in the repository.
+*                       @mbetixz
+
+# Release, supply-chain and CI authority. A change here alters what gets
+# published, how it is attestated, or which gates can block a merge.
+/.github/                @mbetixz
+/.github/workflows/      @mbetixz
+/.github/CODEOWNERS      @mbetixz
+/release.yml             @mbetixz
+
+# Security posture: secret scanning, SAST, security policy and the runtime
+# security boundary under src/Adapters/Security + src/Infrastructure/Security.
+/SECURITY.md             @mbetixz
+/src/Adapters/Security/  @mbetixz
+/src/Infrastructure/Security/ @mbetixz
+
+# Dependency and supply-chain manifests.
+/composer.json           @mbetixz
+/composer.lock           @mbetixz
+/phpstan-baseline.neon   @mbetixz
+
+# Qualification gates: these define the acceptance criteria a merge must meet.
+/phpunit.xml.dist        @mbetixz
+/phpstan.neon.dist       @mbetixz
+/deptrac.yaml            @mbetixz
+/infection.json5         @mbetixz
+/scripts/ci/             @mbetixz
+
+# Public documentation surface (published to GitHub Pages).
+/docs/                   @mbetixz
+/README.md               @mbetixz
+/scripts/build_docs.php  @mbetixz

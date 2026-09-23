@@ -12,6 +12,12 @@ on:
 # no longer renders as permanently "skipped" on every merge to main; it
 # only appears in explicit manual dispatch runs, where a skip truthfully
 # means "no style drift to commit".
+#
+# MANUAL-ONLY IS INTENTIONAL. Do not "fix" this by adding a `schedule:`
+# trigger: a scheduled run would make the `commit` job render as skipped on
+# every cycle in which there is no drift, which is the exact regression the
+# trigger removal was made to eliminate. This workflow is the operator's
+# escape hatch, not a periodic job.
 
 # Baseline: no workflow-level write authority. Only the final job may write.
 permissions:
@@ -26,6 +32,7 @@ jobs:
   detect:
     name: Detect style drift (read-only)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -78,6 +85,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.changed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 

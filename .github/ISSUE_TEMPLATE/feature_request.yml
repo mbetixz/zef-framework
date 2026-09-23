@@ -1,0 +1,37 @@
+name: Feature request
+about: Propose a capability or a change in behaviour
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can you not do today, and what does it cost you?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Architectural boundaries
+      description: |
+        Where does this belong in the hexagonal layout (Domain / Application /
+        Infrastructure / Adapters), and does it cross a layer that deptrac
+        forbids? Does it introduce cross-request state (unsafe under a
+        persistent worker)?
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

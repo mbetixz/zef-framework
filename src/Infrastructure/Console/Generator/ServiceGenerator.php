@@ -61,6 +61,11 @@ final class ServiceGenerator implements GeneratorInterface
             {
                 public function __construct()
                 {
+                    // The scaffold intentionally stops here: the constructor is
+                    // empty until you declare the ports this service depends on.
+                    // This TODO is a PLANNED extension point, not unpaid debt —
+                    // it is surfaced by `bin/zef make:service` in generated
+                    // projects and is not a marker of unfinished work here.
                     // TODO: promote constructor properties for the ports this service
                     // depends on, and mirror them in the container 'deps' list below.
                 }

@@ -1,0 +1,61 @@
+version: 2
+
+# Automated dependency-drift signal.
+#
+# Before this file existed the repository had NO automated update channel:
+# `composer outdated --direct` reported six stale direct dev dependencies
+# (including two major jumps, phpunit 10.5.64 -> 13.x and php-cs-fixer /
+# php_codesniffer 4.x) with nothing that would ever have surfaced them, and
+# pinned Action SHAs were only refreshed by hand.
+#
+# Scope is deliberately conservative: weekly, grouped, and capped, so the
+# toolchain PRs arrive as a small number of reviewable changes instead of a
+# daily trickle. Dev dependencies are grouped into ONE PR because they move
+# together and are validated by the same CI gate; runtime dependencies stay
+# ungrouped because a production dependency bump deserves its own review and
+# its own dependency-review run.
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Jakarta
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    groups:
+      # Keep the dev toolchain as a single PR: phpunit, phpstan, php-cs-fixer,
+      # phpcs, rector, infection and deptrac are mutually constrained and are
+      # validated together by `ci.yml`.
+      dev-toolchain:
+        dependency-type: development
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Jakarta
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "chore(ci)"
+      include: scope
+    # Actions in this repository are pinned to a commit SHA with the human
+    # version in a trailing comment; Dependabot rewrites the SHA and keeps the
+    # comment in sync, which is exactly the maintenance the manual pin needed.
+    groups:
+      github-actions:
+        patterns:
+          - "*"

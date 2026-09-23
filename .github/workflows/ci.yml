@@ -38,6 +38,13 @@ jobs:
     # exact-match against the required context again.
     name: PHP lint, audit, static analysis and style
     runs-on: ubuntu-latest
+    # Bound the job so a stuck step self-terminates instead of holding the
+    # required status check open forever. Without this bound, a hung run is
+    # indistinguishable from a slow one from the outside (the run's updated_at
+    # freezes at job start), and the required context can stay pending
+    # indefinitely. Budget: the full local profile is ~45-60 min (Infection
+    # dominates); 90 min gives headroom without allowing an unbounded hang.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
@@ -132,6 +139,20 @@ jobs:
           vendor/bin/phpunit --coverage-clover build/clover.xml
           php scripts/ci/assert-coverage.php 90 build/clover.xml
 
+      - name: Upload coverage evidence (clover.xml)
+        # The coverage gate parsed build/clover.xml and then threw it away: the
+        # report was never uploaded, so the only trace of a run's coverage was
+        # the assertion line in the log. Upload it (always, including on
+        # failure) so the evidence behind the >=90% claim is retrievable from
+        # the run and can be diffed across revisions.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-clover
+          path: build/clover.xml
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Mutation testing (Infection)
         # OD-50 (documented decision): the repo target gate is --min-msi=70 /
         # --min-covered-msi=80, originally bridged at 68/73. The Edge-Case
@@ -144,6 +165,24 @@ jobs:
         # mutants at MSI 90.77 / Covered MSI 93.38. Campaign records per
         # docs/CHANGELOG-v2.14.9.md, v2.15.0.md and v2.16.0.md.
         run: composer mutation:ci
+
+      - name: Zone mutation ratchet
+        # The enforced mutation gate above is AGGREGATE (--min-msi=85 /
+        # --min-covered-msi=90 over ~9.4k mutants). It cannot see a single area:
+        # one zone may regress from 94% to 60% and the aggregate absorbs it, so
+        # the owner target of "MSI >= 95% per area/module" had no gate at all.
+        #
+        # This step is a RATCHET over committed evidence in docs/mutation/
+        # (scripts/f16_zones.tsv is the canonical zone list). It re-runs no
+        # mutation suite. It asserts that every canonical zone has a measured
+        # row in docs/mutation/zones.tsv, that a row claiming OK really is at or
+        # above the floor, that DEBT/UNKNOWN rows carry a reason and a source,
+        # and — the core check — that no zone has regressed below the frozen
+        # per-zone floor in docs/mutation/baseline.tsv. Closing a zone requires
+        # writing tests and re-measuring; the score can only move up without a
+        # deliberate, reviewable edit of the baseline.
+        # See docs/mutation/README.md for the format and the campaign tooling.
+        run: composer mutation:zones
 
       - name: Rector (dry-run)
         run: vendor/bin/rector process --dry-run --no-progress-bar
