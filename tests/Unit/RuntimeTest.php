@@ -5,7 +5,8 @@ declare(strict_types=1);
 /*
  * ZEF Framework — Native PHPUnit coverage for the Runtime adapters:
  * RoadRunnerRuntime (lifecycle, admission, memory guard, telemetry hooks),
- * RoadRunnerWorkerAdapter, InMemoryWorker and BlockingSleeper.
+ * RoadRunnerWorkerAdapter, InMemoryWorker and the Domain sleeper port
+ * default (SystemSleeper).
  */
 
 namespace Zef\Test\Unit;
@@ -21,6 +22,7 @@ use Zef\Framework\Http\Uri;
 use Zef\Framework\Runtime\InMemoryWorker;
 use Zef\Framework\Runtime\RoadRunnerRuntime;
 use Zef\Framework\Runtime\RoadRunnerWorkerAdapter;
+use Zef\Framework\Runtime\SystemSleeper;
 use Zef\Framework\Runtime\WorkerInterface;
 
 /**
@@ -173,6 +175,30 @@ final class RuntimeTest extends TestCase
         // A raw worker without a waitRequest() method is rejected up-front.
         $this->expectException(\InvalidArgumentException::class);
         new RoadRunnerWorkerAdapter(new \stdClass());
+    }
+
+    // ------------------------------------------------------------------
+    // SystemSleeper (Domain sleeper port default — issue #36 exit ramp)
+    // ------------------------------------------------------------------
+
+    public function testSystemSleeperSilentlyIgnoresNonPositiveMilliseconds(): void
+    {
+        $sleeper = new SystemSleeper();
+        $start = microtime(true);
+        $sleeper->sleepMilliseconds(0);
+        $sleeper->sleepMilliseconds(-1);
+        $sleeper->sleepMilliseconds(-100000);
+        self::assertLessThanOrEqual(0.05, microtime(true) - $start);
+    }
+
+    public function testSystemSleeperSleepsForRequestedDurationOnPositiveInput(): void
+    {
+        $sleeper = new SystemSleeper();
+        $start = microtime(true);
+        $sleeper->sleepMilliseconds(120);
+        $elapsed = microtime(true) - $start;
+        self::assertGreaterThanOrEqual(0.11, $elapsed);
+        self::assertLessThan(2.0, $elapsed, 'sleeper must not overshoot by orders of magnitude');
     }
 
     private function bootedApp(): Application
