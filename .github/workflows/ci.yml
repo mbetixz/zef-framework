@@ -125,6 +125,16 @@ jobs:
       - name: PHPStan (level max + strict-rules + frozen baseline)
         run: vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --memory-limit=1G --no-progress
 
+      - name: PHPStan baseline ratchet (no-new-debt)
+        # The step above reports 0 errors because phpstan-baseline.neon suppresses
+        # every finding it lists — the static-analysis debt is invisible to CI and
+        # there was nothing stopping `--generate-baseline` from absorbing new errors.
+        # This gate freezes the suppressed count in phpstan-baseline.limit and fails
+        # when it grows; a cleanup PR that removes entries is reported as a ratchet
+        # opportunity instead of being blocked.
+        # See docs/quality/phpstan-baseline-ratchet.md.
+        run: composer stan:ratchet
+
       - name: Architecture rules (deptrac)
         run: vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress
 
