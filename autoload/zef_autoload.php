@@ -141,7 +141,7 @@ if (!function_exists('zef_framework_autoload')) {
                 "Zef\\Framework\\Exception\\ServiceCircularDependencyException" => __DIR__ . '/../src/Domain/Exception/ServiceCircularDependencyException.php',
                 "Zef\\Framework\\Exception\\ServiceNotFoundException" => __DIR__ . '/../src/Domain/Exception/ServiceNotFoundException.php',
                 "Zef\\Framework\\Exception\\ServiceResolutionException" => __DIR__ . '/../src/Domain/Exception/ServiceResolutionException.php',
-                "Zef\\Framework\\Foundation\\Env" => __DIR__ . '/../src/Infrastructure/Foundation/Env.php',
+                "Zef\\Framework\\Foundation\\Env" => __DIR__ . '/../src/Domain/Foundation/Env.php',
                 "Zef\\Framework\\Foundation\\ZefVersion" => __DIR__ . '/../src/Domain/Foundation/ZefVersion.php',
                 "Zef\\Framework\\Http\\ApiVersion" => __DIR__ . '/../src/Adapters/Http/ApiVersion.php',
                 "Zef\\Framework\\Http\\ApiVersionNegotiator" => __DIR__ . '/../src/Adapters/Http/ApiVersionNegotiator.php',

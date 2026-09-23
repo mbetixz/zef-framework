@@ -9,10 +9,6 @@
 #
 # Exception layers (deliberate, documented deviations):
 #   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
-#   - EnvConfig:     Zef\Framework\Foundation\Env — kernel env reader; the
-#                    framework's own components read their configuration
-#                    directly through it (24 call sites). Replacing this with
-#                    an EnvInterface port is tracked as future work.
 #   - RouteDefSpec:  Zef\Framework\Router\RouteDefinition — route spec value
 #                    object consumed by the Domain config aggregator.
 #   - TrustedProxy:  Zef\Framework\Http\TrustedProxyMatcher — consumed by
@@ -26,6 +22,11 @@
 #                    the concrete container in their signatures.
 #
 # Retired carve-outs (issue #36 exit ramp — history, kept honest):
+#   - EnvConfig:     Zef\Framework\Foundation\Env — moved unchanged to
+#                    src/Domain/Foundation (pure typed getenv() wrapper); all
+#                    38 static call sites now resolve to a Domain class. A
+#                    future instance-based EnvInterface port for
+#                    composition-root injection stays open on issue #36.
 #   - KernelSleeper: Zef\Framework\Runtime\BlockingSleeper — replaced by the
 #                    SleeperInterface port + SystemSleeper default in
 #                    src/Domain/Runtime; BlockingSleeper itself stays in
@@ -47,7 +48,7 @@ deptrac:
         -   name: Infrastructure
             collectors:
                 -   type: directory
-                    value: src/Infrastructure/(?!Foundation/Env\.php|Observability/OtlpHttpJsonExporter\.php).*
+                    value: src/Infrastructure/(?!Observability/OtlpHttpJsonExporter\.php).*
         -   name: Adapters
             collectors:
                 -   type: directory
@@ -70,10 +71,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: plugins/.*
-        -   name: EnvConfig
-            collectors:
-                -   type: directory
-                    value: src/Infrastructure/Foundation/Env\.php
         -   name: RouteDefSpec
             collectors:
                 -   type: directory
@@ -97,14 +94,11 @@ deptrac:
     ruleset:
         Domain:
             - Compat
-            - EnvConfig
             - RouteDefSpec
             - TrustedProxy
             - OriginPolicySpec
             - ContainerImpl
         Compat: []
-        EnvConfig:
-            - Compat
         RouteDefSpec:
             - Domain
             - Compat
@@ -115,12 +109,10 @@ deptrac:
             - Domain
             - Application
             - Infrastructure
-            - EnvConfig
             - Compat
         OriginPolicySpec:
             - Domain
             - Adapters
-            - EnvConfig
             - Compat
         ContainerImpl:
             - Domain
@@ -129,7 +121,6 @@ deptrac:
         Application:
             - Domain
             - Compat
-            - EnvConfig
             - TrustedProxy
             - OtlpExporter
             - ContainerImpl
@@ -137,13 +128,11 @@ deptrac:
             - Domain
             - Application
             - Compat
-            - EnvConfig
         Adapters:
             - Domain
             - Application
             - Infrastructure
             - Compat
-            - EnvConfig
             - ContainerImpl
             - TrustedProxy
             - OriginPolicySpec
@@ -153,7 +142,6 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - EnvConfig
             - ContainerImpl
             - OriginPolicySpec
             - Module
@@ -164,7 +152,6 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - EnvConfig
             - ContainerImpl
         Plugin:
             - Domain
@@ -172,5 +159,4 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - EnvConfig
             - ContainerImpl
