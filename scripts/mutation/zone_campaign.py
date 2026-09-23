@@ -27,7 +27,22 @@ RESULTS = REPO / "build" / "zone-campaign-results.json"
 
 
 def threads() -> int:
-    """Honour the cgroup CPU quota (nproc lies inside a quota-limited container)."""
+    """Thread count for Infection.
+
+    Defaults to the cgroup CPU quota (/sys/fs/cgroup/cpu.max is authoritative; nproc
+    reports host cores and lies inside a quota-limited container). The quota can be
+    overridden explicitly with ZEF_CAMPAIGN_THREADS. Do NOT copy an earlier claim that
+    the throttle is not binding: measured 2026-09-23 on this deployment (nproc 64,
+    cpu.max '100000 100000'), a concurrent-process sweep gave effective_cores
+    0.91 / 0.98 / 0.99 / 0.99 at n = 2 / 4 / 8 / 16 and cpu.stat reported
+    nr_throttled 151, so the 1-CPU quota IS enforced and extra threads buy nothing.
+    A single-process timing probe is misleading in both directions - at n=1 the
+    process runs until the quota window is exhausted (0.31s wall / 0.30s CPU) - so
+    measure CONCURRENTLY before overriding the quota.
+    """
+    override = os.environ.get("ZEF_CAMPAIGN_THREADS", "").strip()
+    if override.isdigit() and int(override) > 0:
+        return int(override)
     try:
         quota, period = (REPO / "/sys/fs/cgroup/cpu.max").read_text().split()
         if quota != "max":
