@@ -5,13 +5,14 @@ GitHub API and the workflow files — not as intended. Where an enforcement rule
 its configuration disagree, the disagreement is written down here rather than
 smoothed over.
 
-Measured against `main` @ `0680028f` and the protection API.
+Measured against the protection API on `main` @ `87e2ba94e21b4f22b911ab5e359dad4f03c39416`
+(re-verified 2026-09-24).
 
 ## 1. Branch protection on `main`
 
 | Setting | Value | Consequence |
 |---|---|---|
-| Required status contexts | **6**: `PHP lint, audit, static analysis and style` · `Analyze (actions)` · `dependency-review` · `gitleaks` · `PHPBench` · `Build API documentation` | All six must report green before merge |
+| Required status contexts | **7**: `PHP lint, audit, static analysis and style` · `PHP SAST (Semgrep)` · `CodeQL` · `dependency-review` · `gitleaks` · `PHPBench` · `Build API documentation` | All seven must report green before merge. Corrected from the previous six: `Analyze (actions)` never published on a pull-request head and was replaced by `CodeQL` (the context that does publish), and `PHP SAST (Semgrep)` — the gate that analyses the PHP production source and previously could fail *without* blocking a merge — was added. |
 | `strict` | `true` | The branch must be **up to date with `main`** — a PR that falls behind must update its branch. A `behind` PR is therefore expected behaviour, not a broken PR |
 | `enforce_admins` | `true` | No bypass, including for the owner |
 | `dismiss_stale_reviews` | `true` | Pushing after review re-requires review |
@@ -31,11 +32,19 @@ so the setting referenced an artifact that did not exist.
 `.github/CODEOWNERS` now exists. Raising `required_approving_review_count` to `>= 1`
 is an **owner decision**: it changes the merge flow for every pull request.
 
-### N2 — code scanning is not a required context (open finding)
+### N2 — the PHP SAST gate is now a required context (closed 2026-09-24)
 
-CodeQL / code-scanning results are not among the six required contexts, so a security
-regression detected by code scanning does not block a merge. Adding it is an **owner
-decision** (it makes every PR wait on the scan).
+As measured, neither CodeQL nor the PHP SAST job was among the required contexts, so a
+security regression detected by either did not block a merge. That is resolved for the
+gate that actually analyses the **PHP production source**: `PHP SAST (Semgrep)` is now a
+required context, and that job decides its outcome on the exit code of the blocking
+`ERROR`-severity scan over `src/**` — never on code-scanning availability, which is
+`continue-on-error` by design.
+
+CodeQL is still **not** a content gate for PHP here, because CodeQL does not support PHP
+at all; requiring it adds no PHP coverage. It is required as the context that proves the
+`actions`-language analysis ran (see §1), which is why `Analyze (actions)` was replaced by
+`CodeQL` rather than simply deleted.
 
 ## 2. Quality ratchets
 
