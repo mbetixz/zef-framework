@@ -252,6 +252,8 @@ if (!function_exists('zef_framework_autoload')) {
                 "Zef\\Framework\\Runtime\\RoadRunnerRuntime" => __DIR__ . '/../src/Adapters/Runtime/RoadRunnerRuntime.php',
                 "Zef\\Framework\\Runtime\\RoadRunnerWorkerAdapter" => __DIR__ . '/../src/Adapters/Runtime/RoadRunnerWorkerAdapter.php',
                 "Zef\\Framework\\Runtime\\RuntimeInterface" => __DIR__ . '/../src/Domain/Runtime/RuntimeInterface.php',
+                "Zef\\Framework\\Runtime\\SleeperInterface" => __DIR__ . '/../src/Domain/Runtime/SleeperInterface.php',
+                "Zef\\Framework\\Runtime\\SystemSleeper" => __DIR__ . '/../src/Domain/Runtime/SystemSleeper.php',
                 "Zef\\Framework\\Runtime\\TinkerSession" => __DIR__ . '/../src/Adapters/Runtime/TinkerSession.php',
                 "Zef\\Framework\\Runtime\\WorkerInterface" => __DIR__ . '/../src/Domain/Runtime/WorkerInterface.php',
                 "Zef\\Framework\\Security\\AesGcmEncryptor" => __DIR__ . '/../src/Infrastructure/Security/AesGcmEncryptor.php',

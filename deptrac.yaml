@@ -19,14 +19,17 @@
 #                    the Application-layer client address resolver.
 #   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
 #                    default exporter wired by the Telemetry facade.
-#   - KernelSleeper: Zef\Framework\Runtime\BlockingSleeper — in-process
-#                    sleep primitive for the batch span processor and job
-#                    worker.
 #   - OriginPolicySpec: Zef\Framework\Security\OriginPolicy — consumed by
 #                    the Domain security policy aggregator.
 #   - ContainerImpl: Zef\Framework\Container\Container — the provider
 #                    contracts (ServiceProviderInterface & friends) expose
 #                    the concrete container in their signatures.
+#
+# Retired carve-outs (issue #36 exit ramp — history, kept honest):
+#   - KernelSleeper: Zef\Framework\Runtime\BlockingSleeper — replaced by the
+#                    SleeperInterface port + SystemSleeper default in
+#                    src/Domain/Runtime; BlockingSleeper itself stays in
+#                    Adapters as the untouched static public API.
 deptrac:
     paths:
         - ./src
@@ -48,7 +51,7 @@ deptrac:
         -   name: Adapters
             collectors:
                 -   type: directory
-                    value: src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php|Runtime/BlockingSleeper\.php).*
+                    value: src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php).*
         -   name: Compat
             collectors:
                 -   type: directory
@@ -83,10 +86,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: src/Infrastructure/Observability/OtlpHttpJsonExporter\.php
-        -   name: KernelSleeper
-            collectors:
-                -   type: directory
-                    value: src/Adapters/Runtime/BlockingSleeper\.php
         -   name: OriginPolicySpec
             collectors:
                 -   type: directory
@@ -118,10 +117,6 @@ deptrac:
             - Infrastructure
             - EnvConfig
             - Compat
-        KernelSleeper:
-            - Adapters
-            - EnvConfig
-            - Compat
         OriginPolicySpec:
             - Domain
             - Adapters
@@ -137,7 +132,6 @@ deptrac:
             - EnvConfig
             - TrustedProxy
             - OtlpExporter
-            - KernelSleeper
             - ContainerImpl
         Infrastructure:
             - Domain

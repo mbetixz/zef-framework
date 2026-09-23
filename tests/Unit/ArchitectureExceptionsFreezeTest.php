@@ -5,13 +5,12 @@ declare(strict_types=1);
 /*
  * Guild Action Item 1 — audit deptrac exceptions (follow-up guard).
  *
- * deptrac.yaml documents 8 deliberate exception layers (Compat + 7
+ * deptrac.yaml documents deliberate exception layers (Compat + the
  * single-class carve-outs: EnvConfig, RouteDefSpec, TrustedProxy,
- * OtlpExporter, KernelSleeper, OriginPolicySpec, ContainerImpl). The
- * risk called out by the audit is *silent* growth: every new exception
- * widens the coupling the hexagonal rules are supposed to prevent, and
- * without a tripwire nothing fails until the architecture has already
- * drifted.
+ * OtlpExporter, OriginPolicySpec, ContainerImpl). The risk called
+ * out by the audit is *silent* growth: every new exception widens the
+ * coupling the hexagonal rules are supposed to prevent, and without a
+ * tripwire nothing fails until the architecture has already drifted.
  *
  * This test freezes the entire exception graph — the layer set, every
  * collector path, the negative-lookahead carve-outs inside the base
@@ -53,7 +52,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'RouteDefSpec',
         'TrustedProxy',
         'OtlpExporter',
-        'KernelSleeper',
         'OriginPolicySpec',
         'ContainerImpl',
     ];
@@ -67,7 +65,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'Domain' => ['src/Domain/.*'],
         'Application' => ['src/Application/(?!Security/OriginPolicy\.php|Container/Container\.php).*'],
         'Infrastructure' => ['src/Infrastructure/(?!Foundation/Env\.php|Observability/OtlpHttpJsonExporter\.php).*'],
-        'Adapters' => ['src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php|Runtime/BlockingSleeper\.php).*'],
+        'Adapters' => ['src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php).*'],
         'Compat' => ['src/Compat/.*'],
         'App' => ['src/Bootstrap\.php', 'src/Middleware/.*'],
         'Module' => ['modules/.*'],
@@ -76,7 +74,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'RouteDefSpec' => ['src/Adapters/Router/RouteDefinition\.php'],
         'TrustedProxy' => ['src/Adapters/Http/TrustedProxyMatcher\.php'],
         'OtlpExporter' => ['src/Infrastructure/Observability/OtlpHttpJsonExporter\.php'],
-        'KernelSleeper' => ['src/Adapters/Runtime/BlockingSleeper\.php'],
         'OriginPolicySpec' => ['src/Application/Security/OriginPolicy\.php'],
         'ContainerImpl' => ['src/Application/Container/Container\.php'],
     ];
@@ -91,10 +88,9 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'RouteDefSpec' => ['Domain', 'Compat'],
         'TrustedProxy' => ['Domain', 'Compat'],
         'OtlpExporter' => ['Domain', 'Application', 'Infrastructure', 'EnvConfig', 'Compat'],
-        'KernelSleeper' => ['Adapters', 'EnvConfig', 'Compat'],
         'OriginPolicySpec' => ['Domain', 'Adapters', 'EnvConfig', 'Compat'],
         'ContainerImpl' => ['Domain', 'Application', 'Compat'],
-        'Application' => ['Domain', 'Compat', 'EnvConfig', 'TrustedProxy', 'OtlpExporter', 'KernelSleeper', 'ContainerImpl'],
+        'Application' => ['Domain', 'Compat', 'EnvConfig', 'TrustedProxy', 'OtlpExporter', 'ContainerImpl'],
         'Infrastructure' => ['Domain', 'Application', 'Compat', 'EnvConfig'],
         'Adapters' => ['Domain', 'Application', 'Infrastructure', 'Compat', 'EnvConfig', 'ContainerImpl', 'TrustedProxy', 'OriginPolicySpec'],
         'App' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'EnvConfig', 'ContainerImpl', 'OriginPolicySpec', 'Module', 'Plugin'],
