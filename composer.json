@@ -50,7 +50,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Zef\\Test\\": "tests/"
+            "Zef\\Test\\": "tests/",
+            "Zef\\Tests\\": "tests/"
         }
     },
     "scripts": {
