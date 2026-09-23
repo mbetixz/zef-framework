@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -57,8 +57,17 @@ jobs:
           # each required workflow to reach a terminal state — bounded, so
           # a permanently stuck run still fails closed instead of hanging
           # until the job timeout — and only then evaluate its conclusion.
-          deadline=$((SECONDS + 2700))
-          for workflow in "ci.yml" "secret-scan.yml" "phpbench.yml"; do
+          #
+          # mutation.yml is in this list because the aggregate Infection
+          # suite was MOVED there out of ci.yml (see docs/GOVERNANCE.md 2.5).
+          # A gate that is not waited on is not a gate: without this entry the
+          # release would be published without the mutation verdict ever being
+          # read. The deadline must exceed the mutation job's own
+          # timeout-minutes (120) plus the CI job's (45), otherwise a tag pushed
+          # while the suite is in flight would trip the deadline instead of
+          # waiting for the verdict. 5400s = 90 min covers them in sequence.
+          deadline=$((SECONDS + 5400))
+          for workflow in "ci.yml" "mutation.yml" "secret-scan.yml" "phpbench.yml"; do
             status=""
             conclusion=""
             while :; do
@@ -112,7 +121,7 @@ jobs:
           cat "zef-framework-${GITHUB_REF_NAME}.tar.gz.sha256"
 
       - name: Upload release artifact and checksum
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-artifacts-${{ github.ref_name }}
           path: |
@@ -126,7 +135,7 @@ jobs:
       # silently.
       - name: Attest build provenance (keyless, OIDC)
         id: attest
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: zef-framework-${{ github.ref_name }}.tar.gz
 
@@ -146,12 +155,12 @@ jobs:
       # build job; full history so --generate-notes and --verify-tag always
       # have the refs they need.
       - name: Checkout repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Download release artifact and checksum
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-artifacts-${{ github.ref_name }}
           path: .

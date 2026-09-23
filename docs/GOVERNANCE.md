@@ -45,7 +45,9 @@ is enforced, cheap, and cannot be relaxed without a visible edit.
 ### 2.1 Mutation score — per zone
 
 - **Enforced aggregate gate:** `composer mutation:ci` → `--min-msi=85 --min-covered-msi=90`
-  over every first-party source directory (~9.4k mutants).
+  over every first-party source directory (~9.4k mutants). It runs in
+  `mutation.yml` (release tags and `workflow_dispatch`), **not** on the push/PR
+  path — see 2.5 — and `release.yml` waits for it before publishing.
 - **Enforced per-zone ratchet:** `composer mutation:zones` →
   `scripts/ci/assert-zone-coverage.php --floor=95`, run in `ci.yml` as the
   `Zone mutation ratchet` step.
@@ -87,6 +89,33 @@ same SHA is still `in_progress` yields an empty conclusion, which a naive gate r
 "failed". The gate polls `status` to a terminal value, bounded by a deadline so a genuinely
 stuck pipeline still fails closed. See `references/cicd-gitlab-github.md` in the ZEF skill
 package for the full rule.
+
+### 2.5 The mutation suite runs at release, the ratchet runs on every push
+
+The aggregate Infection gate was relocated out of the push/PR path into
+`mutation.yml`, triggered by `v*.*.*` tags and `workflow_dispatch`. It was
+**relocated, not weakened**:
+
+- **Same threshold and scope.** `composer mutation:ci` → `--min-msi=85 /
+  --min-covered-msi=90` over the same first-party directories. No number moved.
+- **Same blocking power.** `release.yml` includes `mutation.yml` in the list of
+  workflows it waits for (see 2.4), so a release fails unless the suite passes.
+  A gate that is not waited on is not a gate — the workflow alone would prove
+  nothing.
+- **Same evidence.** `build/infection.log` and `build/infection-summary.log` are
+  uploaded as the `mutation-evidence` artifact even when the gate fails, so a red
+  verdict is diagnosable without re-running the suite.
+- **The cheap ratchet stays.** `composer mutation:zones` still runs in `ci.yml` on
+  every push and PR. It re-runs no suite — it reads `docs/mutation/` — so the
+  zone-regression signal still lands minutes after the push, while the
+  hour-long suite is what moved.
+
+Why: the mutation score is a property of the **committed source tree**, not of the
+change under review, so on the PR path it could not change any merge decision it
+was not already making — while consuming ~55 of `ci.yml`'s ~66 minutes on every
+push and holding the required check `PHP lint, audit, static analysis and style`
+open for roughly an hour per merge. The trade is explicit and reversible: one
+workflow file and one line in `release.yml`.
 
 ## 3. Credential policy
 
