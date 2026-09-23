@@ -9,6 +9,10 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Database;
 
+use Zef\Framework\Observability\LogExporterInterface;
+use Zef\Framework\Observability\LogRecord;
+use Zef\Framework\Observability\MeterInterface;
+
 /**
  * PDO-backed {@see ConnectionInterface} adapter.
  *
@@ -19,7 +23,16 @@ namespace Zef\Framework\Database;
  *   tracked with an internal depth counter — PDO::inTransaction() cannot
  *   distinguish nesting and is never consulted;
  * - isolation levels are applied via `SET TRANSACTION ISOLATION LEVEL`
- *   before the outermost BEGIN; SQLite rejects the concept outright.
+ *   before the outermost BEGIN; SQLite rejects the concept outright;
+ * - isolation is a TRANSACTION-SCOPE property, not a SAVEPOINT one: a
+ *   nested beginTransaction()/transaction() call cannot change it (a
+ *   nested transaction() call silently drops the isolation argument —
+ *   see ConnectionInterface::transaction());
+ * - optionally audits `allowUnbounded()` executions: when an unbounded
+ *   UPDATE/DELETE (SqlQuery::$unbounded) runs, an optional
+ *   {@see MeterInterface} counter and/or an optional
+ *   {@see LogExporterInterface} WARN record is emitted for security
+ *   audit trails (both ports default to null — no observability, no cost).
  */
 final class PdoConnection implements ConnectionInterface
 {
@@ -31,6 +44,8 @@ final class PdoConnection implements ConnectionInterface
     public function __construct(
         private readonly ConnectionConfig $config,
         ?\PDO $handle = null,
+        private readonly ?MeterInterface $meter = null,
+        private readonly ?LogExporterInterface $auditLogs = null,
     ) {
         if ($handle instanceof \PDO) {
             $this->handle = $handle;
@@ -51,7 +66,12 @@ final class PdoConnection implements ConnectionInterface
             );
         }
 
-        return $statement->rowCount();
+        $affected = $statement->rowCount();
+        if ($query->unbounded) {
+            $this->auditUnbounded($query, $affected);
+        }
+
+        return $affected;
     }
 
     public function fetchAll(SqlQuery $query): array
@@ -172,6 +192,25 @@ final class PdoConnection implements ConnectionInterface
         $this->commit();
 
         return $result;
+    }
+
+    /**
+     * Security audit hook for allowUnbounded() executions — telemetry
+     * counter + optional WARN log record carrying the full SQL so the
+     * event stays greppable in observability backends.
+     */
+    private function auditUnbounded(SqlQuery $query, int $affected): void
+    {
+        $op = str_starts_with(strtoupper(ltrim($query->sql)), 'UPDATE') ? 'update' : 'delete';
+        $this->meter?->increment('zef.db.unbounded_statement', 1, ['op' => $op]);
+        $this->auditLogs?->exportLogs([
+            new LogRecord(
+                'WARN',
+                'Unbounded ' . $op . ' executed (allowUnbounded) — ' . $affected . ' row(s) affected',
+                (int) (microtime(true) * 1_000_000_000),
+                ['sql' => $query->sql, 'rows' => $affected, 'op' => $op],
+            ),
+        ]);
     }
 
     // ------------------------------------------------------------------

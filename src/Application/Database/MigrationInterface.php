@@ -30,4 +30,17 @@ interface MigrationInterface
 
     /** Revert the migration (must undo exactly what up() did). */
     public function down(ConnectionInterface $connection): void;
+
+    /**
+     * Per-migration lock TTL override in seconds, or null to use the
+     * Migrator's default TTL.
+     *
+     * The runner renews (heartbeats) the migration lock with this TTL
+     * right before up()/down() executes, so a legitimately slow step
+     * (e.g. ALTER TABLE on a billion-row table, large index rebuild)
+     * is not considered stale and stolen by another runner. The value
+     * must cover the expected duration of THIS migration alone; return
+     * null for ordinary migrations. Must be greater than zero.
+     */
+    public function getLockTtl(): ?float;
 }

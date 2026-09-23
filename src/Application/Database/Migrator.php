@@ -17,10 +17,15 @@ namespace Zef\Framework\Database;
  *   its own transaction (up() + bookkeeping commit or roll back together);
  * - supports rollback(N) in descending order;
  * - guards concurrent runners with a single-row lock table
- *   (`zef_migrations_lock`); a stale lock older than the TTL is stolen.
+ *   (`zef_migrations_lock`); a lock whose age exceeds the TTL recorded
+ *   ON THE ROW is considered stale and stolen;
+ * - renews (heartbeats) the lock with the effective TTL right before
+ *   each migration step, so a legitimately slow step (huge ALTER TABLE,
+ *   index rebuild) is never stolen mid-flight — a migration may raise
+ *   its own headroom via MigrationInterface::getLockTtl().
  *
- * The clock is injectable ($now returning unix seconds) so lock expiry is
- * deterministically testable.
+ * The clock is injectable ($now returning unix seconds) so lock expiry
+ * and heartbeat renewal are deterministically testable.
  */
 final class Migrator
 {
@@ -134,6 +139,7 @@ final class Migrator
             $appliedNow = [];
             foreach ($this->pending() as $migration) {
                 $version = $migration->version();
+                $this->renewLock($this->effectiveTtl($migration));
                 $this->connection->transaction(function (ConnectionInterface $c) use ($migration): void {
                     $migration->up($c);
                     $c->execute(
@@ -178,6 +184,7 @@ final class Migrator
                     ?? throw new \RuntimeException(
                         "Applied migration '{$version}' is not registered; cannot roll back.",
                     );
+                $this->renewLock($this->effectiveTtl($migration));
                 $this->connection->transaction(function (ConnectionInterface $c) use ($migration, $version): void {
                     $migration->down($c);
                     $c->execute(
@@ -215,34 +222,75 @@ final class Migrator
         $this->connection->execute(SqlQuery::raw(
             'CREATE TABLE IF NOT EXISTS "' . self::LOCK_TABLE . '" ('
             . '"id" INTEGER NOT NULL PRIMARY KEY, '
-            . '"locked_at" INTEGER NOT NULL)',
+            . '"locked_at" INTEGER NOT NULL, '
+            . '"ttl" REAL NOT NULL)',
         ));
         $now = ($this->now)();
 
         try {
             $this->connection->execute(
-                QueryBuilder::table(self::LOCK_TABLE)->insert(['id' => 1, 'locked_at' => $now])->build(),
+                QueryBuilder::table(self::LOCK_TABLE)
+                    ->insert(['id' => 1, 'locked_at' => $now, 'ttl' => $this->lockTtlSeconds])->build(),
             );
         } catch (QueryException) {
             $rows = $this->connection->fetchAll(
-                QueryBuilder::table(self::LOCK_TABLE)->select('locked_at')->where('id', '=', 1)->build(),
+                QueryBuilder::table(self::LOCK_TABLE)
+                    ->select('locked_at', 'ttl')->where('id', '=', 1)->build(),
             );
             $lockedRaw = $rows[0]['locked_at'] ?? null;
-            if (!is_int($lockedRaw) && !is_float($lockedRaw) && !is_string($lockedRaw)) {
+            $ttlRaw = $rows[0]['ttl'] ?? null;
+            if ((!is_int($lockedRaw) && !is_float($lockedRaw) && !is_string($lockedRaw))
+                || (!is_int($ttlRaw) && !is_float($ttlRaw) && !is_string($ttlRaw))) {
                 throw new QueryException('Migration lock row is malformed.');
             }
             $lockedAt = (int) $lockedRaw;
+            $rowTtl = (float) $ttlRaw;
             $age = $now - $lockedAt;
-            if ((float) $age < $this->lockTtlSeconds) {
+            if ((float) $age < $rowTtl) {
                 throw new TransactionException(
-                    'Migration lock is already held (age ' . $age . 's, ttl ' . $this->lockTtlSeconds . 's).',
+                    'Migration lock is already held (age ' . $age . 's, ttl ' . $rowTtl . 's).',
                 );
             }
             $this->connection->execute(
-                QueryBuilder::table(self::LOCK_TABLE)->update(['locked_at' => $now])->where('id', '=', 1)->build(),
+                QueryBuilder::table(self::LOCK_TABLE)
+                    ->update(['locked_at' => $now, 'ttl' => $this->lockTtlSeconds])->where('id', '=', 1)->build(),
             );
         }
         $this->lockDepth = 1;
+    }
+
+    /**
+     * Heartbeat: refresh the lock row with the effective TTL so other
+     * runners never see this holder as stale while work progresses.
+     */
+    private function renewLock(float $ttl): void
+    {
+        if ($this->lockDepth === 0) {
+            return;
+        }
+        $this->connection->execute(
+            QueryBuilder::table(self::LOCK_TABLE)
+                ->update(['locked_at' => ($this->now)(), 'ttl' => $ttl])->where('id', '=', 1)->build(),
+        );
+    }
+
+    /**
+     * Effective TTL for a step: the migration's explicit override when
+     * provided (validated positive), the Migrator default otherwise.
+     */
+    private function effectiveTtl(MigrationInterface $migration): float
+    {
+        $override = $migration->getLockTtl();
+        if ($override === null) {
+            return $this->lockTtlSeconds;
+        }
+        if ($override <= 0.0) {
+            throw new \InvalidArgumentException(
+                "Migration '{$migration->version()}' lock TTL override must be greater than zero (got {$override}).",
+            );
+        }
+
+        return $override;
     }
 
     private function releaseLock(): void
