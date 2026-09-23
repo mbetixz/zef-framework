@@ -27,9 +27,10 @@ implicit in a workflow file.
 This gate **does not replace, duplicate or weaken any of the above.** Concretely:
 
 - It is **not** a CodeQL PHP analysis — no such thing exists here. Code scanning
-  receives the SARIF this workflow uploads, under its own category
-  (`php-sast-source` / `php-sast-tests`), and those results must not be read as
-  CodeQL output.
+  receives the SARIF this workflow uploads, under its own categories
+  (`php-sast-source` — blocking production, `php-sast-source-warning` — report-only
+  production, `php-sast-tests` — report-only tooling). Those results must not be
+  read as CodeQL output.
 - It is **not** a type checker. PHPStan already covers correctness; Semgrep only
   looks for security-relevant patterns, and a Semgrep-clean tree says nothing
   about type correctness.
@@ -95,7 +96,8 @@ or `latest` reference is used as a security boundary.
 
 | Path set | Analysed | Effect |
 |---|---|---|
-| `src/**/*.php` (production / runtime source) | yes | **Blocking** on `ERROR` severity |
+| `src/**/*.php` (production / runtime source), `ERROR` severity | yes | **Blocking** — the job fails |
+| `src/**/*.php` (production / runtime source), `WARNING` severity | yes | **Non-blocking** — reported through code scanning only |
 | `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php` | yes | **Non-blocking** — reported through code scanning only |
 
 **Why test and tooling code is scanned rather than excluded.** The alternative
@@ -106,9 +108,11 @@ theatre. It is therefore analysed — but its findings are **reported, not block
 because those trees have not been triaged yet and a first-run red gate teaches
 reviewers to bypass the gate.
 
-**Why `src/` blocks on first run.** The baseline scan of `src/**` on `main` produced
-**zero** findings (section 6), so making it blocking introduces no false-positive
-friction today and guarantees the gate cannot silently degrade.
+**Why `src/` blocks.** The baseline `ERROR`-severity scan of `src/**` on `main`
+produced **zero** findings (section 6), so the blocking threshold introduces no
+false-positive friction today and guarantees the gate cannot silently degrade. That
+zero is an `ERROR`-severity statement only: the same tree yields 3 findings under the
+`WARNING` floor, which is why those are reported rather than blocking.
 
 **Excluded paths** are listed explicitly in the committed `.semgrepignore` (`.git/`,
 `vendor/`, `build/`, `dist/`, `node_modules/`, tool caches). Note the interaction
@@ -124,42 +128,67 @@ That behaviour was verified empirically, not assumed.
 | Severity | Policy |
 |---|---|
 | `ERROR` in `src/**` | **Blocks the pull request.** Semgrep is invoked with `--severity ERROR --error`; any `ERROR` finding makes the job fail. Error-level PHP rules in the pinned ruleset cover the injection classes where a false negative is most damaging (code injection via dynamic evaluation, command execution, SSRF). |
-| `WARNING` (anywhere) | **Non-blocking.** Surfaced in the job log and in code scanning. Warning-level rules include the taint rules whose confidence metadata is `MEDIUM CONFIDENCE`; they are deliberately not blocking while their false-positive rate on this codebase is unknown. |
+| `WARNING`, in `src/**` | **Non-blocking, but always evaluated.** A dedicated report-only pass (*Scan production PHP source at WARNING severity*) scans production source at `--severity WARNING`, so warning-level rules — including the taint rules whose confidence metadata is `MEDIUM CONFIDENCE` — are looked for in production code and reported, without being able to block. Before that pass existed, `src/**` was evaluated at `ERROR` only, so a whole severity band was invisible in production *by construction*: a zero count under `ERROR` never meant "no warning-level match". |
+| `WARNING`, in `tests/**`, `scripts/**`, `tools/**` | **Non-blocking.** Surfaced in the job log and in code scanning. |
 | `INFO` | Not reported (`--severity WARNING` floors the reporting scan). |
 
 **Policy shape.** The gate fails on high-severity findings only, and never because
-a scan *ran*. Crucially, the gate is **not** made green by ignoring findings:
-there is no `#nosemgrep`, no rule disabled, no blanket path exclusion for the
-scanned trees, and no `|| true` on the scan step.
+a scan *ran*. Crucially, the gate is **not** made green by ignoring findings: no
+rule is disabled, there is no blanket path exclusion, and there is no `|| true` on
+the blocking scan step. There **are** two in-source `#nosemgrep` suppressions,
+both on `eval()` in production code; they are accepted, justified and registered
+in section 7. This document previously stated that none existed — that was wrong,
+and is corrected there.
 
-**Recommendation on promoting `WARNING` to blocking.** Do this only after the
-warning population has been triaged on a real body of `src/` code. On the current
-baseline there is nothing to triage, so promoting now would be a decision made
-without evidence. Recommended trigger: once `src/` has enough code that the
-warning list is stable across a few weeks of pull requests, review the list, fix
-or narrowly suppress each item, then flip the warning scan to blocking and delete
-this paragraph.
+**Two-pass policy (measured 2026-09-24).** `WARNING` is evaluated in a separate
+report-only pass rather than being promoted to blocking, and rather than being
+left unlooked for. Choosing between keeping two passes and promoting the warning
+pass to blocking is an **owner decision**:
+
+- *Two passes (current).* Production warning findings are visible and published to
+  code scanning, and can never fail the job. Cost: one extra Semgrep invocation
+  over `src/**`.
+- *Promote to blocking (not done).* Add `--error` to the warning pass. Do this only
+  after the warning population has been triaged: at the time of writing that pass
+  immediately reports 3 production findings (section 6), and an untriaged red gate
+  is how reviewers learn to bypass a gate.
+
+Promotion is a one-line change and must stay a deliberate, reviewable edit rather
+than a by-product of this coverage fix.
 
 ---
 
 ## 6. Baseline findings
 
-Scan of `main` (`151f961c…`) with the pinned ruleset, at the pinned engine version:
+Re-measured on `main` @ `87e2ba94e21b4f22b911ab5e359dad4f03c39416` (2026-09-24) with
+the pinned ruleset and engine, by reproducing this workflow's exact invocation
+locally rather than by copying a previous figure. The numbers published in this
+section earlier (a single file per tree, 0 findings everywhere) described an early
+three-file baseline and were stale by roughly two orders of magnitude in file
+count; they are corrected here.
 
-| Severity | Count | Classification |
-|---|---|---|
-| Critical | 0 | — |
-| High | 0 | — |
-| Medium | 0 | — |
-| Low / Info | 0 | — |
-| **Total** | **0** | No findings to triage |
+Pinned ruleset inventory: **36** rule files under `php/lang/security` (23
+top-level + 10 in `injection/` + 3 in `audit/`). Rules actually evaluated: **20**
+under the `ERROR` floor, **16** under the `WARNING` floor.
 
-Files analysed at baseline: `src/**` (1 file), `scripts/**` (1 file), `tests/**`
-(1 file). Rules loaded: 36 PHP security rules (`php/lang/security` plus the
-`audit/` and `injection/` subtrees).
+| Pass | Targets | Findings | Blocking |
+|---|---|---|---|
+| `src/**`, `ERROR` floor | 358 files | **0** | yes (`--error`) |
+| `src/**`, `WARNING` floor (new pass) | 358 files | **3** | no (report-only) |
+| `tests/**` + `scripts/**`, `WARNING` floor | 97 files | 30 | no (report-only) |
 
-Because the baseline is empty, **no baseline file and no suppression of any kind
-was created for this change.** Nothing is being hidden to make the gate green.
+The 3 production warning findings are all `php.lang.security.unlink-use`, and all
+three sit on best-effort cleanup of a temporary file that this code named itself
+immediately before attempting an atomic `rename()`:
+`src/Adapters/Http/UploadedFile.php:130`, `src/Adapters/Router/RouteCache.php:44`,
+`src/Application/Container/Autowiring/AutowireAotCompiler.php:100`. They are **not**
+suppressed and not fixed by this change — they are now *visible* for the first
+time, which is the point of the new pass. Triaging them is the next step.
+
+No baseline file and no rule-level suppression was created for this change.
+Nothing is hidden to make the gate green, and — the other direction — nothing that
+was visible before became invisible: the blocking `ERROR` pass is the same
+invocation it was before this change.
 
 **Detection was proven, not assumed.** Composing rules that find nothing proves
 nothing, so detection was validated against a **synthetic, out-of-repository
@@ -183,8 +212,24 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-There is currently **nothing suppressed**. If a finding must be suppressed later,
-the rules are:
+**Registered suppressions: 2** — both `php.lang.security.eval-use`, both in
+production source, both accepted by owner decision on 2026-09-24. This section
+previously stated that nothing was suppressed; that was wrong, and the register
+below is the correction. Under rule 4, the accepted list is reviewable here as a
+whole rather than scattered across source files.
+
+| # | Rule | Location | Reason | Lifetime |
+|---|---|---|---|---|
+| 1 | `php.lang.security.eval-use` | `src/Adapters/Runtime/TinkerSession.php:68-70` | The `bin/zef tinker` REPL evaluates developer-typed code **by design**. Its caller (`bin/zef`, `zef_tinker()`) refuses to start when `ZEF_ENV=production` unless `--force` is passed, so the input is neither remote nor untrusted; the class itself performs no I/O. Removing `eval()` would remove the feature. | **Permanent** — the feature *is* `eval` |
+| 2 | `php.lang.security.eval-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:163` | `evalFactory()` evaluates **code this compiler generated itself** one step earlier (`generateFactory()` returns a `static fn` expression assembled from `var_export`'d scalars, a `\`-prefixed class name, and integer dependency placeholders — no caller-supplied payload reaches the string). It is the compile-time pattern Symfony's DI container dump uses, and the resulting closure is what makes reflection-free cold start possible. The suppression is **load-bearing**: the CI invocation over `src/**` exits `1` ("2 findings (2 blocking)") without it, measured on the same ruleset. | **Permanent** — the pattern is the feature |
+
+Both suppressions are `inSource` and scoped to a single line. Neither hides a
+rule-class-wide exclusion, and neither removes an evaluation that would otherwise
+be counted: the findings stay published to code scanning as alerts 1 and 2
+carrying `"kind": "inSource"`, so a reviewer sees the suppression instead of it
+being silent.
+
+If a finding must be suppressed in future, the rules are:
 
 1. Never suppress at rule level, and never exclude a whole scanned tree to silence
    findings — that converts a gate into a formality.
@@ -220,7 +265,7 @@ security justification for that here.
 | Job `permissions` | `contents: read`, `security-events: write` | `security-events: write` is required **only** by `upload-sarif`, to publish SARIF into code scanning. The job cannot write to the repository. |
 | Repository secret | **None** | Semgrep CE needs no token to run against local source, and this workflow does not log in to the Semgrep platform, so no `SEMGREP_APP_TOKEN` is configured or required. |
 | Network access | Outbound to `codeload.github.com` (pinned ruleset) and the container registry (pinned engine image) | No source code is uploaded to any Semgrep service. Telemetry is disabled (`--metrics=off`) and version checks are disabled (`--disable-version-check`). |
-| Artefacts | Two SARIF files in the runner temp directory, published to code scanning | The workspace is not archived and uploaded, and no credential is written to an artefact. |
+| Artefacts | Three SARIF files in the runner temp directory (production-`ERROR`, production-`WARNING`, tooling), published to code scanning under three categories | The workspace is not archived and uploaded, and no credential is written to an artefact. |
 | Fork behaviour | Analysis runs; the upload is the only privileged step, and a fork pull request receives a read-only token, so `security-events: write` is not granted | Upload is `continue-on-error` so a token-scope limitation cannot turn an otherwise clean analysis red. |
 
 **Known weakness (accepted, owner decision).** The SARIF **upload** steps are

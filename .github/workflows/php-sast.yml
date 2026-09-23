@@ -73,6 +73,10 @@ jobs:
         # src/**/ is the merge-blocking set: the pinned baseline scan of main found
         # zero findings here, so ERROR-level findings block without false-positive
         # friction. No suppression is applied to make this pass.
+        #
+        # This invocation is deliberately UNCHANGED by the warning-coverage step
+        # below: same configs, same --severity ERROR --error. The blocking
+        # threshold is not relaxed anywhere in this file.
         run: |
           set -euo pipefail
           docker run --rm \
@@ -90,6 +94,35 @@ jobs:
               --error \
               --sarif \
               --output=/out/sast-src.sarif \
+              /src/src
+
+      - name: Scan production PHP source at WARNING severity (report-only)
+        # Closes the severity coverage hole: before this step, src/**/ was evaluated
+        # at ERROR severity only, so every WARNING-level rule — including the taint
+        # rules whose confidence metadata is MEDIUM CONFIDENCE — was never *looked
+        # for* in production code. A zero finding count under ERROR meant "no
+        # ERROR-level match", never "no WARNING-level match".
+        #
+        # Report-only on purpose: no --error, so this step cannot fail the job and
+        # cannot block a pull request. The blocking decision stays with the ERROR
+        # step above, exactly as documented in docs/security/php-sast.md §5. This
+        # adds detection, not gate strength — and removes no gate.
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "${PWD}:/src:ro" \
+            -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}:/out" \
+            "${SEMGREP_IMAGE}" \
+            semgrep scan \
+              --config=/rules/php/lang/security \
+              --config=/rules/php/lang/security/injection \
+              --config=/rules/php/lang/security/audit \
+              --metrics=off \
+              --disable-version-check \
+              --severity WARNING \
+              --sarif \
+              --output=/out/sast-src-warning.sarif \
               /src/src
 
       - name: Scan tests and tooling PHP (report-only)
@@ -134,6 +167,17 @@ jobs:
           sarif_file: ${{ runner.temp }}/sast-src.sarif
           category: php-sast-source
 
+      - name: Upload SARIF (production source, WARNING severity)
+        # Published under its own category so the report-only production findings are
+        # never mixed with the blocking ones in code scanning. Best-effort, like every
+        # upload here: publication is not the gate.
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: ${{ runner.temp }}/sast-src-warning.sarif
+          category: php-sast-source-warning
+
       - name: Upload SARIF (tests and tooling)
         if: always()
         continue-on-error: true
@@ -163,8 +207,13 @@ jobs:
             echo "- engine: semgrep ${SEMGREP_VERSION} (image pinned by digest)"
             echo "- engine digest: \`${SEMGREP_IMAGE##*@}\`"
             echo "- ruleset commit: \`${RULES_SHA}\`"
-            echo "- production source threshold: ERROR severity (blocking)"
-            for pair in "sast-src.sarif=production (blocking)" "sast-tests.sarif=tests and tooling (report-only)"; do
+            echo "- production source, ERROR severity: blocking"
+            echo "- production source, WARNING severity: report-only (cannot fail this job)"
+            echo "- tests and tooling, WARNING severity: report-only"
+            for pair in \
+              "sast-src.sarif=production, ERROR severity (blocking)" \
+              "sast-src-warning.sarif=production, WARNING severity (report-only)" \
+              "sast-tests.sarif=tests and tooling, WARNING severity (report-only)"; do
               f="${RUNNER_TEMP}/${pair%%=*}"
               label="${pair##*=}"
               if [ -s "${f}" ]; then
@@ -176,5 +225,6 @@ jobs:
             done
             echo ""
             echo "Findings are published to code scanning under the categories"
-            echo "\`php-sast-source\` and \`php-sast-tests\`. See docs/security/php-sast.md."
+            echo "\`php-sast-source\`, \`php-sast-source-warning\` and \`php-sast-tests\`."
+            echo "See docs/security/php-sast.md."
           } >> "${GITHUB_STEP_SUMMARY}"
