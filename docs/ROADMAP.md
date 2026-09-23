@@ -20,7 +20,7 @@
   - [ ] `GraphQL adapter`
   - [ ] `WebSocket adapter`
   - [ ] `gRPC adapter`
-  - [ ] `Event sourcing adapter`
+  - [x] `Event sourcing adapter` (v2.19.0: EventStore port + InMemory/PDO adapters, `AggregateRoot`, snapshot policy, `Projector` + checkpoints, transactional outbox + relay dead-letter)
   - [ ] `Social auth adapters (Google, Facebook, GitHub)`
   - [ ] `SMS/Email service adapters`
   - [ ] `CDN/storage adapters (S3, GCS, Local)`
@@ -103,7 +103,7 @@
 - [x] Listeners & subscribers · Stop propagation · Event freezing
 
   #### Target Enterprise:
-  - [ ] Event Store (Postgres/NoSQL) · Event replay · Snapshot · Projection/Read model sync
+  - [x] Event Store (v2.19.0: port + InMemory/PDO adapter di atas Database Core — MySQL/SQLite/PostgreSQL-ready) · Event replay (`AggregateRoot::applyStored`) · Snapshot (`SnapshotPolicy` + store) · Projection/Read model sync (`Projector` + checkpoint store) — [ ] Postgres/NoSQL dedicated store optimizations
   - [ ] Event versioning & migration tools
   - [ ] Saga Orchestration/Choreography · Compensating actions · Timeout/circuit breaker
   - [ ] RabbitMQ · Amazon SQS · Apache Kafka adapters · Protobuf serialization
