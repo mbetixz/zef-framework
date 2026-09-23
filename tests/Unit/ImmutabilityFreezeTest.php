@@ -43,8 +43,6 @@ final class ImmutabilityFreezeTest extends TestCase
     /**
      * Baseline beku: kelas final non-exception yang seluruh property
      * instance-nya readonly, tanpa modifier `readonly` pada kelas.
-     *
-     * @var list<string>
      */
     private const IMMUTABLE_WITHOUT_READONLY = [
         'src/Adapters/Kernel/Dispatcher.php',

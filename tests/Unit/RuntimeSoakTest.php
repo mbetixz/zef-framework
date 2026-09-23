@@ -48,10 +48,10 @@ final class RuntimeSoakTest extends TestCase
 
     public const TOTAL_REQUESTS = 3300;
 
-    /** @var int 512 KiB — kalibrasi lokal: 56 KiB untuk 3.000 request pasca-warmup */
+    /** 512 KiB — kalibrasi lokal: 56 KiB untuk 3.000 request pasca-warmup */
     private const MAX_USED_GROWTH_BYTES = 524288;
 
-    /** @var int 8 MiB — arena allocator (granularitas chunk 2 MiB); kalibrasi lokal: +2 MiB */
+    /** 8 MiB — arena allocator (granularitas chunk 2 MiB); kalibrasi lokal: +2 MiB */
     private const MAX_REAL_GROWTH_BYTES = 8388608;
 
     /**
@@ -59,8 +59,6 @@ final class RuntimeSoakTest extends TestCase
      * wajib bebas property static — vektor kebocoran klasik long-running
      * worker. Semua static yang ada hari ini adalah pure function (Env,
      * NamingRules, BlockingSleeper) tanpa state.
-     *
-     * @var list<string>
      */
     private const STATIC_FREE_DIRS = [
         'src/Infrastructure',

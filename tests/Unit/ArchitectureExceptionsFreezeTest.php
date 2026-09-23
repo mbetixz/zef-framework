@@ -39,8 +39,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
 {
     /**
      * Semua layer yang dianalisis, urut file — freeze penuh.
-     *
-     * @var list<string>
      */
     private const LAYERS = [
         'Domain',
@@ -64,8 +62,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      * Kolektor per layer (regex direktori persis seperti di deptrac.yaml).
      * Negative-lookahead di layer dasar ADALAH mekanisme carve-out —
      * membekukannya berarti exception baru tidak bisa masuk diam-diam.
-     *
-     * @var array<string, list<string>>
      */
     private const COLLECTORS = [
         'Domain' => ['src/Domain/.*'],
@@ -87,8 +83,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
 
     /**
      * Peta edge ruleset lengkap — layer => daftar layer yang boleh dipakai.
-     *
-     * @var array<string, list<string>>
      */
     private const RULESET = [
         'Domain' => ['Compat', 'EnvConfig', 'RouteDefSpec', 'TrustedProxy', 'OriginPolicySpec', 'ContainerImpl'],
@@ -160,8 +154,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
 
     // ------------------------------------------------------------- Helpers
 
-    /** @return mixed */
-    private static function configValue(string $key)
+    private static function configValue(string $key): mixed
     {
         $raw = Yaml::parseFile(dirname(__DIR__, 2) . '/deptrac.yaml');
         self::assertIsArray($raw, 'deptrac.yaml harus parse menjadi mapping');
