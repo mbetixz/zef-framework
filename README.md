@@ -1,4 +1,4 @@
-# ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.17.0)
+# ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.18.0)
 
 [![CodeQL](https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql)
 [![API Documentation Check](https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml)
@@ -73,7 +73,7 @@ mengubah perilaku lama.
 > phpcs+Slevomat 0 violations · coverage statement **94.49%** (gate CI 90%) · mutation gate **85/90** terjaga (MSI global 90.77% / covered 93.38% pada 9.419 mutan) · 417 file lolos `php -l`.
 > 📚 **Dokumentasi resmi (v2.17.0):** <https://mbetixz.github.io/zef-framework/> — 10 halaman panduan
 > (instalasi, CLI, arsitektur, kualitas/mutasi, deployment) di samping API reference Doctum.
-> Ringkasan rilisan terbaru: [`docs/CHANGELOG-v2.17.0.md`](docs/CHANGELOG-v2.17.0.md).
+> Ringkasan rilisan terbaru: [`docs/CHANGELOG-v2.18.0.md`](docs/CHANGELOG-v2.18.0.md) — **Database Core**: Query Builder + PDO adapter (nested transaction/savepoint), Migrator (versi + lock TTL), Repository base.
 >
 > Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md) · [`docs/CHANGELOG-v2.14.8.md`](docs/CHANGELOG-v2.14.8.md) · [`docs/CHANGELOG-v2.14.9.md`](docs/CHANGELOG-v2.14.9.md) · [`docs/CHANGELOG-v2.15.0.md`](docs/CHANGELOG-v2.15.0.md) · [`docs/CHANGELOG-v2.16.0.md`](docs/CHANGELOG-v2.16.0.md).
 

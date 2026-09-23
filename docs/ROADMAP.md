@@ -146,9 +146,9 @@
 - [ ] Redis cluster · Memcached · Stampede prevention penuh (fondasi lock ✔) · Distributed lock Redis (port ✔)
 
 ### Database Management (Target — belum ada di monolith)
-- [ ] Multi-connection · Read/write splitting · Pooling · Sharding · Query builder · ORM
-- [ ] Migration/seeding · Schema builder · Transactions nested/savepoints
-- [ ] Repository pattern · Specification · Unit of Work · Identity Map · Batch ops
+- [ ] Multi-connection · Read/write splitting · Pooling · Sharding · [x] `Query builder` (v2.18.0: `QueryBuilder` fluent, identifier-grammar ketat, subquery) · ORM
+- [ ] Seeding · Schema builder · [x] `Migration` (v2.18.0: `Migrator` versi 14-digit, lock TTL, rollback) · [x] `Transactions nested/savepoints` (v2.18.0: `PdoConnection` SAVEPOINT + depth 16)
+- [x] `Repository pattern` (v2.18.0: `Repository` base di atas QueryBuilder) · [ ] Specification · [ ] Unit of Work · [ ] Identity Map · [ ] Batch ops
 
 ---
 
