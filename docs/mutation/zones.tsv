@@ -3,25 +3,25 @@ d-validation|85.14|89.03|572|DEBT|docs/mutation/evidence/infection-summary-d-val
 d-resource|89.34|90.04|516|DEBT|docs/mutation/evidence/infection-summary-d-resource.json|measured MSI 89.34 below the 95 target
 d-obs-job|91.59|93.09|618|DEBT|docs/mutation/evidence/infection-summary-d-obs-job.json|measured MSI 91.59 below the 95 target
 d-container-config|89.46|93.73|351|DEBT|docs/mutation/evidence/infection-summary-d-container-config.json|measured MSI 89.46 below the 95 target
-d-misc|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-container-core|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-container-2|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-job|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-cqrs|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-cache-res|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-msg-evt-sec|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-infra-a|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-http-a|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-http-b|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-http-c2|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-kernel-app|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-kernel-dispatch|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-kernel-mid|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-router|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-ad-runtime-sec|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-infra-obs|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-infra-sec-fnd|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-middleware|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-obs-a|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-obs-b|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
-app-obs-c|-|-|-|UNKNOWN|build/zone-campaign-results.json (not yet measured)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
+d-misc|94.44|96.18|666|DEBT|docs/mutation/evidence/infection-summary-d-misc.json|measured MSI 94.44 below the 95 target
+app-container-core|97.39|99.33|306|OK|docs/mutation/evidence/infection-summary-app-container-core.json|
+app-container-2|96.97|100.00|165|OK|docs/mutation/evidence/infection-summary-app-container-2.json|re-measurement measured 96.36, weaker than the committed 96.97; the stricter committed evidence is kept
+app-job|89.26|91.91|242|DEBT|docs/mutation/evidence/infection-summary-app-job.json|measured MSI 89.26 below the 95 target; re-measurement measured 88.02, weaker than the committed 89.26; the stricter committed evidence is kept
+app-cqrs|88.03|88.79|117|DEBT|docs/mutation/evidence/infection-summary-app-cqrs.json|measured MSI 88.03 below the 95 target; re-measurement measured 87.18, weaker than the committed 88.03; the stricter committed evidence is kept
+app-cache-res|100.00|100.00|90|OK|docs/mutation/evidence/infection-summary-app-cache-res.json|
+app-msg-evt-sec|91.20|94.87|466|DEBT|docs/mutation/evidence/infection-summary-app-msg-evt-sec.json|measured MSI 91.20 below the 95 target
+infra-a|92.09|95.52|278|DEBT|docs/mutation/evidence/infection-summary-infra-a.json|measured MSI 92.09 below the 95 target
+ad-http-a|93.37|94.94|784|DEBT|docs/mutation/evidence/infection-summary-ad-http-a.json|measured MSI 93.37 below the 95 target
+ad-http-b|91.09|94.52|303|DEBT|docs/mutation/evidence/infection-summary-ad-http-b.json|measured MSI 91.09 below the 95 target
+ad-http-c2|93.99|98.29|366|DEBT|docs/mutation/evidence/infection-summary-ad-http-c2.json|measured MSI 93.99 below the 95 target
+ad-kernel-app|-|-|-|UNKNOWN|docs/mutation/evidence/ (no summary yet)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
+ad-kernel-dispatch|75.81|75.81|62|DEBT|docs/mutation/evidence/infection-summary-ad-kernel-dispatch.json|measured MSI 75.81 below the 95 target
+ad-kernel-mid|69.01|73.29|171|DEBT|docs/mutation/evidence/infection-summary-ad-kernel-mid.json|measured MSI 69.01 below the 95 target
+ad-router|85.38|87.23|472|DEBT|docs/mutation/evidence/infection-summary-ad-router.json|measured MSI 85.38 below the 95 target
+ad-runtime-sec|78.76|82.26|518|DEBT|docs/mutation/evidence/infection-summary-ad-runtime-sec.json|measured MSI 78.76 below the 95 target
+infra-obs|94.12|94.49|255|DEBT|docs/mutation/evidence/infection-summary-infra-obs.json|measured MSI 94.12 below the 95 target
+infra-sec-fnd|87.94|91.16|340|DEBT|docs/mutation/evidence/infection-summary-infra-sec-fnd.json|measured MSI 87.94 below the 95 target
+middleware|56.22|61.75|201|DEBT|docs/mutation/evidence/infection-summary-middleware.json|measured MSI 56.22 below the 95 target
+app-obs-a|82.58|87.50|356|DEBT|docs/mutation/evidence/infection-summary-app-obs-a.json|measured MSI 82.58 below the 95 target
+app-obs-b|96.05|96.05|177|OK|docs/mutation/evidence/infection-summary-app-obs-b.json|
+app-obs-c|76.56|77.17|128|DEBT|docs/mutation/evidence/infection-summary-app-obs-c.json|measured MSI 76.56 below the 95 target
