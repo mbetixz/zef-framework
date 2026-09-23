@@ -44,15 +44,15 @@ use Zef\Middleware\ConfigProvider;
  */
 final class RuntimeSoakTest extends TestCase
 {
-    public const WARMUP_REQUESTS = 300;
+    public const int WARMUP_REQUESTS = 300;
 
-    public const TOTAL_REQUESTS = 3300;
+    public const int TOTAL_REQUESTS = 3300;
 
     /** 512 KiB — kalibrasi lokal: 56 KiB untuk 3.000 request pasca-warmup */
-    private const MAX_USED_GROWTH_BYTES = 524288;
+    private const int MAX_USED_GROWTH_BYTES = 524288;
 
     /** 8 MiB — arena allocator (granularitas chunk 2 MiB); kalibrasi lokal: +2 MiB */
-    private const MAX_REAL_GROWTH_BYTES = 8388608;
+    private const int MAX_REAL_GROWTH_BYTES = 8388608;
 
     /**
      * Layer umur-panjang (Infrastructure + Adapters/Runtime + Middleware)
@@ -60,7 +60,7 @@ final class RuntimeSoakTest extends TestCase
      * worker. Semua static yang ada hari ini adalah pure function (Env,
      * NamingRules, BlockingSleeper) tanpa state.
      */
-    private const STATIC_FREE_DIRS = [
+    private const array STATIC_FREE_DIRS = [
         'src/Infrastructure',
         'src/Adapters/Runtime',
         'src/Middleware',
@@ -150,7 +150,7 @@ final class RuntimeSoakTest extends TestCase
                 if (!$file instanceof \SplFileInfo || $file->getExtension() !== 'php') {
                     continue;
                 }
-                $className = self::classNameIn((string) file_get_contents($file->getPathname()));
+                $className = $this->classNameIn((string) file_get_contents($file->getPathname()));
                 if ($className === null || !class_exists($className)) {
                     continue;
                 }
@@ -178,7 +178,7 @@ final class RuntimeSoakTest extends TestCase
 
     // ------------------------------------------------------------- Helpers
 
-    private static function classNameIn(string $source): ?string
+    private function classNameIn(string $source): ?string
     {
         if (preg_match('/^namespace\s+([^;]+);/m', $source, $ns) !== 1) {
             return null;

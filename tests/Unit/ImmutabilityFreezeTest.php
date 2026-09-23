@@ -44,7 +44,7 @@ final class ImmutabilityFreezeTest extends TestCase
      * Baseline beku: kelas final non-exception yang seluruh property
      * instance-nya readonly, tanpa modifier `readonly` pada kelas.
      */
-    private const IMMUTABLE_WITHOUT_READONLY = [
+    private const array IMMUTABLE_WITHOUT_READONLY = [
         'src/Adapters/Kernel/Dispatcher.php',
         'src/Adapters/Kernel/MiddlewarePipeline.php',
         'src/Adapters/Kernel/ModuleBootstrapper.php',
@@ -111,7 +111,7 @@ final class ImmutabilityFreezeTest extends TestCase
     {
         self::assertSame(
             self::IMMUTABLE_WITHOUT_READONLY,
-            self::scanImmutableWithoutReadonly(),
+            $this->scanImmutableWithoutReadonly(),
             'Set kelas immutable-tanpa-readonly berubah (Guild Action Item 3). '
             . 'Kelas baru yang seluruh property-nya readonly WAJIB diberi keyword `readonly class` '
             . '— ReadOnlyClassRector sengaja tidak akan melakukannya. '
@@ -125,7 +125,7 @@ final class ImmutabilityFreezeTest extends TestCase
      */
     public function testReadonlyClassCountDoesNotRegress(): void
     {
-        $current = self::countReadonlyClasses();
+        $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
             63,
             $current,
@@ -136,7 +136,7 @@ final class ImmutabilityFreezeTest extends TestCase
     // ------------------------------------------------------------- Helpers
 
     /** @return list<string> path relatif repo (src/...) terurut */
-    private static function scanImmutableWithoutReadonly(): array
+    private function scanImmutableWithoutReadonly(): array
     {
         $root = dirname(__DIR__, 2) . '/src/';
         $out = [];
@@ -154,7 +154,7 @@ final class ImmutabilityFreezeTest extends TestCase
             }
 
             $source = (string) file_get_contents($file->getPathname());
-            $className = self::classNameIn($source);
+            $className = $this->classNameIn($source);
             if ($className === null || !class_exists($className)) {
                 continue;
             }
@@ -176,15 +176,7 @@ final class ImmutabilityFreezeTest extends TestCase
             if ($instanceProps === []) {
                 continue;
             }
-
-            $allReadonly = true;
-            foreach ($instanceProps as $prop) {
-                if (!$prop->isReadOnly()) {
-                    $allReadonly = false;
-
-                    break;
-                }
-            }
+            $allReadonly = array_all($instanceProps, fn ($prop): bool => $prop->isReadOnly());
             if ($allReadonly) {
                 $out[] = 'src/' . $relative;
             }
@@ -195,7 +187,7 @@ final class ImmutabilityFreezeTest extends TestCase
         return $out;
     }
 
-    private static function countReadonlyClasses(): int
+    private function countReadonlyClasses(): int
     {
         $count = 0;
         $root = dirname(__DIR__, 2) . '/src/';
@@ -213,7 +205,7 @@ final class ImmutabilityFreezeTest extends TestCase
             }
 
             $source = (string) file_get_contents($file->getPathname());
-            $className = self::classNameIn($source);
+            $className = $this->classNameIn($source);
             if ($className === null || !class_exists($className)) {
                 continue;
             }
@@ -225,7 +217,7 @@ final class ImmutabilityFreezeTest extends TestCase
         return $count;
     }
 
-    private static function classNameIn(string $source): ?string
+    private function classNameIn(string $source): ?string
     {
         if (preg_match('/^namespace\s+([^;]+);/m', $source, $ns) !== 1) {
             return null;

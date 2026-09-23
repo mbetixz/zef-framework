@@ -40,7 +40,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     /**
      * Semua layer yang dianalisis, urut file — freeze penuh.
      */
-    private const LAYERS = [
+    private const array LAYERS = [
         'Domain',
         'Application',
         'Infrastructure',
@@ -63,7 +63,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      * Negative-lookahead di layer dasar ADALAH mekanisme carve-out —
      * membekukannya berarti exception baru tidak bisa masuk diam-diam.
      */
-    private const COLLECTORS = [
+    private const array COLLECTORS = [
         'Domain' => ['src/Domain/.*'],
         'Application' => ['src/Application/(?!Security/OriginPolicy\.php|Container/Container\.php).*'],
         'Infrastructure' => ['src/Infrastructure/(?!Foundation/Env\.php|Observability/OtlpHttpJsonExporter\.php).*'],
@@ -84,7 +84,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     /**
      * Peta edge ruleset lengkap — layer => daftar layer yang boleh dipakai.
      */
-    private const RULESET = [
+    private const array RULESET = [
         'Domain' => ['Compat', 'EnvConfig', 'RouteDefSpec', 'TrustedProxy', 'OriginPolicySpec', 'ContainerImpl'],
         'Compat' => [],
         'EnvConfig' => ['Compat'],
@@ -105,7 +105,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     /** Jalur analisis wajib tetap seluruh pohon first-party. */
     public function testAnalyzedPathsAreFrozen(): void
     {
-        $paths = self::configValue('paths');
+        $paths = $this->configValue('paths');
         self::assertIsList($paths, 'deptrac.paths harus list');
         self::assertSame(['./src', './modules', './plugins'], $paths, 'jalur analisis deptrac tidak boleh berubah diam-diam');
     }
@@ -113,19 +113,19 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     /** Set layer + nama wajib identik dengan snapshot — layer baru = keputusan sadar. */
     public function testLayerSetIsFrozen(): void
     {
-        self::assertSame(self::LAYERS, array_keys(self::layerCollectors()), 'set/urutan layer deptrac berubah — lihat panduan di header test ini');
+        self::assertSame(self::LAYERS, array_keys($this->layerCollectors()), 'set/urutan layer deptrac berubah — lihat panduan di header test ini');
     }
 
     /** Setiap kolektor layer (termasuk carve-out negative-lookahead) dibekukan eksak. */
     public function testLayerCollectorsAreFrozen(): void
     {
-        self::assertSame(self::COLLECTORS, self::layerCollectors(), 'kolektor layer deptrac berubah — carve-out baru tidak boleh masuk diam-diam');
+        self::assertSame(self::COLLECTORS, $this->layerCollectors(), 'kolektor layer deptrac berubah — carve-out baru tidak boleh masuk diam-diam');
     }
 
     /** Peta edge ruleset lengkap dibekukan — edge baru = perluasan coupling sadar. */
     public function testRulesetEdgesAreFrozen(): void
     {
-        $raw = self::configValue('ruleset');
+        $raw = $this->configValue('ruleset');
         self::assertIsArray($raw, 'deptrac.ruleset harus mapping');
 
         $parsed = [];
@@ -146,7 +146,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      */
     public function testHighlightedCarveOutsRemainSingleClass(): void
     {
-        $collectors = self::layerCollectors();
+        $collectors = $this->layerCollectors();
 
         self::assertSame(['src/Infrastructure/Foundation/Env\.php'], $collectors['EnvConfig'], 'EnvConfig wajib tetap satu kelas Env (jalur keluar: EnvInterface di Domain)');
         self::assertSame(['src/Application/Container/Container\.php'], $collectors['ContainerImpl'], 'ContainerImpl wajib tetap satu kelas Container (jalur keluar: kontrak provider murni)');
@@ -154,7 +154,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
 
     // ------------------------------------------------------------- Helpers
 
-    private static function configValue(string $key): mixed
+    private function configValue(string $key): mixed
     {
         $raw = Yaml::parseFile(dirname(__DIR__, 2) . '/deptrac.yaml');
         self::assertIsArray($raw, 'deptrac.yaml harus parse menjadi mapping');
@@ -166,9 +166,9 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     }
 
     /** @return array<string, list<string>> */
-    private static function layerCollectors(): array
+    private function layerCollectors(): array
     {
-        $layers = self::configValue('layers');
+        $layers = $this->configValue('layers');
         self::assertIsArray($layers, 'deptrac.layers harus list');
 
         $out = [];
