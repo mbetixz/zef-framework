@@ -14,7 +14,7 @@ infra-a|92.09|95.52|278|DEBT|docs/mutation/evidence/infection-summary-infra-a.js
 ad-http-a|93.37|94.94|784|DEBT|docs/mutation/evidence/infection-summary-ad-http-a.json|measured MSI 93.37 below the 95 target
 ad-http-b|91.09|94.52|303|DEBT|docs/mutation/evidence/infection-summary-ad-http-b.json|measured MSI 91.09 below the 95 target
 ad-http-c2|93.99|98.29|366|DEBT|docs/mutation/evidence/infection-summary-ad-http-c2.json|measured MSI 93.99 below the 95 target
-ad-kernel-app|-|-|-|UNKNOWN|docs/mutation/evidence/ (no summary yet)|no per-zone measurement yet in this campaign; see docs/mutation/README.md
+ad-kernel-app|98.26|100.00|172|OK|docs/mutation/evidence/infection-summary-ad-kernel-app.json|re-measured with a reachable Redis test server (port 6399, auth); the earlier total=0 record was a silent Infection abort, not a measurement
 ad-kernel-dispatch|75.81|75.81|62|DEBT|docs/mutation/evidence/infection-summary-ad-kernel-dispatch.json|measured MSI 75.81 below the 95 target
 ad-kernel-mid|69.01|73.29|171|DEBT|docs/mutation/evidence/infection-summary-ad-kernel-mid.json|measured MSI 69.01 below the 95 target
 ad-router|85.38|87.23|472|DEBT|docs/mutation/evidence/infection-summary-ad-router.json|measured MSI 85.38 below the 95 target
