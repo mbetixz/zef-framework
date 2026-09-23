@@ -40,6 +40,16 @@ jobs:
       - name: Generate API documentation (Doctum)
         run: composer docs
 
+      # Official documentation site (curated Markdown -> static HTML). Built
+      # read-only here so a pull request that breaks the docs renderer or the
+      # published navigation fails before merge, matching pages.yml.
+      - name: Build official documentation site
+        run: |
+          set -euo pipefail
+          php scripts/build_docs.php
+          mkdir -p build/docs/api
+          cp -R build/api/. build/docs/api/
+
       - name: Verify documentation output
         shell: bash
         run: |
@@ -51,3 +61,17 @@ jobs:
           fi
 
           echo "API documentation generated: $(find build/api -type f | wc -l) files under build/api."
+
+          for page in index installation cli architecture quality deployment; do
+            if [ ! -s "build/docs/${page}.html" ]; then
+              echo "::error::Documentation page build/docs/${page}.html is missing or empty."
+              exit 1
+            fi
+          done
+
+          if [ ! -s build/docs/api/index.html ]; then
+            echo "::error::The Doctum API reference was not merged into build/docs/api."
+            exit 1
+          fi
+
+          echo "Documentation site generated: $(find build/docs -type f | wc -l) files under build/docs."
