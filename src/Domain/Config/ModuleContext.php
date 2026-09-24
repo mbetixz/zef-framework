@@ -12,11 +12,11 @@ namespace Zef\Framework\Config;
 
 use Psr\Container\ContainerInterface;
 
-final class ModuleContext
+final readonly class ModuleContext
 {
     public function __construct(
-        private readonly ModuleDefinition $definition,
-        private readonly ContainerInterface $container,
+        private ModuleDefinition $definition,
+        private ContainerInterface $container,
     ) {}
 
     public function name(): string

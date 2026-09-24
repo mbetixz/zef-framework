@@ -17,10 +17,10 @@ namespace Zef\Framework\Autowiring;
  * this attribute is absent.
  */
 #[\Attribute(\Attribute::TARGET_PARAMETER)]
-final class Value
+final readonly class Value
 {
     public function __construct(
-        public readonly string $key,
+        public string $key,
     ) {
         if (preg_match('/^[A-Za-z0-9._:-]{1,190}$/', $key) !== 1) {
             throw new \InvalidArgumentException("#[Value] key '{$key}' is invalid: expected [A-Za-z0-9._:-]{1,190}.");
