@@ -84,7 +84,7 @@ final class OpenApiAdaptersTest extends TestCase
         $content = (string) file_get_contents($out . '.json');
         self::assertStringContainsString('"openapi": "3.1.0"', $content);
         self::assertStringContainsString('get.core.ping', $content);
-        unlink($out . '.json');
+        unlink($out . '.json'); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testGenerateSpecCommandWritesYamlAndPostman(): void
@@ -107,8 +107,8 @@ final class OpenApiAdaptersTest extends TestCase
         self::assertStringContainsString('https://api.zef.dev', $yaml);
         $postman = (string) file_get_contents($base . '-postman.json');
         self::assertStringContainsString('v2.1.0', $postman);
-        unlink($base . '.yaml');
-        unlink($base . '-postman.json');
+        unlink($base . '.yaml'); // nosemgrep: php.lang.security.unlink-use
+        unlink($base . '-postman.json'); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testGenerateSpecCommandRejectsUnknownFormat(): void

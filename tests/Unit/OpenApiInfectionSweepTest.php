@@ -907,7 +907,7 @@ final class OpenApiInfectionSweepTest extends TestCase
         ], null, ['output' => $base . '.json', 'format' => 'JSON']);
         self::assertSame(0, $exit);
         self::assertFileExists($base . '.json');
-        unlink($base . '.json');
+        unlink($base . '.json'); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testGenerateFallsBackToDefaultOutputName(): void
@@ -937,7 +937,7 @@ final class OpenApiInfectionSweepTest extends TestCase
             chdir((string) $cwd);
             foreach (['openapi.json', '0'] as $junk) {
                 if (is_file($work . '/' . $junk)) {
-                    unlink($work . '/' . $junk);
+                    unlink($work . '/' . $junk); // nosemgrep: php.lang.security.unlink-use
                 }
             }
             rmdir($work);
@@ -955,7 +955,7 @@ final class OpenApiInfectionSweepTest extends TestCase
         self::assertSame(0, $exit);
         $content = (string) file_get_contents($base . '.json');
         self::assertStringContainsString('"openapi": "3.1.0"', $content);
-        unlink($base . '.json');
+        unlink($base . '.json'); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testGenerateReportsWrittenFileMessage(): void
@@ -971,7 +971,7 @@ final class OpenApiInfectionSweepTest extends TestCase
             '/^OpenAPI specification written: ' . preg_quote($base . '.json', '/') . ' \(\d+ bytes\)$/',
             implode("\n", $io->outLog()),
         );
-        unlink($base . '.json');
+        unlink($base . '.json'); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testGeneratePostmanMessageAndPrettyCollection(): void
@@ -989,8 +989,8 @@ final class OpenApiInfectionSweepTest extends TestCase
         );
         $postman = (string) file_get_contents($base . '-postman.json');
         self::assertStringContainsString('"info": {', $postman);
-        unlink($base . '.json');
-        unlink($base . '-postman.json');
+        unlink($base . '.json'); // nosemgrep: php.lang.security.unlink-use
+        unlink($base . '-postman.json'); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testSpecHandlerEtagIsQuotedSha256(): void
