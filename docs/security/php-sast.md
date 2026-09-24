@@ -461,19 +461,29 @@ the copy matching that severity is reported. The two copies are also **not super
 — the `ERROR` copy alone adds the sink `pcntl_exec`, while the `WARNING` copy alone adds
 the source `file_get_contents('php://input')`, the sinks `expect_popen`/backticks, and
 the sanitizer `escapeshellcmd`. Picking either would therefore **narrow** detection.
-The workflow consequently overlays the one file with a merged definition that resolves
-the id to a single `ERROR` severity and takes the **union** of both pattern sets:
+The workflow consequently composes a derived copy of the *verified* tarball (its
+`sha256` check is unchanged and still runs first) in which the **canonical** file is
+replaced by the in-tree union definition and the divergent copy is **removed**:
 
-| Path in the ruleset | Severity before | Severity after |
+| Path in the ruleset | Before | After |
 |---|---|---|
-| `php/lang/security/tainted-exec.yaml` | `ERROR` | `ERROR` (unchanged) |
-| `php/lang/security/injection/tainted-exec.yaml` | `WARNING` | `ERROR` (superseded by the in-tree overlay) |
+| `php/lang/security/tainted-exec.yaml` | `ERROR`, 1 result | `ERROR`, 1 result — replaced by the in-tree union definition |
+| `php/lang/security/injection/tainted-exec.yaml` | `WARNING`, 1 result | **removed from the composed tree** — 0 results |
 
-This is a gate **strengthening** and is recorded as such: one id, one severity, wider
-pattern set. Residual: because the canonical copy is still loaded and now agrees in
-severity, a span matched by both can be reported twice (same id, same severity) — noise,
-not a weakened gate, and the tree carries no `tainted-exec` finding at all today, so the
-present impact is zero.
+This is a gate **strengthening** and is recorded as such: one id, one definition, one
+severity, union pattern set. Measured on a tainted-`exec()` fixture outside the
+repository, the sink span reported **three** results before (canonical `ERROR`,
+injection `WARNING`, and the separate `exec-use` rule) and **two** after (one
+`tainted-exec` at `ERROR`, plus that separate rule) — the ambiguity is gone and no
+coverage was lost. Residual: `exec-use` still reports the same `exec()` sink under its
+own independently pinned id, which is a distinct rule reporting a real finding rather
+than an ambiguous duplicate. The composed tree is asserted to declare `tainted-exec`
+exactly once, so neither a leftover copy nor a silently skipped overlay can pass.
+
+The overlay rule file lives at `.github/semgrep/overlay/tainted-exec.yaml`, deliberately
+**outside** `.github/semgrep/rules/` — that directory is itself a config input, so a rule
+file inside it would be loaded directly *and* through the composed tree, reintroducing
+the duplication the overlay exists to remove.
 
 **Negative control.** The markers are load-bearing, not decorative. On a copy of the six
 files with every `// nosemgrep:` marker stripped, the same CI-equivalent invocation

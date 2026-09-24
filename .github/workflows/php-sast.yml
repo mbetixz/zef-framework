@@ -20,14 +20,22 @@ name: PHP SAST
 #      closes the whole class of that miss (nineteen functions were measured to have
 #      it) by banning the qualified *writing style* for every function a pinned rule
 #      matches by name.
-#   3. an overlay directory (`rules-overlay`) that resolves a duplicated rule id in
-#      the pinned ruleset - `tainted-exec` is declared in two loaded directories at
-#      two different severities - to a single severity. The overlay is copied from
-#      the verified tarball, so the pin stays authoritative; see the overlay step.
+#   3. ONE overlay rule file, `.github/semgrep/overlay/tainted-exec.yaml`, which
+#      resolves a duplicated rule id in the pinned ruleset - `tainted-exec` is
+#      declared in two files at two different severities - to a single definition.
+#      The workflow composes it into a derived copy of the sha256-verified tarball,
+#      so the pin stays authoritative; see the overlay step.
 # Detection width therefore increased and the id/severity ambiguity was removed;
 # no threshold, exclusion or floor was relaxed. See docs/security/php-sast.md
 # sections 3 and 7 for the measurements.
-
+#
+# NOTE ON CONFIG PATHS: `/php/lang/security` is loaded RECURSIVELY - the pinned tree
+# holds 36 rule files under it, 10 of them in `injection/` and 3 in `audit/` - so
+# listing `injection/` and `audit/` as extra config paths is redundant. An earlier
+# revision of this workflow mounted only `${RUNNER_TEMP}/rules` while asking Semgrep
+# for `--config=/rules-overlay/...`, which does not exist inside the container and
+# fails the job with exit 7.
+#
 on:
   pull_request:
     branches: ["main"]
@@ -87,33 +95,43 @@ jobs:
           echo "Ruleset ${RULES_SHA} verified (sha256 matches the pinned digest)."
 
       - name: Build the rule overlay (reconcile the duplicated tainted-exec id)
-        # The pinned ruleset declares the id `tainted-exec` twice at two different
-        # severities, in two directories this workflow loads:
+        # The pinned ruleset declares the id `tainted-exec` in TWO files at two
+        # different severities, both reachable from the single recursive config path
+        # `/php/lang/security` this workflow loads:
         #     php/lang/security/tainted-exec.yaml            severity ERROR
         #     php/lang/security/injection/tainted-exec.yaml  severity WARNING
-        # Semgrep does not deduplicate a rule id across config paths, so the same
-        # issue was reported at one severity in one pass and at another severity in
-        # the next. The fix resolves the id to a single severity by copying the pinned
-        # injection directory (read-only source, bytes untouched) into an overlay and
-        # replacing exactly that one file with the in-tree merged definition, which
-        # uses the UNION of both pinned pattern sets so no detection is narrowed.
-        # Only the canonical directory is loaded unchanged, so its ERROR copy now
-        # agrees with the overlay instead of competing with it.
+        # Semgrep neither deduplicates a rule id across config paths nor lets a later
+        # definition override an earlier one, so the same issue was reported at one
+        # severity in one pass and at another severity in the next - measured: a single
+        # tainted exec() sink produced one result per copy.
+        #
+        # The canonical copy (ERROR) is authoritative. The overlay is a derived copy of
+        # the sha256-verified tarball (the pinned bytes are never edited) in which the
+        # canonical file is replaced by the in-tree union definition and the divergent
+        # injection copy is removed, so the id resolves to exactly ONE definition at
+        # ERROR. The union matters: the two copies are not supersets of each other, so
+        # keeping either alone would NARROW detection (the canonical copy alone adds
+        # `pcntl_exec`; the injection copy alone adds the `php://input` source,
+        # `expect_popen`, backticks and `escapeshellcmd`).
         run: |
           set -euo pipefail
           overlay="${RUNNER_TEMP}/rules-overlay"
           rm -rf "${overlay}"
           mkdir -p "${overlay}"
           cp -R "${RUNNER_TEMP}/rules/php" "${overlay}/php"
-          cp "${PWD}/.github/semgrep/rules/php-lang-security/injection/tainted-exec.yaml" \
-             "${overlay}/php/lang/security/injection/tainted-exec.yaml"
-          # Fail-closed: the overlay must be readable, must contain the reconciled id,
-          # and must resolve it exactly once at a single severity.
-          test -f "${overlay}/php/lang/security/injection/tainted-exec.yaml"
-          grep -q '^- id: tainted-exec$' "${overlay}/php/lang/security/injection/tainted-exec.yaml"
-          n_sev=$(grep -c 'severity: ERROR' "${overlay}/php/lang/security/injection/tainted-exec.yaml")
-          test "${n_sev}" = "1"
-          echo "Overlay ready: injection/tainted-exec.yaml reconciled to a single ERROR severity."
+          cp "${PWD}/.github/semgrep/overlay/tainted-exec.yaml" \
+             "${overlay}/php/lang/security/tainted-exec.yaml"
+          rm -f "${overlay}/php/lang/security/injection/tainted-exec.yaml"
+          # Fail-closed, and specific: the id must be declared EXACTLY ONCE across the
+          # whole overlay, so neither a leftover divergent copy nor a silent
+          # non-application of this step can pass.
+          n_ids=$(grep -rl '^- id: tainted-exec$' "${overlay}/php" | wc -l | tr -d ' ')
+          test "${n_ids}" = "1" || { echo "expected exactly one tainted-exec definition, found ${n_ids}"; exit 1; }
+          test ! -e "${overlay}/php/lang/security/injection/tainted-exec.yaml"
+          grep -q '^- id: tainted-exec$' "${overlay}/php/lang/security/tainted-exec.yaml"
+          grep -q 'severity: ERROR' "${overlay}/php/lang/security/tainted-exec.yaml"
+          test "$(grep -c 'severity: ' "${overlay}/php/lang/security/tainted-exec.yaml")" = "1"
+          echo "Overlay ready: tainted-exec declared once, at ERROR, with union patterns."
 
       - name: Scan production PHP source (blocking)
         # src/**/ is the merge-blocking set: the pinned baseline scan of main found
@@ -128,12 +146,11 @@ jobs:
           docker run --rm \
             -v "${PWD}:/src:ro" \
             -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}/rules-overlay:/rules-overlay:ro" \
             -v "${RUNNER_TEMP}:/out" \
             "${SEMGREP_IMAGE}" \
             semgrep scan \
-              --config=/rules/php/lang/security \
-              --config=/rules-overlay/php/lang/security/injection \
-              --config=/rules/php/lang/security/audit \
+              --config=/rules-overlay/php/lang/security \
               --config=/src/.github/semgrep/rules \
               --metrics=off \
               --disable-version-check \
@@ -169,12 +186,11 @@ jobs:
           docker run --rm \
             -v "${PWD}:/src:ro" \
             -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}/rules-overlay:/rules-overlay:ro" \
             -v "${RUNNER_TEMP}:/out" \
             "${SEMGREP_IMAGE}" \
             semgrep scan \
-              --config=/rules/php/lang/security \
-              --config=/rules-overlay/php/lang/security/injection \
-              --config=/rules/php/lang/security/audit \
+              --config=/rules-overlay/php/lang/security \
               --config=/src/.github/semgrep/rules \
               --metrics=off \
               --disable-version-check \
@@ -216,12 +232,11 @@ jobs:
           docker run --rm \
             -v "${PWD}:/src:ro" \
             -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}/rules-overlay:/rules-overlay:ro" \
             -v "${RUNNER_TEMP}:/out" \
             "${SEMGREP_IMAGE}" \
             semgrep scan \
-              --config=/rules/php/lang/security \
-              --config=/rules-overlay/php/lang/security/injection \
-              --config=/rules/php/lang/security/audit \
+              --config=/rules-overlay/php/lang/security \
               --config=/src/.github/semgrep/rules \
               --metrics=off \
               --disable-version-check \
