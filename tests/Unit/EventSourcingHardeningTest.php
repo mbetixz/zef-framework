@@ -317,6 +317,38 @@ final class EventSourcingHardeningTest extends TestCase
     }
 
     /**
+     * A requeued batch is staggered 1ms per position so the herd does not
+     * re-enter the downstream all at once.
+     */
+    public function testRequeueDeadLettersStaggersAttempts(): void
+    {
+        $outbox = new InMemoryOutbox(static fn (): int => self::NANO);
+        $relay = new OutboxRelay($outbox, $this->failingBus(), static fn (): int => self::NANO, maxAttempts: 1);
+        for ($i = 0; $i < 3; ++$i) {
+            $outbox->enqueue('order.placed', ['i' => $i]);
+        }
+        $relay->relay();
+        self::assertSame(3, $relay->requeueDeadLetters());
+
+        [$first] = $outbox->due(10, self::NANO);
+        self::assertSame(self::NANO, $first->nextAttemptAtUnixNano, 'the first entry requeues at +0ms');
+
+        $eligibleNow = $outbox->due(10, self::NANO);
+        self::assertCount(1, $eligibleNow, 'only the +0ms entry is eligible at $now — the rest are staggered');
+
+        $after = array_map(
+            static fn (OutboxEntry $e): int => $e->nextAttemptAtUnixNano,
+            $outbox->due(10, self::NANO + 3_000_000),
+        );
+        self::assertCount(3, $after, 'all three are eligible once the stagger window has passed');
+        self::assertSame(
+            [self::NANO, self::NANO + 1_000_000, self::NANO + 2_000_000],
+            array_values($after),
+            'stagger follows the failed() order: +0ms, +1ms, +2ms',
+        );
+    }
+
+    /**
      * deadLetters()/requeueDeadLetters() default to a 100-entry batch: with
      * 101 dead letters exactly the first 100 are returned/requeued per call.
      */

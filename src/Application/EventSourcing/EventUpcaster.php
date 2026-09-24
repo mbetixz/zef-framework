@@ -18,6 +18,12 @@ namespace Zef\Framework\EventSourcing;
  *   upcaster may rename the event into a type that owns its own upcasters —
  *   the walk continues, so a legacy payload traverses the full migration
  *   path (v1→v2→v3); a rename cycle is rejected after {@see MAX_HOPS};
+ *   precise semantics: ALL upcasters registered for the event's CURRENT
+ *   type run to completion (in registration order) before the chain walks
+ *   on — if an earlier upcaster in the same batch renames the event, the
+ *   remaining same-type upcasters in that batch still run and see the
+ *   reshaped event, so register ONE upcaster per schema step per type to
+ *   stay type-exact;
  * - {@see transform()} is a pass-through for event types without any
  *   upcaster, so streams recorded in the current schema pay zero cost;
  * - identity guard: an upcaster may rename the event or reshape its

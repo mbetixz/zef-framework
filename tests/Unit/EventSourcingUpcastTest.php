@@ -210,6 +210,53 @@ final class EventSourcingUpcastTest extends TestCase
     }
 
     /**
+     * PINNED semantics: all upcasters registered for a type run to
+     * completion in registration order BEFORE the chain walks on — a
+     * mid-batch rename means the remaining same-type upcasters still run
+     * and see the reshaped event. Register one upcaster per schema step
+     * per type to stay type-exact.
+     */
+    public function testMidBatchRenameStillRunsRemainingSameTypeUpcasters(): void
+    {
+        $renamer = new class implements UpcasterInterface {
+            #[\Override]
+            public function eventTypes(): array
+            {
+                return ['e.legacy'];
+            }
+
+            #[\Override]
+            public function upcast(StoredEvent $event): StoredEvent
+            {
+                return UpcastTestRebuilder::rebuild($event, 'e.v2', ['step' => 1]);
+            }
+        };
+        $lateSameType = new class implements UpcasterInterface {
+            /** @var list<string> */
+            public array $receivedTypes = [];
+
+            #[\Override]
+            public function eventTypes(): array
+            {
+                return ['e.legacy'];
+            }
+
+            #[\Override]
+            public function upcast(StoredEvent $event): StoredEvent
+            {
+                $this->receivedTypes[] = $event->eventType;
+
+                return $event;
+            }
+        };
+        $registry = new EventUpcaster($renamer, $lateSameType);
+
+        $upcast = $registry->transform($this->stored('e.legacy', 1, 1));
+        self::assertSame(['e.v2'], $lateSameType->receivedTypes, 'the late same-type upcaster sees the renamed event');
+        self::assertSame('e.v2', $upcast->eventType);
+    }
+
+    /**
      * A LEGAL rename chain of exactly MAX_HOPS steps must complete — the
      * hop budget is a corruption guard, not a limit on legitimate migrations.
      */

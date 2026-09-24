@@ -105,9 +105,13 @@ final readonly class OutboxRelay
 
     /**
      * Give dead letters a fresh retry budget (v2.23.0): status back to
-     * pending, attempts reset to 0, eligible immediately on the next
-     * {@see relay()}. Use after fixing the root cause; the original error
-     * stays visible on each entry until its next dispatch attempt.
+     * pending, attempts reset to 0, eligible on the next {@see relay()}.
+     * Use after fixing the root cause; the original error stays visible on
+     * each entry until its next dispatch attempt.
+     *
+     * Requeued entries are STAGGERED one millisecond apart (per position in
+     * the batch) so a requeued herd re-enters the downstream spread out
+     * instead of all at once.
      *
      * @param int $limit >= 1
      *
@@ -121,7 +125,7 @@ final readonly class OutboxRelay
         $now = ($this->clock)();
         $requeued = 0;
         foreach ($this->outbox->failed($limit) as $entry) {
-            $this->outbox->requeue($entry->id, $now);
+            $this->outbox->requeue($entry->id, $now + $requeued * 1_000_000);
             ++$requeued;
         }
 
