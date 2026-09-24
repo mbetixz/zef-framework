@@ -348,6 +348,7 @@ final class ConfigV2HardeningTest extends TestCase
             }
         };
         $provider = new ResilientSecretsProvider($inner, backoffSeconds: 0.0);
+
         try {
             $provider->get('db');
             self::fail('Expected rethrow after default retry budget.');
@@ -434,6 +435,7 @@ final class ConfigV2HardeningTest extends TestCase
         $roDir = $this->workspace . '/ro';
         mkdir($roDir);
         chmod($roDir, 0o500);
+
         try {
             new ConfigCompiler()->export(new Config(['a' => 1]), $roDir . '/compiled.php');
             self::fail('Unwritable directory must be rejected.');
@@ -450,6 +452,7 @@ final class ConfigV2HardeningTest extends TestCase
     public function testCompilerDetectsUnexportableAfterExportableArray(): void
     {
         $target = $this->workspace . '/compiled.php';
+
         try {
             new ConfigCompiler()->export(new Config(['ok' => ['b' => 1], 'bad' => new \stdClass()]), $target);
             self::fail('Unexportable value after an exportable array must still be detected.');
