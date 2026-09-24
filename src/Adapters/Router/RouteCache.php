@@ -41,7 +41,11 @@ final class RouteCache
             throw new \RuntimeException("Cannot write route cache '{$tmp}'.");
         }
         if (!rename($tmp, $path)) {
-            @unlink($tmp);
+            // Cleanup of $tmp, a name this method generated itself
+            // ($path . '.' . bin2hex(random_bytes(6)) . '.tmp', line 39). No request input
+            // reaches the argument; this runs only when the rename immediately above failed.
+            // Registered as an accepted suppression: docs/security/php-sast.md §7.
+            @unlink($tmp); // nosemgrep: php.lang.security.unlink-use
 
             throw new \RuntimeException("Cannot finalize route cache '{$path}'.");
         }

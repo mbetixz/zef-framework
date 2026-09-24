@@ -96,17 +96,27 @@ jobs:
               --output=/out/sast-src.sarif \
               /src/src
 
-      - name: Scan production PHP source at WARNING severity (report-only)
+      - name: Scan production PHP source at WARNING severity (blocking)
         # Closes the severity coverage hole: before this step, src/**/ was evaluated
         # at ERROR severity only, so every WARNING-level rule — including the taint
         # rules whose confidence metadata is MEDIUM CONFIDENCE — was never *looked
         # for* in production code. A zero finding count under ERROR meant "no
         # ERROR-level match", never "no WARNING-level match".
         #
-        # Report-only on purpose: no --error, so this step cannot fail the job and
-        # cannot block a pull request. The blocking decision stays with the ERROR
-        # step above, exactly as documented in docs/security/php-sast.md §5. This
-        # adds detection, not gate strength — and removes no gate.
+        # BLOCKING since 2026-09-24: --error is passed below, so a WARNING finding in
+        # production source now fails this job and blocks the pull request.
+        #
+        # The promotion was sequenced, not bundled. The pass shipped report-only first
+        # (PR #41) so its findings were *visible* without turning an untriaged
+        # population into a red gate. It was made blocking only after the three
+        # findings it revealed — all php.lang.security.unlink-use, best-effort cleanup
+        # of a self-named temp file on a failure path — were triaged and registered as
+        # accepted suppressions in docs/security/php-sast.md §7.
+        #
+        # The gate is green because that population was dispositioned in writing, not
+        # because it was ignored: no rule was disabled, no path excluded, no finding
+        # left unexamined. The ERROR step above is deliberately UNCHANGED — same
+        # configs, same --severity ERROR --error. Nothing was relaxed.
         run: |
           set -euo pipefail
           docker run --rm \
@@ -121,6 +131,7 @@ jobs:
               --metrics=off \
               --disable-version-check \
               --severity WARNING \
+              --error \
               --sarif \
               --output=/out/sast-src-warning.sarif \
               /src/src
@@ -168,9 +179,11 @@ jobs:
           category: php-sast-source
 
       - name: Upload SARIF (production source, WARNING severity)
-        # Published under its own category so the report-only production findings are
-        # never mixed with the blocking ones in code scanning. Best-effort, like every
-        # upload here: publication is not the gate.
+        # Published under its own category so the lower-floor production findings are
+        # never mixed with the ERROR-floor ones in code scanning. Both categories are
+        # blocking since 2026-09-24; they stay separate so a reviewer can still tell
+        # which severity floor produced a given alert. Best-effort, like every upload
+        # here: publication is not the gate.
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
@@ -208,11 +221,11 @@ jobs:
             echo "- engine digest: \`${SEMGREP_IMAGE##*@}\`"
             echo "- ruleset commit: \`${RULES_SHA}\`"
             echo "- production source, ERROR severity: blocking"
-            echo "- production source, WARNING severity: report-only (cannot fail this job)"
+            echo "- production source, WARNING severity: blocking (promoted 2026-09-24)"
             echo "- tests and tooling, WARNING severity: report-only"
             for pair in \
               "sast-src.sarif=production, ERROR severity (blocking)" \
-              "sast-src-warning.sarif=production, WARNING severity (report-only)" \
+              "sast-src-warning.sarif=production, WARNING severity (blocking)" \
               "sast-tests.sarif=tests and tooling, WARNING severity (report-only)"; do
               f="${RUNNER_TEMP}/${pair%%=*}"
               label="${pair##*=}"

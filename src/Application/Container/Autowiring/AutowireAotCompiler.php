@@ -97,7 +97,11 @@ final class AutowireAotCompiler
             throw new InvalidConfigurationException("Cannot write AOT export file '{$path}'.");
         }
         if (!rename($tmp, $path)) {
-            @unlink($tmp);
+            // Cleanup of $tmp, a name this method generated itself
+            // ($path . '.tmp.' . getmypid(), line 95). No request input reaches the
+            // argument; this runs only when the rename immediately above failed.
+            // Registered as an accepted suppression: docs/security/php-sast.md §7.
+            @unlink($tmp); // nosemgrep: php.lang.security.unlink-use
 
             throw new InvalidConfigurationException("Cannot finalise AOT export file '{$path}'.");
         }
