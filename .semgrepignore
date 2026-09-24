@@ -6,8 +6,9 @@
 # depending on a tool default that can change between releases.
 #
 # `tests/`, `scripts/` and `tools/` are deliberately NOT listed. They are analysed
-# as well, but their findings are reported instead of blocking. The reasoning is
-# in docs/security/php-sast.md.
+# AND their findings are blocking since 2026-09-24; excluding a whole tree would
+# silence findings rather than disposition them, which converts a gate into a
+# formality. The reasoning is in docs/security/php-sast.md.
 .git/
 vendor/
 build/

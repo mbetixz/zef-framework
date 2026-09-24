@@ -344,7 +344,7 @@ final class ModulesPluginsTest extends TestCase
             self::assertStringContainsString('[ZEF][security]', $contents);
         } finally {
             ini_set('error_log', (string) $previous);
-            @unlink($logFile);
+            @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
         }
     }
 

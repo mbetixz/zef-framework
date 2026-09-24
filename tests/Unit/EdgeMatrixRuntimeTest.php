@@ -338,7 +338,7 @@ final class EdgeMatrixRuntimeTest extends TestCase
             self::assertSame('', file_get_contents($logFile), 'native error_log must stay silent when the worker has error()');
         } finally {
             ini_set('error_log', $previousLog);
-            @unlink($logFile);
+            @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
@@ -364,7 +364,7 @@ final class EdgeMatrixRuntimeTest extends TestCase
             self::assertTrue(str_contains($contents, 'fallback message'), 'error_log fallback must receive the message');
         } finally {
             ini_set('error_log', $previousLog);
-            @unlink($logFile);
+            @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
@@ -665,7 +665,7 @@ final class EdgeMatrixRuntimeTest extends TestCase
             self::assertTrue(str_contains($contents, 'RuntimeException: handler exploded'), 'error_log receives the ORIGINAL failure when the error channel throws');
         } finally {
             ini_set('error_log', $previousLog);
-            @unlink($logFile);
+            @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
         }
     }
 

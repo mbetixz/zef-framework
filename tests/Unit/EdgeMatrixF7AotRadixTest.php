@@ -95,7 +95,7 @@ final class EdgeMatrixF7AotRadixTest extends TestCase
             self::assertTrue(is_callable($definition->factory));
             self::assertTrue($definition->shared, 'singleton default shared');
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
@@ -117,7 +117,7 @@ final class EdgeMatrixF7AotRadixTest extends TestCase
             $definitions = AutowireAotCompiler::loadDefinitions($path);
             self::assertFalse($definitions['svc.t']->shared, 'transient default shared=false');
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
@@ -148,7 +148,7 @@ final class EdgeMatrixF7AotRadixTest extends TestCase
         } catch (InvalidConfigurationException $e) {
             self::assertSame("AOT file '{$bad}' must return an array.", $e->getMessage());
         } finally {
-            @unlink($bad);
+            @unlink($bad); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
@@ -172,7 +172,7 @@ final class EdgeMatrixF7AotRadixTest extends TestCase
                 self::assertStringContainsString('has a malformed entry for service', $e->getMessage());
                 self::assertStringStartsWith("AOT file '", $e->getMessage());
             } finally {
-                @unlink($path);
+                @unlink($path); // nosemgrep: php.lang.security.unlink-use
             }
         }
     }
@@ -187,7 +187,7 @@ final class EdgeMatrixF7AotRadixTest extends TestCase
             $definitions = AutowireAotCompiler::loadDefinitions($path);
             self::assertNull($definitions['svc.a']->module, 'non-string module falls back to null');
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
 
         $path2 = sys_get_temp_dir() . '/zef-aot-' . bin2hex(random_bytes(4)) . '.php';
@@ -197,7 +197,7 @@ final class EdgeMatrixF7AotRadixTest extends TestCase
             $definitions = AutowireAotCompiler::loadDefinitions($path2);
             self::assertFalse($definitions['svc.a']->shared, 'explicit shared=false wins over the lifetime default');
         } finally {
-            @unlink($path2);
+            @unlink($path2); // nosemgrep: php.lang.security.unlink-use
         }
     }
 

@@ -365,7 +365,7 @@ final class EdgeMatrixHttpTest extends TestCase
         }
 
         fclose($resource);
-        unlink($path);
+        unlink($path); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testReadOnlyStreamRejectsWrites(): void
@@ -387,7 +387,7 @@ final class EdgeMatrixHttpTest extends TestCase
 
         self::assertSame('', $stream->read(0), 'read(0) returns an empty string');
         fclose($resource);
-        unlink($path);
+        unlink($path); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testReadStreamLengthBoundaries(): void
@@ -985,7 +985,7 @@ final class EdgeMatrixHttpTest extends TestCase
         $detached = $stream->detach();
         assert(is_resource($detached));
         fclose($detached);
-        unlink($path);
+        unlink($path); // nosemgrep: php.lang.security.unlink-use
 
         try {
             // @phpstan-ignore-next-line (intentional type violation under test)

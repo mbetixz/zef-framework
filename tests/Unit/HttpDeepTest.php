@@ -237,7 +237,7 @@ final class HttpDeepTest extends TestCase
     {
         $target = tempnam(sys_get_temp_dir(), 'zefup');
         assert($target !== false);
-        @unlink($target);
+        @unlink($target); // nosemgrep: php.lang.security.unlink-use
         $directory = sys_get_temp_dir();
         $path = $directory . '/zef-upload-' . bin2hex(random_bytes(4)) . '.bin';
         $file = new UploadedFile(Stream::fromString('uploaded-bytes'), 13);
@@ -248,7 +248,7 @@ final class HttpDeepTest extends TestCase
         try {
             $file->moveTo($path);
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
     }
 

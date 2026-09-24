@@ -54,7 +54,7 @@ final class EdgeMatrixF10ContainerTest extends TestCase
             $definitions = AutowireAotCompiler::loadDefinitions($path);
             self::assertSame(['dep.z', 'dep.a'], $definitions['svc.a']->dependencies, 'string-keyed deps wajib direindex jadi list');
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
@@ -76,7 +76,7 @@ final class EdgeMatrixF10ContainerTest extends TestCase
             $definitions = AutowireAotCompiler::loadDefinitions($path);
             self::assertFalse($definitions['svc.t']->shared, 'lifetime non-singleton tanpa shared eksplisit wajib unshared');
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
