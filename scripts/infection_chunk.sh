@@ -4,7 +4,7 @@
 # Wajib: < /dev/null agar tidak hang; threads=2 (2 CPU); foreground <= ~9 menit.
 set -eu
 export PATH="$HOME/.local/bin:$PATH"
-cd /home/z/my-project || exit 1
+cd /home/z/my-project/download/zef-framework || exit 1
 
 NAME="$1"
 FILTER="$2"

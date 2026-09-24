@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="ZEF Framework">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="55%" stop-color="#111e36"/>
+      <stop offset="100%" stop-color="#1b1240"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.55"/>
+    </pattern>
+  </defs>
+
+  <!-- background layer: every element is symmetric about x=640 by construction -->
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+  <circle cx="1120" cy="60" r="180" fill="#38bdf8" opacity="0.07"/>
+  <circle cx="150" cy="280" r="150" fill="#c084fc" opacity="0.07"/>
+
+  <!-- CONTENT:START
+       Text free banner. The slogan that used to sit here (the three pills and the
+       stack subtitle) is gone and nothing replaces it, so no text can sit under
+       the mark.
+       Single centred mark: the native box is 116 wide by 88 tall, scaled 1.6 to
+       185.6 by 140.8, so translate x = 640 - 185.6/2 = 547.2 puts the mark on the
+       viewBox centre axis (640) and translate y = 160 - 140.8/2 = 89.6 centres it
+       vertically. The mark is anchored to the centre, never to a font width. -->
+  <circle cx="640" cy="160" r="186" fill="url(#glow)"/>
+
+  <g id="mark" transform="translate(547.2 89.6) scale(1.6)">
+    <path d="M0 12 L12 0 L104 0 L116 12 L116 76 L104 88 L12 88 L0 76 Z"
+          fill="none" stroke="url(#accent)" stroke-width="4"/>
+    <path d="M20 22 H96 M20 40 H74 M20 58 H96" stroke="url(#accent)" stroke-width="6"
+          stroke-linecap="round" opacity="0.85"/>
+    <circle cx="102" cy="58" r="7" fill="#38bdf8"/>
+  </g>
+  <!-- CONTENT:END -->
+
+  <rect x="0" y="317" width="1280" height="3" fill="url(#accent)"/>
+</svg>
