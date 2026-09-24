@@ -18,11 +18,11 @@ namespace Zef\Framework\Autowiring;
  * local to the parameter.
  */
 #[\Attribute(\Attribute::TARGET_PARAMETER)]
-final class Target
+final readonly class Target
 {
     /** @param class-string $class */
     public function __construct(
-        public readonly string $class,
+        public string $class,
     ) {
         if (!class_exists($class) && !interface_exists($class) && !enum_exists($class)) {
             throw new \InvalidArgumentException("#[Target] references unknown class/interface/enum '{$class}'.");

@@ -64,12 +64,6 @@ final class ImmutabilityFreezeTest extends TestCase
         'src/Application/Security/CsrfTokenManager.php',
         'src/Application/Security/Distributed/AllowScopeAuthorizationPolicy.php',
         'src/Application/Security/Distributed/StaticCredentialProvider.php',
-        'src/Domain/Autowiring/Inject.php',
-        'src/Domain/Autowiring/Target.php',
-        'src/Domain/Autowiring/Value.php',
-        'src/Domain/Config/ModuleContext.php',
-        'src/Domain/Security/Totp.php',
-        'src/Domain/Validation/TrustedHostValidator.php',
         'src/Infrastructure/Cache/InMemoryCache.php',
         'src/Infrastructure/Cache/TaggableCache.php',
         'src/Infrastructure/Cache/TieredCache.php',
@@ -127,9 +121,9 @@ final class ImmutabilityFreezeTest extends TestCase
     {
         $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
-            77,
+            83,
             $current,
-            sprintf('Jumlah kelas `readonly` menurun (%d < 77) — regresi kebijakan immutability.', $current),
+            sprintf('Jumlah kelas `readonly` menurun (%d < 83) — regresi kebijakan immutability.', $current),
         );
     }
 

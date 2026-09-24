@@ -20,7 +20,7 @@ namespace Zef\Framework\Security;
  * RFC 6238 Appendix B vectors (SHA-1, 8 digits, secret
  * "12345678901234567890") are covered by the self-test suite.
  */
-final class Totp
+final readonly class Totp
 {
     public const int DEFAULT_PERIOD = 30;
     public const int DEFAULT_DIGITS = 6;
@@ -28,9 +28,9 @@ final class Totp
     private const array ALGORITHMS = ['sha1' => 20, 'sha256' => 32, 'sha512' => 64];
 
     public function __construct(
-        public readonly int $period = self::DEFAULT_PERIOD,
-        public readonly int $digits = self::DEFAULT_DIGITS,
-        public readonly string $algorithm = 'sha1',
+        public int $period = self::DEFAULT_PERIOD,
+        public int $digits = self::DEFAULT_DIGITS,
+        public string $algorithm = 'sha1',
     ) {
         if ($this->period < 1 || $this->period > 86400) {
             throw new \InvalidArgumentException('TOTP period must be 1..86400 seconds.');

@@ -10,9 +10,9 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Validation;
 
-final class TrustedHostValidator
+final readonly class TrustedHostValidator
 {
-    public function __construct(private readonly array $trustedHosts = []) {}
+    public function __construct(private array $trustedHosts = []) {}
 
     public function assert(string $host): void
     {
