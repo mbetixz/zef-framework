@@ -28,8 +28,9 @@ This gate **does not replace, duplicate or weaken any of the above.** Concretely
 
 - It is **not** a CodeQL PHP analysis — no such thing exists here. Code scanning
   receives the SARIF this workflow uploads, under its own categories
-  (`php-sast-source` — blocking production, `php-sast-source-warning` — report-only
-  production, `php-sast-tests` — report-only tooling). Those results must not be
+  (`php-sast-source` — production at the `ERROR` floor, blocking; and
+  `php-sast-source-warning` — production at the `WARNING` floor, **also blocking
+  since 2026-09-24**; `php-sast-tests` — report-only tooling). Those results must not be
   read as CodeQL output.
 - It is **not** a type checker. PHPStan already covers correctness; Semgrep only
   looks for security-relevant patterns, and a Semgrep-clean tree says nothing
@@ -97,7 +98,7 @@ or `latest` reference is used as a security boundary.
 | Path set | Analysed | Effect |
 |---|---|---|
 | `src/**/*.php` (production / runtime source), `ERROR` severity | yes | **Blocking** — the job fails |
-| `src/**/*.php` (production / runtime source), `WARNING` severity | yes | **Non-blocking** — reported through code scanning only |
+| `src/**/*.php` (production / runtime source), `WARNING` severity | yes | **Blocking** — the job fails (promoted 2026-09-24) |
 | `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php` | yes | **Non-blocking** — reported through code scanning only |
 
 **Why test and tooling code is scanned rather than excluded.** The alternative
@@ -110,9 +111,11 @@ reviewers to bypass the gate.
 
 **Why `src/` blocks.** The baseline `ERROR`-severity scan of `src/**` on `main`
 produced **zero** findings (section 6), so the blocking threshold introduces no
-false-positive friction today and guarantees the gate cannot silently degrade. That
-zero is an `ERROR`-severity statement only: the same tree yields 3 findings under the
-`WARNING` floor, which is why those are reported rather than blocking.
+false-positive friction today and guarantees the gate cannot silently degrade. The
+`WARNING` floor over the same tree produced three findings, and those were triaged
+and registered before the `WARNING` floor was itself made blocking — a blocking floor
+is only defensible once its population is dispositioned, otherwise the gate colours
+red for reasons nobody has decided about.
 
 **Excluded paths** are listed explicitly in the committed `.semgrepignore` (`.git/`,
 `vendor/`, `build/`, `dist/`, `node_modules/`, tool caches). Note the interaction
@@ -128,33 +131,35 @@ That behaviour was verified empirically, not assumed.
 | Severity | Policy |
 |---|---|
 | `ERROR` in `src/**` | **Blocks the pull request.** Semgrep is invoked with `--severity ERROR --error`; any `ERROR` finding makes the job fail. Error-level PHP rules in the pinned ruleset cover the injection classes where a false negative is most damaging (code injection via dynamic evaluation, command execution, SSRF). |
-| `WARNING`, in `src/**` | **Non-blocking, but always evaluated.** A dedicated report-only pass (*Scan production PHP source at WARNING severity*) scans production source at `--severity WARNING`, so warning-level rules — including the taint rules whose confidence metadata is `MEDIUM CONFIDENCE` — are looked for in production code and reported, without being able to block. Before that pass existed, `src/**` was evaluated at `ERROR` only, so a whole severity band was invisible in production *by construction*: a zero count under `ERROR` never meant "no warning-level match". |
+| `WARNING`, in `src/**` | **Blocks the pull request** (promoted 2026-09-24). A dedicated pass (*Scan production PHP source at WARNING severity*) scans production source at `--severity WARNING --error`, so warning-level rules — including the taint rules whose confidence metadata is `MEDIUM CONFIDENCE` — are looked for in production code *and* can fail the job. Before that pass existed, `src/**` was evaluated at `ERROR` only, so a whole severity band was invisible in production *by construction*: a zero count under `ERROR` never meant "no warning-level match". The pass shipped report-only for one change (PR #41) so its findings could be triaged first; that triage is in §7, and promotion followed it. |
 | `WARNING`, in `tests/**`, `scripts/**`, `tools/**` | **Non-blocking.** Surfaced in the job log and in code scanning. |
 | `INFO` | Not reported (`--severity WARNING` floors the reporting scan). |
 
 **Policy shape.** The gate fails on high-severity findings only, and never because
 a scan *ran*. Crucially, the gate is **not** made green by ignoring findings: no
 rule is disabled, there is no blanket path exclusion, and there is no `|| true` on
-the blocking scan step. There **are** two in-source `#nosemgrep` suppressions,
-both on `eval()` in production code; they are accepted, justified and registered
-in section 7. This document previously stated that none existed — that was wrong,
-and is corrected there.
+the blocking scan step. There **are** five in-source `#nosemgrep` suppressions —
+two on `eval()`, three on `unlink()` — all in production code; they are accepted,
+justified and registered in section 7. This document previously stated that none
+existed — that was wrong, and is corrected there.
 
-**Two-pass policy (measured 2026-09-24).** `WARNING` is evaluated in a separate
-report-only pass rather than being promoted to blocking, and rather than being
-left unlooked for. Choosing between keeping two passes and promoting the warning
-pass to blocking is an **owner decision**:
+**Two-pass policy — promoted to blocking on 2026-09-24 (owner decision).** The
+`WARNING` floor is evaluated in its own pass over `src/**` and now supplies
+`--error`, exactly as the `ERROR` floor does. Both severity floors over production
+source are therefore merge-blocking; only `tests/`, `scripts/` and `tools/`
+remain report-only.
 
-- *Two passes (current).* Production warning findings are visible and published to
-  code scanning, and can never fail the job. Cost: one extra Semgrep invocation
-  over `src/**`.
-- *Promote to blocking (not done).* Add `--error` to the warning pass. Do this only
-  after the warning population has been triaged: at the time of writing that pass
-  immediately reports 3 production findings (section 6), and an untriaged red gate
-  is how reviewers learn to bypass a gate.
+The promotion was **sequenced, not bundled**. The pass was introduced report-only
+(PR #41) so that its findings would be *visible* without turning an untriaged
+population into a red gate, and promotion followed only once the three findings it
+revealed had been dispositioned in writing (§7). An untriaged red gate is how
+reviewers learn to bypass a gate, so the ordering matters more than the one-line
+change.
 
-Promotion is a one-line change and must stay a deliberate, reviewable edit rather
-than a by-product of this coverage fix.
+The change is deliberately visible in the diff and carries its own rationale. The
+`ERROR` step is byte-identical to before, no rule was disabled, no path was
+excluded, and no finding was left unexamined: detection width increased *and*
+blocking width increased; nothing was relaxed.
 
 ---
 
@@ -173,17 +178,26 @@ under the `ERROR` floor, **16** under the `WARNING` floor.
 
 | Pass | Targets | Findings | Blocking |
 |---|---|---|---|
-| `src/**`, `ERROR` floor | 358 files | **0** | yes (`--error`) |
-| `src/**`, `WARNING` floor (new pass) | 358 files | **3** | no (report-only) |
+| `src/**`, `ERROR` floor | 360 files | **0** | yes (`--error`) |
+| `src/**`, `WARNING` floor | 360 files | **3** | yes (`--error`, promoted 2026-09-24) |
 | `tests/**` + `scripts/**`, `WARNING` floor | 97 files | 30 | no (report-only) |
 
-The 3 production warning findings are all `php.lang.security.unlink-use`, and all
-three sit on best-effort cleanup of a temporary file that this code named itself
-immediately before attempting an atomic `rename()`:
-`src/Adapters/Http/UploadedFile.php:130`, `src/Adapters/Router/RouteCache.php:44`,
-`src/Application/Container/Autowiring/AutowireAotCompiler.php:100`. They are **not**
-suppressed and not fixed by this change — they are now *visible* for the first
-time, which is the point of the new pass. Triaging them is the next step.
+Re-measured again on `main` @ `2ed883e` after the promotion: the same three
+`WARNING` findings, all `php.lang.security.unlink-use`, on best-effort cleanup of a
+temporary file this code named itself on the failure path of an atomic `rename()`:
+`src/Adapters/Http/UploadedFile.php:136`, `src/Adapters/Router/RouteCache.php:48`,
+`src/Application/Container/Autowiring/AutowireAotCompiler.php:104`. (The line
+numbers move from the PR #41 figures because the register comments added in §7 sit
+above each call.)
+
+Those three were **triaged before the pass was promoted**, not after: they are
+accepted suppressions, registered and justified in §7, with the argument for
+suppression-over-rewrite measured in §7.1. The `ERROR` floor remains 0 findings.
+
+`tests/**`, `scripts/**` and `tools/**` stay report-only. Promotion was scoped to
+production source on purpose — that tooling tree is still carrying an untriaged
+population, so making it blocking would be the untriaged-red-gate failure mode §5
+warns about, in exchange for no production risk reduction.
 
 No baseline file and no rule-level suppression was created for this change.
 Nothing is hidden to make the gate green, and — the other direction — nothing that
@@ -212,22 +226,64 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 2** — both `php.lang.security.eval-use`, both in
-production source, both accepted by owner decision on 2026-09-24. This section
-previously stated that nothing was suppressed; that was wrong, and the register
-below is the correction. Under rule 4, the accepted list is reviewable here as a
-whole rather than scattered across source files.
+**Registered suppressions: 5** — two `php.lang.security.eval-use` and three
+`php.lang.security.unlink-use`, all in production source, all accepted by owner
+decision on 2026-09-24. This section previously stated that nothing was suppressed;
+that was wrong, and the register below is the correction. Under rule 4, the
+accepted list is reviewable here as a whole rather than scattered across source
+files.
+
+The three `unlink-use` entries were added when the `WARNING` pass over production
+source was promoted to blocking, and the order matters: the pass first reported
+these three (`report-only`, PR #41), they were then triaged, and only then did the
+pass become merge-blocking. The suppression is what made a *green* blocking gate
+possible without ignoring a finding.
 
 | # | Rule | Location | Reason | Lifetime |
 |---|---|---|---|---|
 | 1 | `php.lang.security.eval-use` | `src/Adapters/Runtime/TinkerSession.php:68-70` | The `bin/zef tinker` REPL evaluates developer-typed code **by design**. Its caller (`bin/zef`, `zef_tinker()`) refuses to start when `ZEF_ENV=production` unless `--force` is passed, so the input is neither remote nor untrusted; the class itself performs no I/O. Removing `eval()` would remove the feature. | **Permanent** — the feature *is* `eval` |
 | 2 | `php.lang.security.eval-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:163` | `evalFactory()` evaluates **code this compiler generated itself** one step earlier (`generateFactory()` returns a `static fn` expression assembled from `var_export`'d scalars, a `\`-prefixed class name, and integer dependency placeholders — no caller-supplied payload reaches the string). It is the compile-time pattern Symfony's DI container dump uses, and the resulting closure is what makes reflection-free cold start possible. The suppression is **load-bearing**: the CI invocation over `src/**` exits `1` ("2 findings (2 blocking)") without it, measured on the same ruleset. | **Permanent** — the pattern is the feature |
+| 3 | `php.lang.security.unlink-use` | `src/Adapters/Http/UploadedFile.php:136` | Best-effort cleanup of `$targetPath . '.zef-tmp-' . bin2hex(random_bytes(8))` — a name this method generated itself at line 66. No request input reaches the argument, and the call runs only on the failure path (`if (!$success)`), after the atomic `rename()` to the caller's destination has already failed; it can therefore only remove a partially written temp file of this method's own making. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
+| 4 | `php.lang.security.unlink-use` | `src/Adapters/Router/RouteCache.php:48` | Same shape: cleanup of `$path . '.' . bin2hex(random_bytes(6)) . '.tmp'` (line 39), a self-named temp sibling of the cache file, on the branch where `rename($tmp, $path)` has already returned false. Not reachable with request-controlled input. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
+| 5 | `php.lang.security.unlink-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:104` | Same shape: cleanup of `$path . '.tmp.' . getmypid()` (line 95), a self-named temp sibling of the AOT export, on the branch where `rename($tmp, $path)` has already returned false. Reached from the compile-time CLI path, never from a request. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 
-Both suppressions are `inSource` and scoped to a single line. Neither hides a
-rule-class-wide exclusion, and neither removes an evaluation that would otherwise
-be counted: the findings stay published to code scanning as alerts 1 and 2
+All five suppressions are `inSource` and scoped to a single line. None hides a
+rule-class-wide exclusion, and none removes an evaluation that would otherwise be
+counted: every suppressed finding stays published to code scanning as an alert
 carrying `"kind": "inSource"`, so a reviewer sees the suppression instead of it
-being silent.
+being silent. The three `unlink-use` entries are **not** a change of behaviour —
+they document calls that already existed and were already flagged; what changed is
+that they are now recorded and reviewable in one place.
+
+### 7.1 Why the three `unlink-use` findings are suppressed rather than fixed
+
+Suppression was chosen over a rewrite on measurement, not preference. The rule is
+`pattern: unlink(...)` minus `pattern-not: unlink("...",...)` — it matches **every**
+`unlink()` whose argument is not a bare string literal, irrespective of provenance.
+Removing the `@` or the enclosing `if` changes nothing.
+
+Measured against the pinned ruleset, on a synthetic probe **outside the repository**
+(no insecure code was ever placed in `src/`):
+
+| Call form | Matched by `unlink-use`? |
+|---|---|
+| `unlink('/tmp/known-file')` — literal | no |
+| `unlink($tmp)` | **yes** |
+| `unlink(realpath($tmp))` — hardened | **yes** |
+| `unlink(dirname($tmp) . '/' . basename($tmp))` — hardened | **yes** |
+| `unlink((string) $tmp)` | **yes** |
+| `unlink(sprintf('%s', $tmp))` | **yes** |
+
+So a "fix" that adds path hardening would still be flagged, and the only forms that
+clear the rule are worse: inline a literal path (wrong — the name is computed per
+call), or express the removal as something other than `unlink()`. The calls are also
+not reachable with attacker-controlled input, and the rule's own metadata rates them
+`confidence: LOW` / `likelihood: LOW`.
+
+The honest characterisation is therefore: **a false positive on a low-risk cleanup
+path, accepted in writing, with the alert left visible in code scanning.** Nothing
+was hidden to obtain a green gate, and the rule stays enabled for every other
+`unlink()` in the tree.
 
 If a finding must be suppressed in future, the rules are:
 
