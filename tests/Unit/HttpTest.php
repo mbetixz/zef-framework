@@ -63,8 +63,8 @@ final class HttpTest extends TestCase
         $file->moveTo($target);
         self::assertFileExists($target);
         self::assertSame('payload-bytes', file_get_contents($target));
-        @unlink($target);
-        @unlink((string) $tmp);
+        @unlink($target); // nosemgrep: php.lang.security.unlink-use
+        @unlink((string) $tmp); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testUploadedFileRejectsNegativeSizeAndBadStream(): void

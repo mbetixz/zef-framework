@@ -245,7 +245,7 @@ final class RuntimeEdgeTest extends TestCase
         $runtime = new RoadRunnerRuntime($app, $worker, 1, 0, false);
         $exitCode = $runtime->run();
         ini_set('error_log', (string) $previous);
-        @unlink($logFile);
+        @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
         self::assertSame(1, $exitCode);
         self::assertSame(1, $runtime->handledRequests());
     }

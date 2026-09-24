@@ -297,8 +297,8 @@ final class V290AutowireSuite
         $badPath = tempnam(sys_get_temp_dir(), 'zef290bad');
         file_put_contents($badPath, "<?php return ['oops' => ['factory' => 'not-callable']];\n");
         $this->throws(InvalidConfigurationException::class, fn (): array => AutowireAotCompiler::loadDefinitions($badPath), 'v290: malformed AOT file rejected');
-        unlink($badPath);
-        unlink($path);
+        unlink($badPath); // nosemgrep: php.lang.security.unlink-use
+        unlink($path); // nosemgrep: php.lang.security.unlink-use
     }
 
     private function v290RuntimeErrors(): void

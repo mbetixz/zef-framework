@@ -136,11 +136,24 @@ jobs:
               --output=/out/sast-src-warning.sarif \
               /src/src
 
-      - name: Scan tests and tooling PHP (report-only)
+      - name: Scan tests and tooling PHP (blocking)
         # Analysed on purpose — this code runs with repository credentials on CI and
-        # on developer machines. It is reported through code scanning but does not
-        # block, because these trees have not been triaged yet and an untriaged red
-        # gate is how reviewers learn to bypass a gate.
+        # on developer machines, so a dangerous pattern there has real impact.
+        #
+        # BLOCKING since 2026-09-24: --error is passed below, so a WARNING finding in
+        # these trees now fails this job and blocks the pull request.
+        #
+        # The promotion was sequenced, not bundled: the pass shipped report-only
+        # first so its 30 findings were *visible* without turning an untriaged
+        # population into a red gate, and --error was added only once every one of
+        # them had been triaged and registered as an accepted suppression in
+        # docs/security/php-sast.md §7. The gate is green because that population was
+        # dispositioned in writing, not because it was ignored: no rule was disabled,
+        # no path excluded, no finding left unexamined.
+        #
+        # The two src/ steps above are deliberately UNCHANGED — same configs, same
+        # thresholds. Nothing was relaxed; detection width and blocking width both
+        # increased.
         run: |
           set -euo pipefail
           targets=""
@@ -164,6 +177,7 @@ jobs:
               --metrics=off \
               --disable-version-check \
               --severity WARNING \
+              --error \
               --sarif \
               --output=/out/sast-tests.sarif \
               ${targets}
@@ -222,11 +236,11 @@ jobs:
             echo "- ruleset commit: \`${RULES_SHA}\`"
             echo "- production source, ERROR severity: blocking"
             echo "- production source, WARNING severity: blocking (promoted 2026-09-24)"
-            echo "- tests and tooling, WARNING severity: report-only"
+            echo "- tests and tooling, WARNING severity: blocking (promoted 2026-09-24)"
             for pair in \
               "sast-src.sarif=production, ERROR severity (blocking)" \
               "sast-src-warning.sarif=production, WARNING severity (blocking)" \
-              "sast-tests.sarif=tests and tooling, WARNING severity (report-only)"; do
+              "sast-tests.sarif=tests and tooling, WARNING severity (blocking)"; do
               f="${RUNNER_TEMP}/${pair%%=*}"
               label="${pair##*=}"
               if [ -s "${f}" ]; then
