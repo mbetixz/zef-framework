@@ -31,6 +31,9 @@ use Zef\Framework\Exception\InvalidConfigurationException;
  * Since v2.21.1 the bag also carries a radix index ({@see ConfigRadixTree},
  * built once at construction) powering the pattern queries `query()`,
  * `subtree()` and `longestMatch()`; exact lookups keep their hash-map path.
+ * Since v2.23.0 (issue #60 P2) the constructor accepts an optional PREBUILT
+ * index — a cached {@see RadixTreeCache} rehydrates the compiled boot path
+ * without rebuilding the tree from values.
  */
 final readonly class Config
 {
@@ -38,10 +41,16 @@ final readonly class Config
 
     /**
      * @param array<array-key,mixed> $values
+     * @param null|ConfigRadixTree $cachedIndex prebuilt radix index for the
+     *                                          SAME value tree (the caller —
+     *                                          typically {@see RadixTreeCache} —
+     *                                          is responsible for the
+     *                                          fingerprint match); null builds
+     *                                          the index eagerly as before
      */
-    public function __construct(private array $values)
+    public function __construct(private array $values, ?ConfigRadixTree $cachedIndex = null)
     {
-        $this->index = new ConfigRadixTree($values);
+        $this->index = $cachedIndex ?? new ConfigRadixTree($values);
     }
 
     /**

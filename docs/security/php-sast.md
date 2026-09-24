@@ -215,10 +215,11 @@ That behaviour was verified empirically, not assumed.
 **Policy shape.** The gate fails on high-severity findings only, and never because
 a scan *ran*. Crucially, the gate is **not** made green by ignoring findings: no
 rule is disabled, there is no blanket path exclusion, and there is no `|| true` on
-the blocking scan step. There **are** forty-eight in-source `#nosemgrep`
-suppressions — five on `eval()`, thirty-seven on `unlink()`, six on `exec()`; they are
-accepted, justified and registered in sections 7.1 to 7.5. This document previously
-stated that none existed — that was wrong, and is corrected there.
+the blocking scan step. There **are** sixty-five in-source `#nosemgrep`
+suppressions — five on `eval()`, fifty-three on `unlink()`, six on `exec()`, one on
+`unserialize()`; they are accepted, justified and registered in sections 7.1 to 7.5.
+This document previously stated that none existed — that was wrong, and is corrected
+there.
 
 **Four-pass policy — every floor is blocking as of 2026-09-24 (owner decision).**
 The `WARNING` floor over `src/**` is evaluated in its own pass and supplies
@@ -326,25 +327,31 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 61**, counted from the markers themselves rather than by
+**Registered suppressions: 65**, counted from the markers themselves rather than by
 arithmetic. Breakdown by the rule id named on the marker, as measured with
 `grep -rhoE 'nosemgrep: *[^ ]+' --include=*.php .`:
 
 | Rule id on the marker | Count |
 |---|---|
-| `php.lang.security.unlink-use` | 46 |
+| `php.lang.security.unlink-use` | 49 |
+| `php.lang.security.unserialize-use` | 1 |
 | `exec-use` | 6 |
 | `unlink-use` (ZEF-local scope) | 4 |
 | `php.lang.security.eval-use` | 3 |
 | `eval-use` | 2 |
-| **Total** | **61** |
+| **Total** | **65** |
 
-That is **50 `unlink` + 6 `exec` + 5 `eval`**. The count is of marker directives on
-call lines: an explanatory comment that merely *mentions* a marker, such as the prose
-line above `TinkerSession.php:70`, is not one. One earlier accounting in this document
-reached 47 by adding four to a 43 that was itself derived rather than counted; the
-table above is the count, and it is reproducible with the command shown. Three of the `unlink-use` entries are
-in production source (§7.1); the rest are in test and tooling code (§7.2, §7.4); the
+That is **53 `unlink` + 6 `exec` + 5 `eval` + 1 `unserialize`**. The count is of
+marker directives on call lines: an explanatory comment that merely *mentions* a
+marker, such as the prose line above `TinkerSession.php:70`, is not one. One earlier
+accounting in this document reached 47 by adding four to a 43 that was itself
+derived rather than counted; the table above is the count, and it is reproducible
+with the command shown. The 61 in the previous revision had gone stale in the other
+direction — it predated the `ConfigCompiler` marker registered with v2.21.0 (row 25)
+by one; the v2.23.0 branch adds rows 48–49 on top. Five of the `unlink-use` entries
+are in production source (§7.1, row 25, row 49); the single `unserialize-use` entry
+(row 48) is production source as well; the rest are in test and tooling code (§7.2,
+§7.4); the
 four qualified-call entries formerly registered under `unlink-use-qualified` are
 **superseded** — their call sites were normalised to the bare form and now carry
 `unlink-use` markers (§7.4). This section previously stated that nothing was
@@ -365,8 +372,19 @@ possible without ignoring a finding.
 | 3 | `php.lang.security.unlink-use` | `src/Adapters/Http/UploadedFile.php:136` | Best-effort cleanup of `$targetPath . '.zef-tmp-' . bin2hex(random_bytes(8))` — a name this method generated itself at line 66. No request input reaches the argument, and the call runs only on the failure path (`if (!$success)`), after the atomic `rename()` to the caller's destination has already failed; it can therefore only remove a partially written temp file of this method's own making. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 4 | `php.lang.security.unlink-use` | `src/Adapters/Router/RouteCache.php:48` | Same shape: cleanup of `$path . '.' . bin2hex(random_bytes(6)) . '.tmp'` (line 39), a self-named temp sibling of the cache file, on the branch where `rename($tmp, $path)` has already returned false. Not reachable with request-controlled input. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 5 | `php.lang.security.unlink-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:104` | Same shape: cleanup of `$path . '.tmp.' . getmypid()` (line 95), a self-named temp sibling of the AOT export, on the branch where `rename($tmp, $path)` has already returned false. Reached from the compile-time CLI path, never from a request. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
+| 48 | `php.lang.security.unserialize-use` | `src/Infrastructure/Config/RadixTreeCache.php:124` | The blob is a cache file this class itself wrote through the atomic `rename()` + `0600` contract (`write()`, line 148); the path is operator-configured exactly like `ConfigCompiler`'s export target, never request input. `allowed_classes` is closed over exactly `ConfigRadixTree` and `ConfigRadixNode` — both `final readonly` data carriers with **no magic methods** (no `__wakeup`, `__destruct`, `__toString`, `__call`), so the object-injection gadget chain the rule guards against cannot start. The worst a tampered file achieves is a wrong-but-typed tree that still has to survive the version stamp, the SHA-256 value fingerprint and the `instanceof ConfigRadixTree` check (lines 131–137), and a corrupt payload is a soft miss (`@unserialize` + `catch (\Throwable)` → rebuild). The rule matches on argument shape (`pattern: unserialize(...)` minus a literal first argument), never on provenance — the same measured false-positive mechanism as §7.1/§7.5. Issue #60 P2 specifies the stdlib `serialize()`/`unserialize()` envelope precisely because it is OPcache-neutral; the only unflagged call form is `unserialize("literal")`, which cannot read a file. | **Permanent** — the bounded deserializer is the feature (issue #60 P2) |
+| 49 | `php.lang.security.unlink-use` | `src/Infrastructure/Config/RadixTreeCache.php:176` | Same shape as rows 3–5 and 25: best-effort cleanup of `'.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp'` (line 165) — a name this method generated itself — on the branch where `rename($tmp, $cacheFile)` has already returned false. No request input reaches the argument. Added with v2.23.0 (issue #60 P2). | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 
-All sixty-one suppressions are `inSource` and scoped to a single line. None hides
+Rows 48–49 were added when the v2.23.0 radix cache (issue #60 P2) tripped the
+promoted `WARNING` floor on its first CI run: the gate reported exactly one
+undispositioned finding — `unserialize-use` on the `RadixTreeCache` read path — and
+the fix followed the registered sequence, not a gate change: provenance traced,
+blast radius bounded (`allowed_classes` closed over two `final readonly` classes
+with no magic methods), justification written, marker placed on the call line,
+entries added to this register. No rule was disabled and no path excluded; the
+same invocation now exits `0` with the finding still recorded in the emitted SARIF.
+
+All sixty-five suppressions are `inSource` and scoped to a single line. None hides
 a rule-class-wide exclusion, and none removes an evaluation that would otherwise be
 counted.
 

@@ -17,9 +17,21 @@ namespace Zef\Framework\Config;
  * With `allowUnknownKeys = false` (strict mode) the validator also reports
  * any configuration leaf that is not declared here — catching typos like
  * `databse.host` at boot instead of at 3 AM in production.
+ *
+ * Since v2.23.0 (issue #60 P4) the schema carries an integer `version`
+ * (default {@see CURRENT_VERSION}); when incoming configuration data is
+ * stamped with an older version, the loader pipeline runs registered
+ * {@see ConfigMigrator} steps in order before validating.
  */
 final readonly class ConfigSchema
 {
+    /**
+     * Version of the schema format the current framework release expects.
+     * Bump ONLY on a real schema-breaking change and register a migration
+     * step for every hop (see docs/CHANGELOG-v2.23.0.md).
+     */
+    public const int CURRENT_VERSION = 1;
+
     /**
      * Normalized list of declared keys (input array keys are discarded).
      *
@@ -34,9 +46,20 @@ final readonly class ConfigSchema
 
     /**
      * @param array<array-key,ConfigKey> $keys
+     * @param int $version               schema format version this
+     *                                    declaration targets (>= 1)
      */
-    public function __construct(array $keys, public bool $allowUnknownKeys = true)
-    {
+    public function __construct(
+        array $keys,
+        public bool $allowUnknownKeys = true,
+        public int $version = self::CURRENT_VERSION,
+    ) {
+        if ($version < 1) {
+            throw new \InvalidArgumentException(
+                'Config schema version must be a positive integer, got ' . $version . '.'
+            );
+        }
+
         /** @var list<ConfigKey> $normalized */
         $normalized = array_values($keys);
         $this->keys = $normalized;
