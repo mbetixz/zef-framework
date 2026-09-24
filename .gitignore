@@ -25,3 +25,9 @@ composer.phar
 # tooling at the repository root because Infection resolves relative source
 # paths against the CONFIG FILE's directory) must never be committed.
 /infection-zone-*.json5
+
+# Local dev wrapper for running PHP under Xdebug (machine-specific path).
+# `bin-xd/php` execs /home/z/.local/bin/php-xdebug — it slipped into PR #53's
+# commit and is useless on any other machine. The wrapper is regeneratable
+# in one line, so it stays local and out of git.
+/bin-xd/
