@@ -17,19 +17,19 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Zef\Framework\Http\Response;
 use Zef\Framework\Security\OriginPolicy;
 
-final class CorsMiddleware implements MiddlewareInterface
+final readonly class CorsMiddleware implements MiddlewareInterface
 {
     /**
      * @var list<string>
      */
-    private readonly array $allowedOrigins;
-    private readonly bool $allowAll;
+    private array $allowedOrigins;
+    private bool $allowAll;
 
     /** @param null|list<string>|string $allowOrigin */
     public function __construct(
         array|string|null $allowOrigin = null,
-        private readonly string $allowMethods = 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        private readonly string $allowHeaders = 'Content-Type, Authorization, X-Request-ID',
+        private string $allowMethods = 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        private string $allowHeaders = 'Content-Type, Authorization, X-Request-ID',
     ) {
         $origins = is_array($allowOrigin) ? $allowOrigin : [$allowOrigin];
         $normalized = [];

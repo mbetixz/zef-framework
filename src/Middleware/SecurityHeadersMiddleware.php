@@ -15,10 +15,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-final class SecurityHeadersMiddleware implements MiddlewareInterface
+final readonly class SecurityHeadersMiddleware implements MiddlewareInterface
 {
     /** @param array{hsts?:bool,csp?:bool,contentSecurityPolicy?:string,permissionsPolicy?:bool} $policy */
-    public function __construct(private readonly array $policy = []) {}
+    public function __construct(private array $policy = []) {}
 
     #[\Override]
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
