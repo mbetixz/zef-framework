@@ -228,6 +228,8 @@ if (!function_exists('zef_framework_autoload')) {
                 "Zef\\Framework\\Observability\\MetricExporterInterface" => __DIR__ . '/../src/Domain/Observability/MetricExporterInterface.php',
                 "Zef\\Framework\\Observability\\NoopSpan" => __DIR__ . '/../src/Application/Observability/NoopSpan.php',
                 "Zef\\Framework\\Observability\\NoopTracer" => __DIR__ . '/../src/Application/Observability/NoopTracer.php',
+                "Zef\\Framework\\Observability\\OtlpExporterFactory" => __DIR__ . '/../src/Infrastructure/Observability/OtlpExporterFactory.php',
+                "Zef\\Framework\\Observability\\OtlpExporterFactoryInterface" => __DIR__ . '/../src/Domain/Observability/OtlpExporterFactoryInterface.php',
                 "Zef\\Framework\\Observability\\OtlpHttpJsonExporter" => __DIR__ . '/../src/Infrastructure/Observability/OtlpHttpJsonExporter.php',
                 "Zef\\Framework\\Observability\\PrometheusRenderer" => __DIR__ . '/../src/Infrastructure/Observability/PrometheusRenderer.php',
                 "Zef\\Framework\\Observability\\RetryBackoffPolicy" => __DIR__ . '/../src/Domain/Observability/RetryBackoffPolicy.php',

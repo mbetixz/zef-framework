@@ -33,6 +33,7 @@ use Zef\Framework\Observability\LogRecord;
 use Zef\Framework\Observability\MeterInterface;
 use Zef\Framework\Observability\MetricExporterInterface;
 use Zef\Framework\Observability\NoopSpan;
+use Zef\Framework\Observability\OtlpExporterFactory;
 use Zef\Framework\Observability\OtlpHttpJsonExporter;
 use Zef\Framework\Observability\Span;
 use Zef\Framework\Observability\SpanContext;
@@ -83,7 +84,7 @@ final class EdgeMatrixObservabilityTest extends TestCase
         ]);
 
         try {
-            $t = Telemetry::fromEnvironment(null, false);
+            $t = Telemetry::fromEnvironment(null, false, new OtlpExporterFactory());
             self::assertSame(10000, $this->prop($this->prop($t, 'logExporter'), 'timeoutMs'));
             $processor = $this->prop($t, 'processor');
             self::assertSame(8192, $this->prop($processor, 'maxQueueSize'));
@@ -102,7 +103,7 @@ final class EdgeMatrixObservabilityTest extends TestCase
         ]);
 
         try {
-            $t1 = Telemetry::fromEnvironment(null, false);
+            $t1 = Telemetry::fromEnvironment(null, false, new OtlpExporterFactory());
             self::assertSame(1, $this->prop($this->prop($t1, 'logExporter'), 'timeoutMs'));
             $p1 = $this->prop($t1, 'processor');
             self::assertSame(1, $this->prop($p1, 'maxQueueSize'));
@@ -118,7 +119,7 @@ final class EdgeMatrixObservabilityTest extends TestCase
         ]);
 
         try {
-            $t2 = Telemetry::fromEnvironment(null, false);
+            $t2 = Telemetry::fromEnvironment(null, false, new OtlpExporterFactory());
             self::assertSame(500, $this->prop($this->prop($t2, 'logExporter'), 'timeoutMs'));
             $p2 = $this->prop($t2, 'processor');
             self::assertSame(1024, $this->prop($p2, 'maxQueueSize'));
@@ -172,7 +173,7 @@ final class EdgeMatrixObservabilityTest extends TestCase
         $this->setEnv($base + ['ZEF_OTEL_EXPORTER_OTLP_ENDPOINT' => 'http://collector:4318/v1/traces']);
 
         try {
-            $t = Telemetry::fromEnvironment(null, false);
+            $t = Telemetry::fromEnvironment(null, false, new OtlpExporterFactory());
             self::assertInstanceOf(OtlpHttpJsonExporter::class, $this->prop($t, 'logExporter'));
         } finally {
             $this->clearEnv();

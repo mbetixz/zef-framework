@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /home/z/.local/bin/php-xdebug -d date.timezone=UTC "$@"
