@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="ZEF Framework">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="55%" stop-color="#111e36"/>
+      <stop offset="100%" stop-color="#1b1240"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.55"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+  <circle cx="1120" cy="60" r="180" fill="#38bdf8" opacity="0.07"/>
+  <circle cx="150" cy="280" r="150" fill="#c084fc" opacity="0.07"/>
+
+  <g transform="translate(72 78)">
+    <path d="M0 12 L12 0 L104 0 L116 12 L116 76 L104 88 L12 88 L0 76 Z"
+          fill="none" stroke="url(#accent)" stroke-width="4"/>
+    <path d="M20 22 H96 M20 40 H74 M20 58 H96" stroke="url(#accent)" stroke-width="6"
+          stroke-linecap="round" opacity="0.85"/>
+    <circle cx="102" cy="58" r="7" fill="#38bdf8"/>
+  </g>
+
+  <text x="236" y="150" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="78"
+        font-weight="700" fill="#f8fafc" letter-spacing="2">ZEF Framework</text>
+  <text x="240" y="196" font-family="Segoe UI,Helvetica,Arial,sans-serif" font-size="25"
+        font-weight="400" fill="#94a3b8" letter-spacing="0.5">Hexagonal &#183; PSR-15 &#183; RoadRunner &#183; PHP 8.4+</text>
+
+  <g transform="translate(240 226)">
+    <rect x="0" y="0" width="196" height="34" rx="17" fill="#0f172a" stroke="#334155"/>
+    <text x="98" y="23" text-anchor="middle" font-family="Segoe UI,Helvetica,Arial,sans-serif"
+          font-size="14" fill="#7dd3fc" letter-spacing="1">PORTS &amp; ADAPTERS</text>
+    <rect x="212" y="0" width="176" height="34" rx="17" fill="#0f172a" stroke="#334155"/>
+    <text x="300" y="23" text-anchor="middle" font-family="Segoe UI,Helvetica,Arial,sans-serif"
+          font-size="14" fill="#a5b4fc" letter-spacing="1">ZERO-COMPOSER</text>
+    <rect x="404" y="0" width="210" height="34" rx="17" fill="#0f172a" stroke="#334155"/>
+    <text x="509" y="23" text-anchor="middle" font-family="Segoe UI,Helvetica,Arial,sans-serif"
+          font-size="14" fill="#d8b4fe" letter-spacing="1">7 QUALITY GATES</text>
+  </g>
+
+  <rect x="0" y="317" width="1280" height="3" fill="url(#accent)"/>
+</svg>

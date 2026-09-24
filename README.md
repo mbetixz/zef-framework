@@ -1,369 +1,511 @@
-# ZEF Framework — Edisi Hexagonal (v2.7.0 → v2.19.0)
+<div align="center">
+  <img src="assets/readme-banner.svg" alt="ZEF Framework — Hexagonal · PSR-15 · RoadRunner · PHP 8.4+" width="100%">
+</div>
 
-[![CodeQL](https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql)
-[![API Documentation Check](https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml)
-[![Auto Fix Code Style](https://github.com/mbetixz/zef-framework/actions/workflows/auto-fix.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/auto-fix.yml)
-[![ci](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml)
-[![Composer Lock Bootstrap](https://github.com/mbetixz/zef-framework/actions/workflows/composer-lock.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/composer-lock.yml)
-[![Dependency Review](https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml)
-[![Documentation & GitHub Pages](https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml)
-[![GitHub Advanced Security](https://github.com/mbetixz/zef-framework/actions/workflows/agents/github-advanced-security/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/agents/github-advanced-security)
-[![PHP SAST](https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml)
-[![PHPBench Performance](https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml)
-[![Release](https://github.com/mbetixz/zef-framework/actions/workflows/release.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/release.yml)
-[![Release Drafter](https://github.com/mbetixz/zef-framework/actions/workflows/release-drafter.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/release-drafter.yml)
-[![SBOM](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml)
-[![Secret Scan](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml)
-[![Zone mutation ratchet](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml)
-[![Mutation release gate](https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml)
+<h1 align="center">ZEF Framework</h1>
 
-Framework PHP 8.4 berarsitektur **Hexagonal (Ports & Adapters)** hasil pemecahan monolith
-`zef_framework_v2.7.0.php` (12.639 baris, 1 file) menjadi struktur PSR-4 multi-file per layer.
-Rilis lanjutan **v2.8.0** (25+ kelas fitur), **v2.9.0** (Advanced Autowiring Engine),
-**v2.10.0** (Enterprise Feature Pack), **v2.11.0** (RadixTree Namespace Container),
-**v2.12.0** (Composer toolchain alignment), dan **v2.13.0** (Hardening Release:
-PHPStan level max + strict-rules, PHPCS+Slevomat phpDoc strict, Rector agresif,
-Deptrac fail-on-uncovered, migrasi 19 suite ke PHPUnit native in-process,
-coverage 81.6% via pcov) dan v2.13.1 (penuntasan coverage ≥ 90%: **408 test
-PHPUnit / 1248 assertion**, coverage statement **90.04%** dengan gate CI 90%,
-Infection PCOV dieksekusi nyata: 8.907 mutan, MSI 59.6% / covered 66.3%,
-gate no-regression 55/60, Redis riil 8.0.2
-untuk rate-limit store test, plus 12 file unit test baru) serta v2.14.0
-(mutation deep-dive ronde 1: **469 test / 11485 assertion**, coverage
-statement **91.11%**, MSI 61.8% / covered 67.6% dengan gate 58/62, cluster
-terburuk 37%→53%, bug produksi AuthenticationMiddleware ditemukan pipeline
-mutasi) serta v2.14.1 (mutation deep-dive ronde 2: **568 test / 11830
-assertion**, coverage statement **91.55%**, MSI ~67.0% / covered ~73.0%
-dengan gate 64/68, RequestFactory 181→35 escape, Router 136→66, Telemetry
-158→74, seluruh 17 slice log escape dipanen ke build/escapes-*.txt) serta
-v2.14.2–v2.14.3 (ronde 3 dengan kurikulum `docs/EDGE-CASE-MATRIX.md`:
-fase 1 Security/Validation **MSI zona 64.4→84.0**; fase 2b Container core —
-Container + AutowireCompilerPass + ContainerResolver — **MSI 3 kelas 67→92,
-covered 94, mutation coverage 97%**) serta v2.14.4 (fase 3 Runtime lifecycle:
-chunk adapters-runtime-sec **MSI zona 53→80, covered 57→83** — RoadRunnerRuntime,
-WorkerAdapter, TinkerSession, AuthenticationMiddleware, SecurityRuntimeMiddleware;
-**+138 kill**, dua akar fatal lingkungan uji diakari — signal self-kill 143 dan
-routing error_log Infection; **797 test / 12653 assertion**; gate mutasi **69/74**)
-ditambah v2.14.5 (fase 4 HTTP/Router/Kernel: chunk adapters-http **MSI zona 75→93,
-covered 79→96**, Router **65→85**, Kernel 64→66 — matriks CIDR TrustedProxyMatcher,
-kanonisasi persen Uri, siklus moveTo UploadedFile, tata bahasa conditional-GET
-ETag, grammar ApiVersionNegotiator, HEAD→GET radix Router, kontrak span/meter
-kernel; **+366 kill** dengan 115 test / 405 asersi baru; **912 test / 13058
-assertion**; gate mutasi **71/76**), serta v2.14.6 (paket lengkap: bridge RoadRunner
-`spiral/roadrunner-http` v4.1 + `nyholm/psr7` sebagai dependency resmi, binary `rr`
-v2025.1.15 di `vendor/bin/rr`, config siap-serve `.rr.yaml`, distribusi ZIP tanpa
-pengecualian), serta v2.14.7 (fase 5 observability: pipeline telemetry penuh —
-zona **85 / 95 / 98 / 86**, escape chunk turun 94→**69** mayoritas ekuivalen
-triaged, **+63 test / 349 asersi** baru; lingkungan uji dibuktikan pulih penuh
-dari ZIP distribusi), serta v2.14.8 (fase 6 Domain inti: lima chunk — Config
-**73→86**, Security **85→95**, Resource **64→89**, Container/Autowiring
-**72→89**, core Event/Message/CQRS/Cache/Job/Policy **59→93**; escape 487→**132**
-= **+509 kill** pada 2.151 mutan; kurikulum W3C/cron/backoff/resource-filtering/
-radix-tree/base32/totp RFC-vectors + counter ≥2^32; dua ronde uji 150 test /
-993 asersi), serta v2.14.9 (fase 8–9: **Infrastructure penuh + c3 Observability** —
-cache **96/98**, config **94/96**, security-infra **85/89**, obs-infra **90/91**,
-c3 Telemetry **83/89**, c3 Tracer/Span/BSP **82/82**, c3 Propagator/Health/Meter
-**96/96**; ekstensi APCu/phpredis + server Redis lokal dipasang → 6 test berhenti
-skip; inventaris ekuivalen jujur: transport-jaringan OTLP, timing BSP, guard antrean
-tak-terjangkau, `::class ≡ get_debug_type`; 18 test baru) — semua aditif, tanpa
-mengubah perilaku lama.
+<p align="center">
+  <b>Framework PHP 8.4 berarsitektur Hexagonal (Ports &amp; Adapters) dengan worker persisten RoadRunner.</b>
+</p>
+<p align="center">
+  Hasil pemecahan monolith <code>zef_framework_v2.7.0.php</code> — <b>12.639 baris dalam satu berkas</b> — menjadi
+  <b>360 kelas PSR-4</b> yang tertata per layer, dengan tujuh gerbang kualitas yang harus hijau sebelum sebuah perubahan dianggap selesai.
+</p>
 
-> ✅ Terverifikasi: **501/501** assertion self-test · **1794 test PHPUnit native (17914 assertion)** ·
-> PHPStan **level max** + strict-rules · Deptrac 0 violations `--fail-on-uncovered` ·
-> phpcs+Slevomat 0 violations · coverage statement **94.49%** (gate CI 90%) · mutation gate **85/90** terjaga (MSI global 90.77% / covered 93.38% pada 9.419 mutan) · 417 file lolos `php -l`.
-> 📚 **Dokumentasi resmi (v2.17.0):** <https://mbetixz.github.io/zef-framework/> — 10 halaman panduan
-> (instalasi, CLI, arsitektur, kualitas/mutasi, deployment) di samping API reference Doctum.
-> Ringkasan rilisan terbaru: [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md) — **Event Sourcing**: EventStore port + adapter InMemory/PDO (atomic persist via ambient transaction), `AggregateRoot` + snapshot policy, `Projector` catch-up dengan checkpoint, transactional outbox + relay (retry eksponensial, dead letter).
-> Rilisan sebelumnya: [`docs/CHANGELOG-v2.18.0.md`](docs/CHANGELOG-v2.18.0.md) — **Database Core**: Query Builder + PDO adapter (nested transaction/savepoint), Migrator (versi + lock TTL), Repository base.
->
-> Rincian: [`docs/CHANGELOG-v2.8.0.md`](docs/CHANGELOG-v2.8.0.md) · [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md) · [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md) · [`docs/CHANGELOG-v2.11.0.md`](docs/CHANGELOG-v2.11.0.md) · [`docs/CHANGELOG-v2.14.0.md`](docs/CHANGELOG-v2.14.0.md) · [`docs/CHANGELOG-v2.14.1.md`](docs/CHANGELOG-v2.14.1.md) · [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) · [`docs/CHANGELOG-v2.14.4.md`](docs/CHANGELOG-v2.14.4.md) · [`docs/CHANGELOG-v2.14.5.md`](docs/CHANGELOG-v2.14.5.md) · [`docs/CHANGELOG-v2.14.6.md`](docs/CHANGELOG-v2.14.6.md) · [`docs/CHANGELOG-v2.14.7.md`](docs/CHANGELOG-v2.14.7.md) · [`docs/CHANGELOG-v2.14.8.md`](docs/CHANGELOG-v2.14.8.md) · [`docs/CHANGELOG-v2.14.9.md`](docs/CHANGELOG-v2.14.9.md) · [`docs/CHANGELOG-v2.15.0.md`](docs/CHANGELOG-v2.15.0.md) · [`docs/CHANGELOG-v2.16.0.md`](docs/CHANGELOG-v2.16.0.md) · [`docs/CHANGELOG-v2.18.0.md`](docs/CHANGELOG-v2.18.0.md) · [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md).
+<div align="center">
 
----
+  <img src="https://img.shields.io/badge/PHP-8.4%2B-777BB4?style=for-the-badge&amp;logo=php&amp;logoColor=white" alt="PHP 8.4+">
+  <img src="https://img.shields.io/badge/RoadRunner-4.1-1f2937?style=for-the-badge" alt="RoadRunner 4.1">
+  <img src="https://img.shields.io/badge/Architecture-Hexagonal-38bdf8?style=for-the-badge" alt="Hexagonal">
+  <br>
+  <img src="https://img.shields.io/badge/Kelas%20PSR--4-360-818cf8?style=for-the-badge" alt="360 kelas">
+  <img src="https://img.shields.io/badge/Test%20PHPUnit-1498-c084fc?style=for-the-badge" alt="1498 test">
+  <img src="https://img.shields.io/badge/Coverage%20gate-%E2%89%A5%2090%25-22c55e?style=for-the-badge" alt="Coverage gate 90%">
+  <img src="https://img.shields.io/badge/Mutation%20gate-MSI%20%E2%89%A5%2085-f59e0b?style=for-the-badge" alt="Mutation gate MSI 85">
+  <br>
+  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT">
+  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.19.0-0ea5e9?style=for-the-badge" alt="v2.19.0">
+
+</div>
+
+<br>
+
+<div align="center">
+
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml/badge.svg" alt="PHP SAST"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml/badge.svg" alt="Dependency Review"></a>
+  <br>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml/badge.svg" alt="API Documentation"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml/badge.svg" alt="PHPBench"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml/badge.svg" alt="Mutation"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml/badge.svg" alt="SBOM"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml/badge.svg" alt="Docs &amp; Pages"></a>
+
+</div>
+
+<br>
+
+## <img src="https://img.shields.io/badge/-%20-0b1220" width="6" height="20" alt=""> Kenapa ZEF
+
+Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu berkas raksasa 12.639 baris dipindahkan **verbatim** ke struktur multi-berkas, lalu dijaga ketat oleh gerbang otomatis.
+
+<table width="100%">
+  <tr>
+    <td width="33%" valign="top">
+      <h3 align="center">Batasan yang Diuji</h3>
+      <p align="center">Arah dependensi antar-layer ditegakkan <code>deptrac</code> dengan <code>--fail-on-uncovered</code> — 0 violation. Arsitektur yang hanya ada di diagram tidak dihitung.</p>
+    </td>
+    <td width="33%" valign="top">
+      <h3 align="center">Mutan, Bukan Baris</h3>
+      <p align="center">Ukuran kualitasnya adalah <b>mutan yang benar-benar terbunuh</b>, bukan baris yang dieksekusi. Menambah test yang hanya menyentuh baris tanpa asersi tidak menaikkan skor.</p>
+    </td>
+    <td width="33%" valign="top">
+      <h3 align="center">Tanpa Composer pun Jalan</h3>
+      <p align="center">Classmap statis <code>autoload/zef_autoload.php</code> memuat seluruh kelas first-party. PHPUnit, Composer, dan jaringan bukan syarat untuk menjalankan self-test.</p>
+    </td>
+  </tr>
+</table>
+
+<br>
+
+## Fitur Utama
+
+<table width="100%">
+  <tr>
+    <th align="left">Area</th>
+    <th align="left">Yang tersedia</th>
+  </tr>
+  <tr>
+    <td><b>Container &amp; DI</b></td>
+    <td>Autowiring rekursif (<code>#[Inject]</code>, <code>#[Value]</code>, <code>#[Target]</code>) · contextual binding · decoration chain · deferred provider · AOT compile ke berkas PHP murni</td>
+  </tr>
+  <tr>
+    <td><b>HTTP &amp; Router</b></td>
+    <td>Radix-tree router · route group/prefix bersarang · route cache terkompilasi · conditional GET (ETag/304) · RFC 9457 Problem Details · negosiasi versi API · middleware PSR-15</td>
+  </tr>
+  <tr>
+    <td><b>CQRS</b></td>
+    <td>Command bus &amp; query bus · handler terpisah dari transport · integrasi container</td>
+  </tr>
+  <tr>
+    <td><b>Event Sourcing</b></td>
+    <td>Port <code>EventStore</code> + adapter <code>InMemory</code>/<code>PDO</code> (persist atomik dalam transaction ambien) · <code>AggregateRoot</code> + kebijakan snapshot · <code>Projector</code> catch-up ber-checkpoint · transactional outbox + relay (retry eksponensial, dead letter)</td>
+  </tr>
+  <tr>
+    <td><b>Database</b></td>
+    <td>Query Builder + adapter PDO (savepoint transaction bersarang) · <code>Migrator</code> berversi dengan lock TTL · base <code>Repository</code></td>
+  </tr>
+  <tr>
+    <td><b>Cache</b></td>
+    <td>Cache bertag · tier L1/L2 · lock lease · store Redis &amp; APCu untuk deployment terdistribusi</td>
+  </tr>
+  <tr>
+    <td><b>Jobs</b></td>
+    <td>Scheduler cron &amp; fixed-interval · <code>CronExpression</code> · middleware dedup at-least-once</td>
+  </tr>
+  <tr>
+    <td><b>Keamanan</b></td>
+    <td>AES-256-GCM + rotasi key ring · TOTP (RFC 6238) &amp; Base32 · CSRF · origin policy · rate limiter (in-memory/Redis/APCu) · SecurityPolicy fail-closed</td>
+  </tr>
+  <tr>
+    <td><b>Observability</b></td>
+    <td>OpenTelemetry (tracer, span, propagator, meter) · health aggregator · endpoint Prometheus <code>/metrics</code></td>
+  </tr>
+  <tr>
+    <td><b>Runtime</b></td>
+    <td>Worker persisten RoadRunner v4.1 · <code>.rr.yaml</code> siap pakai · CLI <code>bin/zef</code> dengan 10 generator · REPL <code>tinker</code></td>
+  </tr>
+</table>
+
+<details>
+<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.19.0)</b> — 23 catatan perubahan</summary>
+
+<br>
+
+Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
+
+| Rilis | Fokus |
+|:------|:------|
+| **v2.8.0** | Tagged services · URL generator · ETag/304 · ProblemDetails · pagination · Prometheus · health aggregator · cache bertag · scheduler · AES-GCM · TOTP · validator |
+| **v2.9.0** | Advanced Autowiring Engine: atribut, interface binding berlapis, variadic koleksi, graf dependensi, AOT compiler |
+| **v2.10.0** | Enterprise Feature Pack: contextual binding, decoration, route cache, API versioning, sort/filter whitelist, key ring, i18n, form request, tinker, manifest K8s |
+| **v2.11.0** | RadixTree Namespace Container |
+| **v2.12.0–v2.13.1** | Penyelarasan toolchain Composer, hardening (PHPStan level *max* + strict-rules, PHPCS + Slevomat, Rector, Deptrac fail-on-uncovered), migrasi suite ke PHPUnit native |
+| **v2.14.0–v2.14.9** | Kampanye mutation *deep-dive* per fase: Security, Container, Runtime lifecycle, HTTP/Router/Kernel, Observability, Domain inti, Infrastructure |
+| **v2.15.0–v2.16.0** | Lanjutan ratchet mutasi & penutupan escape per zona |
+| **v2.17.0** | Situs dokumentasi resmi diterbitkan ke GitHub Pages |
+| **v2.18.0** | **Database Core**: Query Builder + PDO, Migrator, Repository base |
+| **v2.19.0** | **Event Sourcing**: EventStore + adapter, AggregateRoot, Projector, transactional outbox |
+
+Rincian per rilis: [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 23 berkas di [`docs/`](docs/README.md).
+
+</details>
+
+<br>
+
+## Persyaratan
+
+| Komponen | Versi | Catatan |
+|:---------|:------|:--------|
+| **PHP** | `^8.4` | Diuji pada PHP 8.4.25 (NTS) |
+| **RoadRunner** | `^4.1` | `spiral/roadrunner-http` + `nyholm/psr7`; binary <kbd>bin/rr</kbd> sudah disertakan |
+| **Redis** | opsional | Rate limiter & cache terdistribusi (`ext-redis`) |
+| **APCu** | opsional | Rate limiter instance tunggal (`ext-apcu`) |
+| **Composer** | opsional | Framework berjalan tanpa Composer lewat classmap statis |
+
+<br>
 
 ## Instalasi
 
-**Persyaratan:** PHP >= 8.4 (ekstensi opsional: `redis`, `apcu`, `mbstring`).
+### Opsi A — Tanpa Composer <kbd>zero-composer</kbd>
+
+Classmap statis memuat seluruh kelas first-party; self-test berjalan tanpa PHPUnit dan tanpa jaringan.
 
 ```bash
-# Opsi A — tanpa Composer (zero-composer fallback, seperti monolith aslinya)
-php bin/zef --self-test
-php bin/zef --self-test=v280   # hanya suite fitur v2.8.0 (103 assertion)
-php bin/zef --self-test=v290   # hanya suite autowiring v2.9.0 (59 assertion)
-php bin/zef --self-test=v210   # hanya suite enterprise v2.10.0 (107 assertion)
-php bin/zef --self-test=v211   # hanya suite radix-tree v2.11.0 (87 assertion)
+git clone https://github.com/mbetixz/zef-framework.git
+cd zef-framework
 
-# Opsi B — dengan Composer
-composer install
-composer test          # PHPUnit native: 408 test (19 suite ZEF in-process + unit tests)
-composer coverage:gate # coverage statement via pcov + gate (scripts/ci/assert-coverage.php)
-composer phpcs         # phpDoc/type-hint strict (phpcs + Slevomat)
-composer phpunit       # (alias) lihat composer test
-composer lint          # php -l seluruh file first-party
-composer stan          # PHPStan level MAX + strict-rules + baseline frozen
-composer deptrac       # conformance arsitektur hexagonal
-composer format:check  # php-cs-fixer (PER-CS2.0 + Symfony)
-composer rector:check  # usulan upgrade PHP 8.4 (dry-run)
-composer audit         # kebijakan paket abandoned
-composer bench         # PHPBench: container get() 0.6us (singleton)
-composer docs          # Doctum API docs -> build/api
-composer serve         # dev server di 0.0.0.0:8080
+php bin/zef --self-test          # 501 assertion, 19 suite
+php bin/zef --self-test=v280     # hanya suite fitur v2.8.0
+php bin/zef --self-test=router   # filter substring case-insensitive
 ```
 
-> Catatan: proyek ini **tidak butuh** `composer install` untuk berjalan. Autoloader classmap
-> statis (`autoload/zef_autoload.php`) sudah mencakup seluruh 250 kelas. Jika Composer
-> digunakan, autoloader tersebut tetap terdaftar lewat `autoload.files` dan aman digandakan.
-> Interface PSR resmi (`psr/*`) dipakai secara otomatis bila tersedia; jika tidak, shim
-> kondisional di `src/Compat/Psr/` yang aktif.
+### Opsi B — Dengan Composer <kbd>disarankan untuk pengembangan</kbd>
+
+```bash
+composer install
+
+composer test            # suite PHPUnit native
+composer coverage:gate   # coverage + ambang 90%
+composer stan            # PHPStan level max + strict-rules
+composer deptrac         # konformansi arsitektur hexagonal
+composer lint            # php -l seluruh berkas first-party
+composer mutation        # gerbang mutasi (MSI)
+composer docs            # API reference Doctum → build/api
+```
+
+> Autoloader statis tetap terdaftar melalui `autoload.files` ketika Composer dipakai, sehingga keduanya aman berdampingan. Interface PSR resmi (`psr/*`) digunakan otomatis bila tersedia; jika tidak, shim kondisional di `src/Compat/Psr/` yang aktif.
+
+<br>
 
 ## Quick Start
 
-### 1. Development server (HTTP)
+### 1. Menjalankan server
 
 ```bash
-bin/zef --serve 0.0.0.0:8080
+php bin/zef --serve 0.0.0.0:8080
 # atau
 php -S 0.0.0.0:8080 public/index.php
 ```
 
-Rute bawaan aplikasi demo:
+### 2. Worker persisten (produksi)
 
-| Rute                    | Handler                  | Sumber           |
-|-------------------------|--------------------------|------------------|
-| `GET /`                 | HomeHandler              | `modules/Core`   |
-| `GET /about`            | AboutHandler             | `modules/Core`   |
-| `GET /health`           | AggregateHealthHandler   | `modules/Health` | (v2.8.0 — 503 saat degraded)
-| `GET /health/live`      | LiveHandler              | `modules/Health` |
-| `GET /health/ready`     | ReadyHandler             | `modules/Health` |
-| `GET /metrics`          | MetricsHandler           | `modules/Health` | (v2.8.0 — Prometheus)
-| `GET /toko`             | TokoHandler              | `plugins/Toko`   |
-| `GET /toko/produk/{id}` | ProdukDetailHandler      | `plugins/Toko`   |
-
-Rute `404`, `400` (pelanggaran constraint `{id:int}`), dan `405` juga aktif.
-
-### 2. Self-test (501 assertion)
+Bridge RoadRunner dan binary <kbd>bin/rr</kbd> sudah termasuk dalam paket — konfigurasi siap di `.rr.yaml`:
 
 ```bash
-bin/zef --self-test
+vendor/bin/rr serve      # worker: bin/worker.php
 ```
 
-### 3. RoadRunner (produksi)
-
-Bridge (`spiral/roadrunner-http` v4.1 + `nyholm/psr7`) dan binary `rr` v2025.1.15
-sudah termasuk dalam paket — konfigurasi siap di `.rr.yaml`:
-
-```bash
-vendor/bin/rr serve        # worker: bin/worker.php, listen 0.0.0.0:8080
-```
-
-Installasi manual (opsional, untuk proyek turunan):
-
-```bash
-composer require spiral/roadrunner-http nyholm/psr7
-vendor/bin/rr get-binaries  # atau unduh release dari GitHub
-```
-
-### 4. Memakai framework dari kode
+### 3. Memakai framework dari kode
 
 ```php
 <?php
+
+declare(strict_types=1);
+
 require 'autoload/zef_autoload.php';
 
 use Zef\App\Bootstrap;
 
-$app    = Bootstrap::createApp(debug: true);
-$app->setTrustedHosts(['localhost', '127.0.0.1']);
-$app->addProvider(new \Zef\Module\Core\ConfigProvider());
-$app->addProvider(new \Zef\Plugin\Toko\ConfigProvider());
-
-// CLI lain: command bus, cache, telemetry, job worker — semua tersedia
-$cache = new \Zef\Framework\Cache\InMemoryCache(
-    new \Zef\Framework\Cache\InMemoryCacheStore(),
-    new \Zef\Framework\Cache\SystemCacheClock(),
-);
+$app = Bootstrap::createApp(debug: true);   // host tepercaya, provider Core/Toko/Health/Middleware
+// jalankan melalui public/index.php atau worker RoadRunner
 ```
-
-## Dokumentasi
-
-Dokumentasi resmi diterbitkan otomatis ke GitHub Pages oleh
-`.github/workflows/pages.yml` (setiap push ke `main`) dan dapat dibaca sebagai
-situs di **<https://mbetixz.github.io/zef-framework/>** atau langsung dari Markdown
-di repositori:
-
-| Dokumen | Isi |
-|---------|-----|
-| [`docs/README.md`](docs/README.md) | indeks dokumentasi |
-| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | persyaratan, Composer & zero-composer, RoadRunner, Docker/K8s, variabel lingkungan |
-| [`docs/CLI.md`](docs/CLI.md) | referensi lengkap `bin/zef` (`--self-test`, `--serve`, inspector, 10 generator, `tinker`) |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | pemecahan monolith, layer hexagonal, aturan arah dependensi |
-| [`docs/QUALITY.md`](docs/QUALITY.md) | tujuh gerbang kualitas, **mutation testing (MSI per area)**, triage mutan ekuivalen |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | RoadRunner persistent worker, state lintas-request, observabilitas, keamanan runtime |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | rencana & status fitur |
-| [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) | kurikulum uji edge-case per fase kampanye mutasi |
-| [`docs/security/php-sast.md`](docs/security/php-sast.md) | panduan SAST PHP |
-
-Situs dokumentasi dirakit oleh `scripts/build_docs.php` (Markdown → HTML statis,
-`parsedown/parsedown` mode aman sebagai dependensi transitif Doctum); API reference
-Doctum di-*merge* ke `build/docs/api` sehingga dokumentasi resmi dan API dapat
-diakses dari satu akar.
-
-```bash
-composer docs                  # API reference -> build/api
-php scripts/build_docs.php     # situs dokumentasi -> build/docs
-```
-
-## Struktur Direktori
-
-```
-zef-framework/
-├── autoload/zef_autoload.php   # classmap statis 353 kelas (zero-composer fallback)
-├── bin/
-│   ├── zef                     # CLI: list, --self-test, --serve, route:list, make:* (10 generator), module:list, plugin:list, config:show, tinker
-│   └── worker.php              # worker RoadRunner (produksi)
-├── public/index.php            # entrypoint HTTP (web SAPI)
-├── src/                        # framework inti — 4 layer hexagonal + compat
-│   ├── Compat/Psr/             # shim PSR kondisional (23 interface/kelas)
-│   ├── Domain/                 # port, kontrak, VO, validator (132)
-│   ├── Application/            # mesin orkestrasi in-process (50)
-│   ├── Infrastructure/         # adapter outbound: cache, redis, otlp, aes, prometheus (19)
-│   └── Adapters/               # adapter inbound: http, router, kernel, runtime (32)
-├── app/                        # aplikasi demo (Bootstrap + middleware)
-├── modules/                    # modul demo: Core, Health (+ /health, /metrics)
-├── plugins/                    # plugin demo: Toko
-├── tests/                      # self-test suite (501 assertion, lihat bagian Testing)
-├── deploy/                     # Dockerfile, docker-compose.yml (v2.8.0), k8s/ (v2.10.0)
-├── .github/workflows/ci.yml    # CI: lint + self-test (v2.8.0)
-├── docs/                       # ARCHITECTURE, CHANGELOG-*, ROADMAP
-├── scripts/lint.php            # lint seluruh file PHP
-├── composer.json               # scaffolding PSR-4 penuh
-└── README.md
-```
-
-## Sorotan Fitur v2.8.0
-
-| Area | Fitur | Kelas utama |
-|------|-------|-------------|
-| Container | Tagged services | `TaggedServiceLocator` |
-| Router | Route naming + URL generation | `UrlGenerator`, `Router::patternFor()` |
-| HTTP | Conditional GET (ETag/304) | `ETagMiddleware` (opt-in) |
-| HTTP | RFC 9457 Problem Details | `ProblemDetails` |
-| API | Pagination offset/page/cursor | `PageRequest`, `PageSlice`, `Cursor` |
-| Observability | Export Prometheus `GET /metrics` | `PrometheusRenderer` |
-| Health | Indikator kustom + agregat `GET /health` | `HealthIndicatorInterface`, `HealthAggregator` |
-| Cache | Tags, L1/L2, lock lease | `TaggableCache`, `TieredCache`, `InMemoryLockStore` |
-| Jobs | Scheduler cron/fixed-interval | `Scheduler`, `CronExpression`, `FixedIntervalSchedule` |
-| Security | AES-256-GCM + TOTP (RFC 6238) | `AesGcmEncryptor`, `Totp`, `Base32` |
-| Validation | Rules engine field-based | `Validator`, `FieldRules` |
-| Messaging | Dedup at-least-once | `DeduplicatingMiddleware` |
-| DX | `zef list`, `make:*` (10 generator), `module:list`, `plugin:list`, `config:show` | `src/Infrastructure/Console` + `bin/zef` |
-| DevOps | Docker, Compose, CI | `deploy/`, `.github/` |
-
-## Sorotan Fitur v2.9.0 — Advanced Autowiring Engine
-
-| Area | Fitur | Kelas utama |
-|------|-------|-------------|
-| Attributes | `#[Inject]`, `#[Value]`, `#[Target]` | `Autowiring\Inject`, `Value`, `Target` |
-| Resolusi | Interface binding berlapis + autowire rekursif | `AutowireCompilerPass` |
-| Variadic | Koleksi seluruh implementasi service | `AutowireCompilerPass::collectImplementations()` |
-| Graf | Deps lengkap → validasi asli tetap satu gerbang | `AutowireMetadata`, `DependencyGraphValidator` |
-| AOT | Kode closure murni + export/load berkas | `AutowireAotCompiler`, `ReflectionMetadataExtractor` |
 
 ```php
-$pass = new AutowireCompilerPass(configValues: ['db.host' => 'localhost'], module: 'billing');
+<?php
+
+declare(strict_types=1);
+
+use Zef\Framework\Cache\InMemoryCache;
+use Zef\Framework\Cache\InMemoryCacheStore;
+use Zef\Framework\Cache\SystemCacheClock;
+use Zef\Framework\Container\Autowiring\AutowireCompilerPass;
+
+$cache = new InMemoryCache(new InMemoryCacheStore(), new SystemCacheClock());
+
+$pass   = new AutowireCompilerPass(configValues: ['db.host' => 'localhost'], module: 'billing');
 $result = $pass->process($container, [PaymentService::class]);
-AutowireAotCompiler::export($result, 'var/cache/zef-aot-billing.php'); // opsional (cold start)
-$container->validateAndFreeze();   // graf dependensi kini lengkap
+$container->validateAndFreeze();            // graf dependensi lengkap
 ```
 
-Detail lengkap: [`docs/CHANGELOG-v2.9.0.md`](docs/CHANGELOG-v2.9.0.md).
+<details>
+<summary><b>Contoh lanjutan</b> — contextual binding, route group, decoration</summary>
 
-## Sorotan Fitur v2.10.0 — Enterprise Feature Pack
-
-| Area | Fitur | Kelas utama |
-|------|-------|-------------|
-| Container | Contextual binding `when()->needs()->give()` | `ContextualBindingBuilder` |
-| Container | Decoration chain + deferred providers + events | `Container::decorate/registerProvider/onResolved` |
-| Router | Groups/prefixes bersarang + fallback 404 | `Router::group()`, `Router::fallback()` |
-| Router | Route cache kompilasi (file murni, atomic write) | `RouteCache`, `Router::fromCompiledArray()` |
-| HTTP | API versioning (path > header > query > default) | `ApiVersionNegotiator`, `ApiVersion` |
-| HTTP | Form request objects (rules engine terintegrasi) | `FormRequest` |
-| Resource | Sorting + filtering whitelist-wajib | `SortSpec`, `FilterSpec`, `SortKey`, `FilterCondition` |
-| Security | Rotasi kunci AES-256-GCM | `RotatingKeyRing` |
-| Validation | Pesan error terlokalisasi (fallback chain) | `MessageCatalog`, `ValidationTranslator` |
-| DX/DevOps | Tinker REPL + K8s manifests | `TinkerSession`, `bin/zef tinker`, `deploy/k8s/` |
+<br>
 
 ```php
-$c->when(BillingService::class)->needs(PaymentGateway::class)->give('gateway.stripe');
-$c->decorate('mailer', fn($ctx, $inner) => new LoggingMailer($inner, $ctx->get('logger')));
-$r->group(['prefix' => '/api/v2', 'name' => 'api.v2.'], fn($r) => $r->add('GET', '/users', 'user.index', name: 'users'));
+<?php
+
+declare(strict_types=1);
+
+$container->when(BillingService::class)->needs(PaymentGateway::class)->give('gateway.stripe');
+
+$container->decorate(
+    'mailer',
+    static fn ($ctx, $inner) => new LoggingMailer($inner, $ctx->get('logger')),
+);
+
+$router->group(['prefix' => '/api/v2', 'name' => 'api.v2.'], static function ($router): void {
+    $router->add('GET', '/users', 'user.index', name: 'users');
+});
 ```
 
-Detail lengkap: [`docs/CHANGELOG-v2.10.0.md`](docs/CHANGELOG-v2.10.0.md).
+</details>
+
+<br>
+
+## Tabel Rute Bawaan
+
+Aplikasi demo mengekspos rute berikut dari `modules/` dan `plugins/`:
+
+| Rute | Handler | Sumber | Catatan |
+|:-----|:--------|:-------|:--------|
+| `GET /` | `HomeHandler` | `modules/Core` | — |
+| `GET /about` | `AboutHandler` | `modules/Core` | — |
+| `GET /health` | `AggregateHealthHandler` | `modules/Health` | agregat; 503 saat degraded |
+| `GET /health/live` | `LiveHandler` | `modules/Health` | liveness |
+| `GET /health/ready` | `ReadyHandler` | `modules/Health` | readiness |
+| `GET /metrics` | `MetricsHandler` | `modules/Health` | format Prometheus |
+| `GET /toko` | `TokoHandler` | `plugins/Toko` | plugin contoh |
+| `GET /toko/produk/{id:int}` | `ProdukDetailHandler` | `plugins/Toko` | constraint `{id:int}` |
+
+Respon `404`, `400` (pelanggaran constraint), dan `405` juga aktif.
+
+<br>
+
+## CLI — `bin/zef`
+
+<table width="100%">
+  <tr><th align="left">Perintah</th><th align="left">Kegunaan</th></tr>
+  <tr><td><kbd>bin/zef list</kbd></td><td>Katalog seluruh command (mendukung <code>--json</code>)</td></tr>
+  <tr><td><kbd>bin/zef --self-test</kbd></td><td>Menjalankan 501 assertion self-test</td></tr>
+  <tr><td><kbd>bin/zef --serve 0.0.0.0:8080</kbd></td><td>Server HTTP pengembangan</td></tr>
+  <tr><td><kbd>bin/zef route:list</kbd></td><td>Inspeksi rute beserta namanya</td></tr>
+  <tr><td><kbd>bin/zef module:list</kbd></td><td>Modul terdaftar (hasil boot nyata)</td></tr>
+  <tr><td><kbd>bin/zef plugin:list</kbd></td><td>Plugin yang ditemukan di disk</td></tr>
+  <tr><td><kbd>bin/zef config:show &lt;key&gt;</kbd></td><td>Dump konfigurasi teragregasi (JSON-safe)</td></tr>
+  <tr><td><kbd>bin/zef tinker</kbd></td><td>REPL dengan <code>$app</code> dan <code>$container</code> siap pakai</td></tr>
+  <tr><td><kbd>bin/zef make:*</kbd></td><td>10 generator: <code>module</code>, <code>plugin</code>, <code>handler</code>, <code>middleware</code>, <code>config</code>, <code>command</code>, <code>query</code>, <code>entity</code>, <code>valueobject</code>, <code>service</code></td></tr>
+</table>
 
 ```bash
-bin/zef list                            # katalog semua command (+ --json)
-bin/zef route:list                      # inspeksi rute + nama
-bin/zef make:module katalog             # scaffold modul baru
-bin/zef make:plugin Loyalitas           # scaffold plugin lengkap (Provider+Service+Handler)
+bin/zef make:module katalog
 bin/zef make:handler Produk --module=katalog --path=/katalog/produk
-bin/zef make:middleware Tracing         # scaffold middleware PSR-15 (src/Middleware)
-bin/zef make:config Cache --module=katalog   # ConfigProvider modul (mekanisme config ZEF)
-bin/zef make:command PlaceOrder --module=katalog   # CQRS command + handler
-bin/zef make:query FindOrder --module=katalog      # CQRS query + handler
-bin/zef make:entity Pesanan --module=katalog       # entitas Domain (identity + equals)
-bin/zef make:valueobject Uang --module=katalog     # final readonly value object
-bin/zef make:service Stok --module=katalog         # service aplikasi + wiring snippet
-bin/zef module:list                     # modul terdaftar (boot nyata)
-bin/zef plugin:list                     # plugin on-disk
-bin/zef config:show katalog.cache       # dump config teragregasi (JSON-safe)
-bin/zef tinker                          # REPL dengan $app + $container siap pakai
+bin/zef make:command PlaceOrder --module=katalog
 ```
 
-## Testing
+<br>
 
-Suite self-test framework hidup di `tests/` dan dijalankan lewat `bin/zef --self-test`
-(tanpa dependensi eksternal — PHPUnit tidak diperlukan). Total **501 assertion** dalam
-19 suite ber-key:
+## Struktur Proyek
 
-| Berkas | Isi |
-|--------|-----|
-| `tests/CliRunner.php` | Runner + 15 suite baseline (PSR contracts, routes, container, security, hardening, regresi v2.6.0 & v2.7.0, dll.) |
-| `tests/V280FeatureSuite.php` | **Suite khusus v2.8.0** — 13 sub-suite, 103 assertion untuk seluruh fitur roadmap v2.8.0 (tagged services, URL generator, ETag, ProblemDetails, pagination, Prometheus, health, cache, scheduler, AES-GCM, TOTP, validator, dedup) |
-| `tests/V290AutowireSuite.php` | **Suite khusus v2.9.0** — 11 sub-suite, 59 assertion untuk Advanced Autowiring Engine (attributes, interface binding, variadic, graf dependensi, AOT cold-start, frozen guard) |
-| `tests/V2100EnterpriseSuite.php` | **Suite khusus v2.10.0** — 13 sub-suite, 107 assertion untuk Enterprise Feature Pack (contextual binding, decoration, providers, events, groups, route cache, fallback, API versioning, sort/filter, key ring, i18n, form request, tinker) |
-| `tests/V2110RadixTreeSuite.php` | **Suite khusus v2.11.0** — 8 sub-suite, 87 assertion untuk RadixTree Namespace Container (struktur tree & kompresi, prefix query, namespace scope policy, getByPrefix, namespace fallback, AOT round-trip, lifecycle freeze, edge semantics) |
-| `tests/V270*.php` | Fixture konkret untuk suite regresi v2.7.0 |
-
-```bash
-bin/zef --self-test            # seluruh 501 assertion (19 suite)
-bin/zef --self-test=v280       # hanya suite fitur v2.8.0 — 103 assertion
-bin/zef --self-test=v290       # hanya suite autowiring v2.9.0 — 59 assertion
-bin/zef --self-test=v210       # hanya suite enterprise v2.10.0 — 107 assertion
-bin/zef --self-test=v211       # hanya suite radix-tree v2.11.0 — 87 assertion
-bin/zef --self-test=v27        # regresi v2.7.0 (key v270; substring match)
-bin/zef --self-test=router     # suite apa pun yang key/labelnya mengandung 'router'
-composer test                  # sama dengan --self-test penuh
+```text
+zef-framework/
+├── assets/readme-banner.svg     # aset README
+├── autoload/zef_autoload.php    # classmap statis (fallback zero-composer)
+├── bin/
+│   ├── zef                      # CLI: list, --self-test, --serve, route:list, make:* , tinker
+│   ├── worker.php               # worker RoadRunner
+│   └── rr                       # binary RoadRunner
+├── public/index.php             # entrypoint HTTP (web SAPI)
+├── src/                         # 360 berkas PHP — inti framework
+│   ├── Bootstrap.php
+│   ├── Compat/Psr/              # 23 shim PSR kondisional
+│   ├── Domain/                  # 181 — port, kontrak, value object, validator
+│   ├── Application/             #  66 — mesin orkestrasi in-process (CQRS, jobs, observability)
+│   ├── Infrastructure/          #  47 — adapter outbound: cache, redis, otlp, crypto, prometheus
+│   ├── Adapters/                #  35 — adapter inbound: http, router, kernel, runtime
+│   └── Middleware/              #   7 — middleware PSR-15
+├── app/Bootstrap.php            # aplikasi demo (createApp + provider)
+├── modules/                     # modul: Core, Health
+├── plugins/                     # plugin contoh: Toko
+├── tests/                       # 90 berkas PHP — suite PHPUnit native + self-test
+├── benchmarks/ContainerBench.php
+├── deploy/                      # Dockerfile · docker-compose.yml · k8s/
+├── docs/                        # 23 CHANGELOG + panduan (lihat bagian Dokumentasi)
+├── scripts/
+│   ├── lint.php                 # lint seluruh berkas PHP
+│   ├── build_docs.php           # Markdown → situs HTML statis
+│   └── ci/                      # gate: coverage, phpstan-baseline, zone-coverage, abandoned-policy
+└── .github/workflows/           # 13 workflow
 ```
 
-Filter bersifat case-insensitive dan dicocokkan substring terhadap key maupun label suite
-(`psr, routes, container, concurrency, security, request, router, pipeline, psr7, hardening,
-json, gate, beta3, v260, v270, v280, v290, v210, v211`); filter yang tidak cocok apa pun keluar dengan
-status 1 dan mencetak daftar key yang tersedia.
+<br>
+
+## Keamanan Runtime
+
+Runtime worker persisten berbeda mendasar dari PHP-FPM: proses hidup lama, sehingga **state lintas-request adalah risiko pertama**, bukan pengecualian.
+
+<table width="100%">
+  <tr><th align="left">Kontrol</th><th align="left">Perilaku</th></tr>
+  <tr>
+    <td><b>SecurityPolicy</b></td>
+    <td>Bootstrap fail-closed: konfigurasi keamanan yang tidak lengkap menghentikan start, bukan menurunkan perlindungan secara diam-diam.</td>
+  </tr>
+  <tr>
+    <td><b>Host tepercaya</b></td>
+    <td><code>ZEF_TRUSTED_HOSTS</code> default <code>localhost,127.0.0.1,::1,zef.test</code>.</td>
+  </tr>
+  <tr>
+    <td><b>CSRF</b></td>
+    <td>Aktif bila <code>ZEF_SECURITY_CSRF_SECRET</code> (≥ 32 byte) diisi; nama cookie/header dan flag Secure/HttpOnly/SameSite dapat dikonfigurasi.</td>
+  </tr>
+  <tr>
+    <td><b>Batas body</b></td>
+    <td><code>ZEF_MAX_BODY_BYTES</code> → <code>413</code> saat terlampaui.</td>
+  </tr>
+  <tr>
+    <td><b>Rate limit</b></td>
+    <td>In-memory, Redis, atau APCu; mode terdistribusi dipilih lewat switch non-rahasia.</td>
+  </tr>
+  <tr>
+    <td><b>SAST &amp; rahasia</b></td>
+    <td>Semgrep (<code>php-sast.yml</code>), CodeQL, dan pemindaian rahasia (<code>gitleaks</code>) berjalan sebagai check wajib pada setiap PR.</td>
+  </tr>
+</table>
+
+**Kebijakan pelaporan kerentanan** ada di [`SECURITY.md`](SECURITY.md).
+
+<br>
 
 ## Variabel Lingkungan
 
-| Variabel                    | Default              | Keterangan                                  |
-|-----------------------------|----------------------|---------------------------------------------|
-| `ZEF_DEBUG`                 | `0`                  | Mode debug (diagnostik error + pesan detail)|
-| `ZEF_MAX_BODY_BYTES`        | bawaan framework     | Batas ukuran request body (413 bila lebih)  |
-| `ZEF_TRUSTED_HOSTS`         | `localhost,127.0.0.1,::1,zef.test` | Daftar host tepercaya (CSV)   |
-| `ZEF_SECURITY_CSRF_SECRET`  | —                    | Secret CSRF >= 32 byte (aktifkan CSRF)      |
-| `ZEF_WORKER_MAX_JOBS`       | `0` (tanpa batas)    | Kapasitas job per worker RoadRunner         |
-| `ZEF_WORKER_MEMORY_LIMIT`   | `0` (nonaktif)       | Batas memori worker RoadRunner (byte)       |
+| Variabel | Default | Keterangan |
+|:---------|:--------|:-----------|
+| `ZEF_ENV` | — | Penanda lingkungan aplikasi |
+| `ZEF_DEBUG` | `0` | Mode debug (diagnostik verbose) |
+| `ZEF_MAX_BODY_BYTES` | bawaan framework | Batas ukuran request body (`413` bila lebih) |
+| `ZEF_TRUSTED_HOSTS` | `localhost,127.0.0.1,::1,zef.test` | Daftar host tepercaya (CSV) |
+| `ZEF_SECURITY_CSRF_SECRET` | — | Secret CSRF ≥ 32 byte; mengaktifkan CSRF |
+| `ZEF_SECURITY_CSRF_TOKEN_BYTES` · `_COOKIE` · `_HEADER` · `_SAMESITE` · `_SECURE` · `_HTTP_ONLY` | — | Penyetelan CSRF |
+| `ZEF_SECURITY_ORIGIN_POLICY` · `ZEF_SECURITY_ALLOWED_ORIGINS` | — | Kontrol origin |
+| `ZEF_SECURITY_RATE_LIMIT` · `_MAX` · `_WINDOW` · `_MAX_KEYS` · `_DISTRIBUTED_RATE_LIMIT` | — | Rate limiting |
+| `ZEF_SECURITY_HSTS` · `ZEF_SECURITY_CSP` | — | Header keamanan respons |
+| `ZEF_WORKER_MAX_JOBS` | `0` (tanpa batas) | Kapasitas job per worker sebelum daur ulang |
+| `ZEF_WORKER_MEMORY_LIMIT` | `0` (nonaktif) | Batas memori worker (byte) |
 
-## Pemetaan dari Monolith
+> Seluruh switch `ZEF_SECURITY_*` adalah **selector non-rahasia**: nilainya dibaca dari lingkungan dan tidak pernah di-hardcode, dan secret (mis. `ZEF_SECURITY_CSRF_SECRET`) tidak boleh ditulis ke repositori, log, atau berkas konfigurasi yang dapat dibaca publik.
 
-Setiap deklarasi dipindahkan **verbatim** (byte-exact, terverifikasi round-trip) ke satu file
-per kelas. Namespace **tidak diubah** — `Zef\Framework\Container\Container` tetap bernama sama;
-yang berubah hanyalah lokasi fisiknya di pohon direktori, dikelompokkan ke layer hexagonal.
-Rincian aturan pemetaan dan arah dependensi antar-layer ada di
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+<br>
+
+## Gerbang Kualitas
+
+Sebuah perubahan tidak dianggap selesai sebelum **tujuh gerbang independen** hijau. "Test lulus" bukan bukti kualitas, dan "pipeline hijau" bukan bukti keamanan.
+
+<table width="100%">
+  <tr><th align="left">#</th><th align="left">Gerbang</th><th align="left">Perintah</th><th align="left">Ambang / bukti</th></tr>
+  <tr><td>1</td><td>Syntax</td><td><kbd>composer lint</kbd></td><td><code>417</code> berkas first-party, 0 kegagalan</td></tr>
+  <tr><td>2</td><td>Suite PHPUnit native</td><td><kbd>composer test</kbd></td><td><code>1498</code> test · <code>16861</code> assertion · 5 skipped</td></tr>
+  <tr><td>3</td><td>Coverage</td><td><kbd>composer coverage:gate</kbd></td><td>ambang statement <b>90%</b> (diukur Xdebug)</td></tr>
+  <tr><td>4</td><td>Mutation testing</td><td><kbd>composer mutation</kbd></td><td><code>--min-msi=85 --min-covered-msi=90</code></td></tr>
+  <tr><td>5</td><td>Analisis statis</td><td><kbd>composer stan</kbd></td><td>PHPStan level <b>max</b> + strict-rules, baseline ter-ratchet</td></tr>
+  <tr><td>6</td><td>Konformansi arsitektur</td><td><kbd>composer deptrac</kbd></td><td><code>--fail-on-uncovered</code>, 0 violation</td></tr>
+  <tr><td>7</td><td>Gaya &amp; modernisasi</td><td><kbd>composer format:check &amp;&amp; composer phpcs &amp;&amp; composer rector:check</kbd></td><td>php-cs-fixer (PER-CS2.0 + Symfony) · PHPCS + Slevomat · Rector 8.4</td></tr>
+</table>
+
+```bash
+composer lint            # Linted 417 PHP files — 0 failure(s).
+composer test            # Tests: 1498, Assertions: 16861, Skipped: 5
+php bin/zef --self-test  # PASSED: 501  FAILED: 0
+```
+
+<details>
+<summary><b>Mengapa MSI, bukan sekadar coverage</b></summary>
+
+<br>
+
+**MSI** (*Mutation Score Indicator*) = mutan terdeteksi ÷ **seluruh** mutan yang dihasilkan. Mutan yang tidak tercakup test tetap dihitung, sehingga test yang hanya mengeksekusi baris tanpa meng-*assert* perilaku tidak bisa menaikkan skor.
+
+| Metrik | Definisi |
+|:-------|:---------|
+| **MSI** | mutan terdeteksi ÷ seluruh mutan |
+| **Covered MSI** | mutan terdeteksi ÷ mutan yang tercakup test |
+| **Mutation Code Coverage** | mutan tercakup ÷ seluruh mutan — *reachability* test, bukan ketajaman asersi |
+
+Kampanye mutasi dijalankan per **zona kanonik** (`scripts/f16_zones.tsv`, 27 zona) dengan `--filter`, sehingga setiap area punya angka MSI-nya sendiri. Ratchet per-zona berjalan di `ci.yml` pada setiap push/PR, sedangkan suite agregat dijalankan `mutation.yml` dan **dituntut** `release.yml` sebelum rilis dipublikasikan.
+
+</details>
+
+<br>
+
+## CI/CD
+
+13 workflow pada `.github/workflows/`. `main` dilindungi: 7 check wajib, PR wajib, dan aturan berlaku juga untuk admin.
+
+| Workflow | Peran |
+|:---------|:------|
+| `ci.yml` | Lint, self-test, PHPStan, PHPCS, Deptrac, ratchet mutasi per-zona |
+| `php-sast.yml` | Semgrep — termasuk ERROR floor atas `tests/`, `scripts/`, `tools/` |
+| `mutation.yml` | Suite mutasi agregat (tag rilis & dispatch manual) |
+| `secret-scan.yml` · `dependency-review.yml` | Pemindaian rahasia (gitleaks) & review dependensi |
+| `docs-check.yml` · `pages.yml` | Pemeriksaan API docs & publikasi situs dokumentasi |
+| `sbom.yml` · `release.yml` · `release-drafter.yml` | SBOM, penerbitan rilis, draf catatan rilis |
+| `phpbench.yml` | Benchmark performa container |
+| `auto-fix.yml` · `composer-lock.yml` | Perbaikan gaya otomatis & bootstrap lockfile (manual) |
+
+<br>
+
+## Dokumentasi
+
+Situs dokumentasi diterbitkan otomatis ke GitHub Pages pada setiap push ke `main`, dan setiap berkas juga dapat dibaca langsung dari repositori.
+
+| Dokumen | Isi |
+|:--------|:----|
+| [`docs/README.md`](docs/README.md) | Indeks dokumentasi |
+| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | Persyaratan, Composer &amp; zero-composer, RoadRunner, Docker/K8s, variabel lingkungan |
+| [`docs/CLI.md`](docs/CLI.md) | Referensi lengkap `bin/zef` |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Pembongkaran monolith, layer hexagonal, aturan arah dependensi |
+| [`docs/QUALITY.md`](docs/QUALITY.md) | Tujuh gerbang, mutation testing per area, triage mutan ekuivalen |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Worker persisten RoadRunner, state lintas-request, observabilitas |
+| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Kebijakan gerbang rilis & ratchet |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Rencana &amp; status fitur |
+| [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) | Kurikulum uji edge-case per fase kampanye mutasi |
+| [`docs/security/php-sast.md`](docs/security/php-sast.md) | Panduan SAST PHP |
+
+```bash
+composer docs                  # API reference Doctum → build/api
+php scripts/build_docs.php     # situs dokumentasi → build/docs
+```
+
+<br>
+
+## Kontribusi
+
+1. **Branch dari `main`** dan gunakan nama deskriptif dengan prefix peran, mis. `fix/rate-limiter-window` atau `docs/installation-clarity`.
+2. **Jalankan gerbang secara lokal sebelum membuka PR** — CI akan menuntut hal yang sama:
+   ```bash
+   composer lint && composer test && composer stan && composer deptrac && composer format:check
+   ```
+3. **Satu perubahan, satu tujuan.** Perubahan aditif lebih mudah ditinjau daripada yang mengubah perilaku lama.
+4. **Sertakan bukti, bukan klaim.** Untuk perubahan gate atau keamanan, cantumkan keluaran perintah yang mendukung.
+5. **Jangan pernah menuliskan rahasia** ke kode, konfigurasi, log, atau catatan PR. Gunakan variabel lingkungan dengan nama yang jelas.
+6. **Untuk kerentanan keamanan**, jangan buka issue publik — ikuti [`SECURITY.md`](SECURITY.md).
+
+<br>
+
+## Lisensi
+
+**MIT** — dideklarasikan pada [`composer.json`](composer.json).
+
+> Berkas `LICENSE` belum ditambahkan ke repositori; lisensi saat ini bersumber dari deklarasi `composer.json`.
+
+<br>
+
+<div align="center">
+  <sub>
+    Dibangun dengan <b>PHP 8.4</b> · <b>Hexagonal (Ports &amp; Adapters)</b> · <b>RoadRunner</b><br>
+    Dokumentasi terbit otomatis di setiap push ke <code>main</code>.
+  </sub>
+</div>
