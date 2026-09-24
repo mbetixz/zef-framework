@@ -1,0 +1,83 @@
+{
+    "info": {
+        "name": "Golden API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "description": "Golden document",
+        "version": "2.20.0"
+    },
+    "item": [
+        {
+            "name": "/users",
+            "item": [
+                {
+                    "name": "createUser",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "users"
+                            ],
+                            "query": []
+                        },
+                        "description": "",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "/users/{id}",
+            "item": [
+                {
+                    "name": "getUser",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/users/{id}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "users",
+                                ":id"
+                            ],
+                            "query": [
+                                {
+                                    "key": "expand",
+                                    "value": ""
+                                }
+                            ]
+                        },
+                        "description": "Get one\n\nFull detail"
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "<bearer-token>",
+                "type": "string"
+            }
+        ]
+    }
+}
