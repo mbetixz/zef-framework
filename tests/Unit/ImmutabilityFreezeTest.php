@@ -88,12 +88,6 @@ final class ImmutabilityFreezeTest extends TestCase
         'src/Infrastructure/Security/ApcuRateLimiter.php',
         'src/Infrastructure/Security/RedisRateLimiter.php',
         'src/Infrastructure/Security/RedisSharedRateLimitStore.php',
-        'src/Middleware/ConfigProvider.php',
-        'src/Middleware/CorsMiddleware.php',
-        'src/Middleware/ErrorLogger.php',
-        'src/Middleware/ErrorResponseFactory.php',
-        'src/Middleware/GlobalErrorHandler.php',
-        'src/Middleware/SecurityHeadersMiddleware.php',
     ];
 
     /**
@@ -121,9 +115,9 @@ final class ImmutabilityFreezeTest extends TestCase
     {
         $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
-            83,
+            89,
             $current,
-            sprintf('Jumlah kelas `readonly` menurun (%d < 83) — regresi kebijakan immutability.', $current),
+            sprintf('Jumlah kelas `readonly` menurun (%d < 89) — regresi kebijakan immutability.', $current),
         );
     }
 

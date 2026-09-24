@@ -22,9 +22,9 @@ use Zef\Framework\Security\RedisSharedRateLimitStore;
 use Zef\Framework\Security\SecurityPolicy;
 use Zef\Framework\Security\SecurityRuntimeMiddleware;
 
-final class ConfigProvider implements ConfigProviderInterface
+final readonly class ConfigProvider implements ConfigProviderInterface
 {
-    public function __construct(private readonly bool $devMode = false) {}
+    public function __construct(private bool $devMode = false) {}
 
     #[\Override]
     public function getModuleName(): string
