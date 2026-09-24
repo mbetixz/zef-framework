@@ -80,7 +80,8 @@ final class ConfigSchemaValidator
         if (!$key->type->accepts($raw, $key->enumClass)) {
             return new ConfigViolation(
                 $key->key,
-                "expects {$key->type->value}, got " . ConfigValueType::describe($raw),
+                "expects {$key->type->value}, got " . ConfigValueType::describe($raw)
+                    . $key->type->rejectionHint($raw),
             );
         }
         $coerced = $key->type->coerce($raw, $key->enumClass);

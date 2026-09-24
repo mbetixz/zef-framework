@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-// ZEF Framework v2.21.0 — Configuration System v2 mutation sweep: exact
+// ZEF Framework v2.21.1 — Configuration System v2 mutation sweep: exact
 // messages, boundaries, deterministic ordering and compiled-file pinning.
 
 namespace Zef\Test\Unit;
@@ -23,6 +23,7 @@ use Zef\Framework\Config\EnvConfigSource;
 use Zef\Framework\Config\FileSecretsProvider;
 use Zef\Framework\Config\PhpFileConfigSource;
 use Zef\Framework\Exception\InvalidConfigurationException;
+use Zef\Framework\Foundation\ZefVersion;
 
 /**
  * @internal
@@ -62,7 +63,9 @@ final class ConfigV2MutationSweepTest extends TestCase
         new ConfigCompiler()->export($config, $target);
         $content = (string) file_get_contents($target);
         $expectedPrefix = "<?php\n\ndeclare(strict_types=1);\n\n"
-            . '/* Compiled application configuration (ZEF Framework v2.21.0). Do not edit. */' . "\n\n";
+            . '/* Compiled application configuration (ZEF Framework v' . ZefVersion::VERSION
+            . '). Do not edit. Contains resolved secrets — keep out of version control, chmod 600. */'
+            . "\n\n";
         self::assertStringStartsWith($expectedPrefix, $content, 'compiled header must be byte-exact');
         self::assertStringContainsString("'a' => 1,", $content);
         self::assertStringEndsWith(");\n", $content);

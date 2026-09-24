@@ -24,6 +24,10 @@ namespace Zef\Framework\Config;
  * typed accessors with the documented grammar. Variables whose body does not
  * match `^[A-Z0-9_]+$` are ignored, and enumeration is sorted for a stable
  * merge order.
+ *
+ * A variable that IS set but carries the empty string is still included:
+ * non-string schema keys then fail startup with the dedicated empty-string
+ * hint — drop the variable entirely instead of leaving it empty.
  */
 final readonly class EnvConfigSource implements ConfigSourceInterface
 {

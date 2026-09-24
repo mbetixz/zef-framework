@@ -21,13 +21,28 @@ use Zef\Framework\Exception\InvalidConfigurationException;
  * directly. Accessors apply the same strict grammar as the schema validator
  * ({@see ConfigValueType}); a missing or mistyped key is a configuration
  * error and throws {@see InvalidConfigurationException}.
+ *
+ * Typed accessors declare no runtime defaults by design: defaults live in
+ * the schema ({@see ConfigKey::$default}) so a missing key is a startup
+ * violation, never a silent fallback. Empty-string values only satisfy
+ * string keys; every other type rejects them with a dedicated hint
+ * ({@see ConfigValueType::rejectionHint()}).
+ *
+ * Since v2.21.1 the bag also carries a radix index ({@see ConfigRadixTree},
+ * built once at construction) powering the pattern queries `query()`,
+ * `subtree()` and `longestMatch()`; exact lookups keep their hash-map path.
  */
 final readonly class Config
 {
+    private ConfigRadixTree $index;
+
     /**
      * @param array<array-key,mixed> $values
      */
-    public function __construct(private array $values) {}
+    public function __construct(private array $values)
+    {
+        $this->index = new ConfigRadixTree($values);
+    }
 
     /**
      * Full raw tree. Treat as read-only; PHP copy-on-write keeps the bag safe.
@@ -124,6 +139,44 @@ final readonly class Config
         return DottedPaths::leafPaths($this->values);
     }
 
+    /**
+     * Wildcard query over the configuration tree, full dotted path => value
+     * at the matched path. A `*` segment matches exactly one stored segment:
+     * `query('database.connections.*.host')` returns every connection's host,
+     * `query('cache.*.driver')` every cache driver. Sorted by path.
+     *
+     * @return array<string,mixed>
+     */
+    public function query(string $pattern): array
+    {
+        return $this->index->match($pattern);
+    }
+
+    /**
+     * Every leaf under a literal prefix as relative path => value —
+     * `subtree('database.connections.mysql')` returns the mysql block's
+     * leaves without the prefix. An empty prefix returns the whole tree.
+     *
+     * @return array<string,mixed>
+     */
+    public function subtree(string $prefix): array
+    {
+        return $this->index->subtree($prefix);
+    }
+
+    /**
+     * Resolve a concrete key through stored `*` template keys (most specific
+     * template wins): with `services.*.timeout = 30` and
+     * `services.payment.*.timeout = 60` configured,
+     * `longestMatch('services.paypal.timeout')` yields 30 while
+     * `longestMatch('services.payment.paypal.timeout')` yields 60. Returns
+     * null when nothing matches.
+     */
+    public function longestMatch(string $key): mixed
+    {
+        return $this->index->longestMatch($key);
+    }
+
     private function typed(string $key, ConfigValueType $type, ?string $enumClass = null): mixed
     {
         if (!DottedPaths::has($this->values, $key)) {
@@ -133,6 +186,7 @@ final readonly class Config
         if (!$type->accepts($raw, $enumClass)) {
             throw new InvalidConfigurationException(
                 "Configuration key '{$key}' expects {$type->value}, got " . ConfigValueType::describe($raw)
+                . $type->rejectionHint($raw)
             );
         }
 

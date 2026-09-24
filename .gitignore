@@ -31,3 +31,9 @@ composer.phar
 # commit and is useless on any other machine. The wrapper is regeneratable
 # in one line, so it stays local and out of git.
 /bin-xd/
+
+# Compiled application configuration (ConfigCompiler::export). The file bakes
+# every `%secret:name%` reference into plaintext on disk, so the recommended
+# target below must never be committed; keep its file permissions restricted
+# to the runtime user instead (the compiler already writes chmod 0600).
+/var/cache/config.php
