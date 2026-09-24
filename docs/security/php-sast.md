@@ -87,7 +87,7 @@ memory**; each was resolved and cross-checked against its upstream source.
 | Semgrep engine | `semgrep/semgrep` image at `1.177.0`, digest `sha256:acaac22f…d81198` | Resolved through the Docker registry v2 manifest for the tag (anonymous pull token), read from the `Docker-Content-Digest` response header. `sha256:acaac22f…d81198` is the tag's digest, confirmed through two independent lookups. |
 | Ruleset commit | `semgrep/semgrep-rules@40b8c63f75dc7c22c8a77482d73bfb864b146f7e` | Default branch (`develop`) head resolved through the GitHub API. |
 | Ruleset tarball | `sha256:b7e483ab…ec4919` | The codeload tarball for that exact commit was downloaded **twice**; both downloads produced the identical digest, so the artefact is reproducible. The workflow re-checks this digest and **fails closed** if it does not match. |
-| `actions/checkout` | `d23441a4…af803` (`v6.1.0`) | Annotated tag peeled through the GitHub API and cross-checked against the repository tag list. Same pin as the repository's existing workflows. |
+| `actions/checkout` | `3d3c42e5…3ba90b1` (`v7.0.1`) | Annotated tag peeled through the GitHub API and cross-checked against the repository tag list. Same pin as the repository's existing workflows. |
 | `github/codeql-action/upload-sarif` | `1c5b6756…e09fd` (`v4.38.1`) | Annotated tag peeled through the GitHub API, then the peeled commit cross-matched to its tag name in the tag list. |
 
 All `uses:` in this workflow resolve to 40-character commit SHAs. No tag, branch
@@ -124,6 +124,41 @@ ids by configuration path**, so the local rule reports as
 `unlink-use-qualified`. A `#nosemgrep` marker, however, is matched against the
 rule's **own** id, not against that namespaced `check_id` — measured in §7.3 with
 the exact path form the workflow uses.
+
+**A normalization step sits between the scans and the upload (issue #61).** Two
+measured behaviours of the pinned engine made every code-scanning alert this
+workflow ever published defective:
+
+* **Container-absolute paths.** The scans run in a container with the workspace
+  mounted at `/src`, and Semgrep writes the target path it was given into every
+  `artifactLocation.uri` (`/src/src/…`, `/src/tests/…`). Code scanning resolves
+  uris against the repository root, where those paths do not exist, so every
+  alert pointed at a file that is not in the repository: the link 404'd, and an
+  alert that cannot be attributed to a real location can never be recognised as
+  fixed.
+* **Suppressed findings are still results.** A `# nosemgrep` marker neutralises
+  the exit code of `--error` — that is what keeps the blocking gate green — but
+  the finding is still written to the SARIF, carrying
+  `suppressions: [{"kind": "inSource"}]`. Code scanning does not treat that field
+  as a disposition: it opens an alert for every such result anyway. Measured on
+  `main` @ `c938edd` and reproduced locally with the same pinned inputs: the four
+  categories together uploaded **61 results, all 61 carrying an accepted
+  suppression** (the entire §7 register), and the alert population was exactly
+  that set — 31 open, 30 dismissed to unblock PR #58 — feeding the
+  `code_scanning` ruleset (`alerts_threshold: all`) a permanent, un-actionable
+  count on every pull request.
+
+The step rewrites each SARIF into the `*.published.sarif` copy the upload steps
+consume: every uri carrying the `/src` container prefix becomes
+repository-relative (value-wide: result locations and run-level artifacts
+alike), and results with a non-empty `suppressions` array are dropped. The
+published population is therefore **exactly the population the exit-code gate
+acts on** — undispositioned findings. The suppressed population stays governed
+by the inline markers and the §7 register, which remain the in-tree,
+line-accurate audit trail; they are no longer duplicated into code scanning as
+open alerts. The scan invocations, the pinned ruleset, the severity floors and
+the blocking thresholds are unchanged: no rule is disabled, no path is excluded,
+no finding is left unexamined.
 
 ---
 
@@ -331,18 +366,27 @@ possible without ignoring a finding.
 | 4 | `php.lang.security.unlink-use` | `src/Adapters/Router/RouteCache.php:48` | Same shape: cleanup of `$path . '.' . bin2hex(random_bytes(6)) . '.tmp'` (line 39), a self-named temp sibling of the cache file, on the branch where `rename($tmp, $path)` has already returned false. Not reachable with request-controlled input. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 5 | `php.lang.security.unlink-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:104` | Same shape: cleanup of `$path . '.tmp.' . getmypid()` (line 95), a self-named temp sibling of the AOT export, on the branch where `rename($tmp, $path)` has already returned false. Reached from the compile-time CLI path, never from a request. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 
-All forty-eight suppressions are `inSource` and scoped to a single line. None hides
+All sixty-one suppressions are `inSource` and scoped to a single line. None hides
 a rule-class-wide exclusion, and none removes an evaluation that would otherwise be
-counted: every suppressed finding stays published to code scanning as an alert
-carrying `"kind": "inSource"`, so a reviewer sees the suppression instead of it
-being silent.
+counted.
 
 That claim is **measured, not asserted**. Running the promoted invocation against
 the tree with the suppressions in place exits `0` while the emitted SARIF still
-contains all 30 results, each carrying `"suppressions": [{"kind": "inSource"}]` -
-the marker neutralises the *exit code*, not the *finding*. Strip the markers on a
-copy and the same invocation exits `1` with the same 30 results. So a suppression
-buys a green gate here only by leaving the alert visibly open in code scanning. The three `unlink-use` entries are **not** a change of behaviour —
+contains every suppressed result — the marker neutralises the *exit code*, not the
+*finding*. Strip the markers on a copy and the same invocation exits `1` with the
+same results. So a suppression buys a green gate only by leaving the finding
+recorded — which is why the register exists, and why every entry above carries its
+reason inline at the call site.
+
+**Where the suppressed findings live since the issue #61 fix.** Until 2026-09-25
+those results were also uploaded to code scanning, where they opened alerts that
+duplicated this register while feeding the `code_scanning` ruleset a permanent
+population of un-actionable alerts (31 open at the measurement, none of them
+pointing at a real file — see §3). The upload path now drops results with an
+accepted suppression and publishes only undispositioned findings, with
+repository-relative paths. The register and the inline markers are the audit
+trail; code scanning shows only what a reviewer can still act on. The three
+`unlink-use` entries are **not** a change of behaviour —
 they document calls that already existed and were already flagged; what changed is
 that they are now recorded and reviewable in one place.
 
@@ -372,9 +416,9 @@ not reachable with attacker-controlled input, and the rule's own metadata rates 
 `confidence: LOW` / `likelihood: LOW`.
 
 The honest characterisation is therefore: **a false positive on a low-risk cleanup
-path, accepted in writing, with the alert left visible in code scanning.** Nothing
-was hidden to obtain a green gate, and the rule stays enabled for every other
-`unlink()` in the tree.
+path, accepted in writing, with the suppression recorded in the register below and
+the marker left at the call site.** Nothing was hidden to obtain a green gate, and
+the rule stays enabled for every other `unlink()` in the tree.
 
 ### 7.2 The thirty `unlink-use` findings in test code
 
@@ -415,8 +459,9 @@ applies unchanged.
 | 23 | `tests/Unit/OpenApiInfectionSweepTest.php` | 910, 940, 958, 974, 992, 993 | spec/Postman artefacts and the suite's own `openapi.json`/`'0'` dirents in `finally` teardown, over a directory the test created via `mkdir()` |
 
 **Lifetime: permanent** — §7.1 applies unchanged, no rewrite satisfies the rule.
-Every entry is `inSource`, single-line, and carries its reason inline. The alerts
-stay visible in code scanning.
+Every entry is `inSource`, single-line, and carries its reason inline. Since the
+issue #61 fix these findings are no longer re-published as code-scanning alerts
+(§3); the inline markers and this register are the record.
 
 Re-measured on the OpenAPI 3.1 branch (v2.20.0): the promotion of the
 `tests/`/`scripts/`/`tools/` pass caught **9 new `php.lang.security.unlink-use`
@@ -650,8 +695,8 @@ rates them `confidence: LOW` / `likelihood: LOW`.
 | 47 | `php.lang.security.eval-use` | `tests/V2110RadixTreeSuite.php:390` | `$encoded` is built on line 389 as `'return ' . var_export($payload, true) . ';'` where `$payload = $tree->exportArray()` and `$tree = $this->sampleTree()` — both this suite's own fixture. The test round-trips its own AOT export; no external string is evaluated. | **Permanent** — evaluating the suite's own fixture is the assertion |
 
 Each marker is `inSource`, single-line, names the rule and states its reason inline;
-none is a path or rule-class exclusion, and all four findings stay published to code
-scanning as open alerts under `php-sast-tests-error`. Two of the four (`#46`, `#47`) sit
+none is a path or rule-class exclusion. Since the issue #61 fix these findings are
+registered here rather than duplicated into code scanning (§3). Two of the four (`#46`, `#47`) sit
 on the same statement shape as the `eval-use` entries already accepted in §7.1/§7.2 —
 evaluating code the codebase itself just produced — so this is an existing, reviewed
 category rather than a new one.
@@ -698,8 +743,20 @@ security justification for that here.
 | Job `permissions` | `contents: read`, `security-events: write` | `security-events: write` is required **only** by `upload-sarif`, to publish SARIF into code scanning. The job cannot write to the repository. |
 | Repository secret | **None** | Semgrep CE needs no token to run against local source, and this workflow does not log in to the Semgrep platform, so no `SEMGREP_APP_TOKEN` is configured or required. |
 | Network access | Outbound to `codeload.github.com` (pinned ruleset) and the container registry (pinned engine image) | No source code is uploaded to any Semgrep service. Telemetry is disabled (`--metrics=off`) and version checks are disabled (`--disable-version-check`). |
-| Artefacts | Four SARIF files in the runner temp directory (production-`ERROR`, production-`WARNING`, tooling-`WARNING`, tooling-`ERROR`), published to code scanning under four categories | The workspace is not archived and uploaded, and no credential is written to an artefact. |
+| Artefacts | Four SARIF files in the runner temp directory (production-`ERROR`, production-`WARNING`, tooling-`WARNING`, tooling-`ERROR`), rewritten into normalized `*.published.sarif` copies and published to code scanning under four categories | The workspace is not archived and uploaded, and no credential is written to an artefact. |
 | Fork behaviour | Analysis runs; the upload is the only privileged step, and a fork pull request receives a read-only token, so `security-events: write` is not granted | Upload is `continue-on-error` so a token-scope limitation cannot turn an otherwise clean analysis red. |
+
+**Publication normalization (issue #61).** Between the scans and the uploads, one
+step rewrites each SARIF into the `*.published.sarif` copy that is actually
+uploaded: container-absolute `/src/…` uris become repository-relative, and
+results carrying an accepted inline suppression are dropped (measured root cause
+and mechanics in §3). Published alerts therefore map to real files, can be
+auto-closed when their location disappears from a later analysis, and reflect
+exactly the undispositioned population; the §7 register governs the suppressed
+one. A failure of this step publishes nothing rather than re-publishing
+un-normalized paths, and fails the job loudly instead — the one place where a
+publication-side failure is allowed to colour the job red, because its silent
+failure mode is precisely the alert population that blocked PR #58.
 
 **Known weakness (accepted, owner decision).** The SARIF **upload** steps are
 marked `continue-on-error: true`. The analysis itself still fails the job on a

@@ -296,38 +296,129 @@ jobs:
               --output=/out/sast-tests-error.sarif \
               ${targets}
 
+      - name: "Normalize SARIF for publication (issue #61)"
+        # Two measured behaviours of the pinned engine (semgrep 1.177.0) made every
+        # code-scanning alert this workflow ever published defective:
+        #
+        # 1. Container-absolute paths. The scans run with the workspace mounted at
+        #    /src, and Semgrep writes the target path it was given into every
+        #    artifactLocation.uri (/src/src/..., /src/tests/...). Code scanning
+        #    resolves uris against the repository root, where /src/... does not
+        #    exist: alert links 404, and an alert that cannot be attributed to a
+        #    real location can never be recognised as fixed.
+        # 2. Suppressed findings are still results. A # nosemgrep marker neutralises
+        #    the exit code of --error (that is what keeps the blocking gate green)
+        #    but the finding is still written to the SARIF, carrying
+        #    suppressions: [{"kind": "inSource"}]. Code scanning does not treat that
+        #    field as a disposition: it opens an alert for every such result anyway.
+        #    Measured on main @ c938edd, and reproduced locally with the same pinned
+        #    inputs: the four categories together uploaded 61 results, all 61
+        #    carried an accepted suppression (the entire docs/security/php-sast.md
+        #    §7 register), and the alert population was exactly that set - 31 open,
+        #    30 dismissed to unblock PR #58 - feeding the code_scanning ruleset
+        #    (alerts_threshold: all) a permanent, un-actionable count on every PR.
+        #
+        # This step rewrites each SARIF into the *.published.sarif copy the upload
+        # steps below consume:
+        #   * every uri carrying the /src container prefix becomes
+        #     repository-relative (value-wide: result locations and run-level
+        #     artifacts alike), so a future real finding is navigable, attributable
+        #     and auto-closable;
+        #   * results with a non-empty suppressions array are dropped, so the
+        #     published population is exactly the population the exit-code gate
+        #     acts on - undispositioned findings. The suppressed population stays
+        #     governed by the inline markers and the §7 register, which remain the
+        #     in-tree, line-accurate audit trail.
+        #
+        # The published copy is a separate file on purpose: if this step fails, the
+        # upload steps find no file and publish nothing (best-effort, as before)
+        # rather than re-publishing un-normalized paths - the failure mode that
+        # created the #61 alert population in the first place. This step is
+        # deliberately NOT continue-on-error: a silent failure here would republish
+        # the disease invisibly, while a red job is a one-line diagnosis.
+        #
+        # Nothing about the analysis changes: same configs, same ruleset, same
+        # severity floors, same --error blocking. No rule is disabled, no path is
+        # excluded, no finding is left unexamined. jq 1.7 is preinstalled on
+        # ubuntu-24.04 runners.
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "### SARIF publication (issue #61)"
+            echo ""
+            echo "Each SARIF is rewritten before upload: container-relative \`/src/…\` paths"
+            echo "become repository-relative, and results carrying an accepted inline"
+            echo "suppression (the docs/security/php-sast.md §7 register) are not re-published"
+            echo "as code-scanning alerts. Published alerts map to real files and reflect"
+            echo "exactly the undispositioned population."
+            echo ""
+          } >> "${GITHUB_STEP_SUMMARY}"
+          for f in sast-src sast-src-warning sast-tests sast-tests-error; do
+            sarif="${RUNNER_TEMP}/${f}.sarif"
+            published="${RUNNER_TEMP}/${f}.published.sarif"
+            rm -f "${published}"
+            if [ ! -s "${sarif}" ]; then
+              echo "'${f}.sarif' absent or empty; nothing to publish."
+              echo "- ${f}: not produced by this run" >> "${GITHUB_STEP_SUMMARY}"
+              continue
+            fi
+            scanned=$(jq '[.runs[]?.results[]?] | length' "${sarif}")
+            jq '
+              def strip_container_prefix:
+                if type == "object" and ((.uri | type) == "string") and (.uri | startswith("/src/"))
+                then .uri |= sub("^/src/"; "")
+                else .
+                end;
+              walk(strip_container_prefix)
+              | if (.runs | type) == "array" then
+                  .runs |= map(
+                    if (.results | type) == "array"
+                    then .results |= map(select((.suppressions // []) | length == 0))
+                    else . end)
+                else . end
+            ' "${sarif}" > "${published}"
+            kept=$(jq '[.runs[]?.results[]?] | length' "${published}")
+            echo "- ${f}: ${scanned} scanned -> ${kept} published ($((scanned - kept)) suppressed, registered in docs §7)" >> "${GITHUB_STEP_SUMMARY}"
+            echo "${f}: ${scanned} result(s) scanned -> ${kept} published"
+          done
+
       - name: Upload SARIF (production source)
         # Best-effort publication only. The blocking decision is made by the exit
-        # code of the scan above, never by code scanning being available.
+        # code of the scan above, never by code scanning being available. The file
+        # uploaded here is the normalized copy produced by the preceding step.
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          sarif_file: ${{ runner.temp }}/sast-src.sarif
+          sarif_file: ${{ runner.temp }}/sast-src.published.sarif
           category: php-sast-source
 
       - name: Upload SARIF (production source, WARNING severity)
         # Published under its own category so the lower-floor production findings are
         # never mixed with the ERROR-floor ones in code scanning. Both categories are
         # blocking since 2026-09-24; they stay separate so a reviewer can still tell
-        # which severity floor produced a given alert. Best-effort, like every upload
-        # here: publication is not the gate.
+        # which severity floor produced a given alert. Uploaded here is the
+        # normalized copy produced by the normalization step. Best-effort, like
+        # every upload here: publication is not the gate.
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          sarif_file: ${{ runner.temp }}/sast-src-warning.sarif
+          sarif_file: ${{ runner.temp }}/sast-src-warning.published.sarif
           category: php-sast-source-warning
 
       - name: Upload SARIF (tests and tooling)
+        # Uploaded here is the normalized copy produced by the normalization step.
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          sarif_file: ${{ runner.temp }}/sast-tests.sarif
+          sarif_file: ${{ runner.temp }}/sast-tests.published.sarif
           category: php-sast-tests
 
       - name: Upload SARIF (tests and tooling, ERROR severity)
+        # Uploaded here is the normalized copy produced by the normalization step.
         # Own category again, so a reviewer can still tell which severity floor over
         # these trees produced an alert. Best-effort, like every upload here:
         # publication is never the gate.
@@ -335,7 +426,7 @@ jobs:
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          sarif_file: ${{ runner.temp }}/sast-tests-error.sarif
+          sarif_file: ${{ runner.temp }}/sast-tests-error.published.sarif
           category: php-sast-tests-error
 
       - name: Job summary
@@ -378,6 +469,12 @@ jobs:
               fi
               echo "- ${label}: ${n} finding(s)"
             done
+            echo ""
+            echo "Counts above are scan findings (pre-publication). The SARIF publication"
+            echo "step rewrites each file before upload: container-relative paths become"
+            echo "repository-relative and accepted inline suppressions (docs §7 register)"
+            echo "are not re-published as alerts - see the SARIF publication (issue #61)"
+            echo "section and docs/security/php-sast.md §3 and §9."
             echo ""
             echo "Findings are published to code scanning under the categories"
             echo "\`php-sast-source\`, \`php-sast-source-warning\`, \`php-sast-tests\` and"
