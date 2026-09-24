@@ -73,6 +73,23 @@ enum ConfigValueType: string
     }
 
     /**
+     * Deterministic extra guidance appended to type-mismatch messages when a
+     * rejected raw value is the empty string — the classic "environment
+     * variable is set but empty" mistake. Only string keys accept `''`; every
+     * other type explains how to fix the offending variable. Non-empty values
+     * and the String type itself produce no hint.
+     */
+    public function rejectionHint(mixed $raw): string
+    {
+        if ($raw === '' && $this !== self::String) {
+            return ' (empty strings only satisfy string keys; remove the empty'
+                . ' environment variable or set a concrete value)';
+        }
+
+        return '';
+    }
+
+    /**
      * Human-readable rendering of a raw value for violation messages.
      * Long strings are truncated deterministically at 61 chars + `...`.
      */

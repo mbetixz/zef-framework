@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Zef\Framework\Config;
 
 use Zef\Framework\Exception\InvalidConfigurationException;
+use Zef\Framework\Foundation\ZefVersion;
 
 /**
  * Writes the validated configuration to a pure-PHP file for production
@@ -20,9 +21,27 @@ use Zef\Framework\Exception\InvalidConfigurationException;
  *
  * Export is atomic (temp file + rename) and refuses values that cannot be
  * represented — only scalars, nulls and arrays of those ever reach the file.
+ *
+ * SECURITY (since v2.21.1): the compiled file bakes RESOLVED values in —
+ * every `%secret:name%` reference becomes plaintext on disk. The file is
+ * therefore written with restrictive permissions (`$fileMode`, default
+ * `0600`, applied to the temp file BEFORE the rename so no world-readable
+ * window exists) and carries a header reminding operators to keep it out of
+ * version control. The recommended target is `var/cache/config.php`, which
+ * ships in `.gitignore`.
  */
-final class ConfigCompiler
+final readonly class ConfigCompiler
 {
+    public function __construct(private int $fileMode = 0o600)
+    {
+        if ($fileMode < 0 || ($fileMode & ~0o777) !== 0) {
+            throw new \InvalidArgumentException(
+                'Config compile file mode must be a permission mask between 0 and 0777, got '
+                . $fileMode . '.'
+            );
+        }
+    }
+
     public function export(Config $config, string $targetFile): void
     {
         $directory = dirname($targetFile);
@@ -43,12 +62,15 @@ final class ConfigCompiler
             );
         }
         $code = "<?php\n\ndeclare(strict_types=1);\n\n"
-            . "/* Compiled application configuration (ZEF Framework v2.21.0). Do not edit. */\n\n"
+            . '/* Compiled application configuration (ZEF Framework v' . ZefVersion::VERSION
+            . '). Do not edit. Contains resolved secrets — keep out of version control, chmod 600. */'
+            . "\n\n"
             . 'return ' . var_export($values, true) . ";\n";
         $tmp = $directory . '/.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp';
         if (@file_put_contents($tmp, $code) === false) {
             throw new InvalidConfigurationException("Failed to write compiled config temp file '{$tmp}'.");
         }
+        @chmod($tmp, $this->fileMode);
         if (!@rename($tmp, $targetFile)) {
             // Cleanup of $tmp, a name this method generated itself
             // ('.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp', line 48). No

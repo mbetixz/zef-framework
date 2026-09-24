@@ -145,8 +145,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.19.0** | **Event Sourcing**: EventStore + adapter, AggregateRoot, Projector, transactional outbox |
 | **v2.20.0** | **OpenAPI 3.1 Docs**: spesifikasi otomatis dari route table + Attributes, validator struktural, Swagger UI dev-only, CLI + export Postman |
 | **v2.21.0** | **Configuration System v2**: multi-source + env overlay + secrets provider, skema fail-fast collect-all, accessor bertipe + native enum, config terkompilasi |
+| **v2.21.1** | **Configuration hardening**: kueri pola radix (`query()/subtree()/longestMatch()`), decorator secrets tangguh (retry + backoff + stale fallback), hint penolakan string kosong, compiled config `chmod 0600` + header keamanan |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`docs/CHANGELOG-v2.20.0.md`](docs/CHANGELOG-v2.20.0.md), [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 25 berkas di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`docs/CHANGELOG-v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`docs/CHANGELOG-v2.20.0.md`](docs/CHANGELOG-v2.20.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 26 berkas di [`docs/`](docs/README.md).
 
 </details>
 
