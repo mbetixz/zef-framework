@@ -15,10 +15,15 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Zef\Framework\Config\Config;
 use Zef\Framework\Config\ConfigAggregator;
+use Zef\Framework\Config\ConfigLoader;
 use Zef\Framework\Config\ConfigProviderInterface;
+use Zef\Framework\Config\ConfigSchema;
+use Zef\Framework\Config\ConfigSourceInterface;
 use Zef\Framework\Config\ModuleInterface;
 use Zef\Framework\Config\ModuleRegistry;
+use Zef\Framework\Config\SecretsProviderInterface;
 use Zef\Framework\Container\Container;
 use Zef\Framework\Container\InitializationGuard;
 use Zef\Framework\Container\ServiceLifetime;
@@ -52,6 +57,14 @@ final class Application
      * @var list<string>
      */
     private array $trustedProxies = [];
+
+    /**
+     * @var list<ConfigSourceInterface>
+     */
+    private array $configSources = [];
+    private ?SecretsProviderInterface $secretsProvider = null;
+    private ?ConfigSchema $configSchema = null;
+    private ?Config $appConfig = null;
     private readonly Http\RequestBodyPolicy $bodyPolicy;
     private readonly Policy\ArchitecturePolicy $architecturePolicy;
 
@@ -105,6 +118,43 @@ final class Application
         $this->modules->add($module);
     }
 
+    // v2.21.0 — Configuration System v2: multi-source application settings.
+
+    public function registerConfigSource(ConfigSourceInterface $source): void
+    {
+        if ($this->booted) {
+            throw new \LogicException('Cannot add config source after boot.');
+        }
+        $this->configSources[] = $source;
+    }
+
+    public function registerSecretsProvider(SecretsProviderInterface $secrets): void
+    {
+        if ($this->booted) {
+            throw new \LogicException('Cannot register a secrets provider after boot.');
+        }
+        $this->secretsProvider = $secrets;
+    }
+
+    public function setConfigSchema(ConfigSchema $schema): void
+    {
+        if ($this->booted) {
+            throw new \LogicException('Cannot set the config schema after boot.');
+        }
+        $this->configSchema = $schema;
+    }
+
+    /**
+     * The validated, immutable application configuration bag (also available
+     * as the `Config::class` container singleton after boot).
+     */
+    public function config(): Config
+    {
+        $this->appConfig ??= new ConfigLoader($this->configSources, $this->secretsProvider, $this->configSchema)->load();
+
+        return $this->appConfig;
+    }
+
     public function setTrustedHosts(array $hosts): void
     {
         if ($this->booted) {
@@ -141,6 +191,16 @@ final class Application
         $this->config->merge();
         $maxRefs = (int) $this->config->get('framework.container.max_cross_module_refs', 0);
         $this->container->configurePolicies($maxRefs);
+        // v2.21.0: build + validate the application configuration eagerly —
+        // a schema violation fails the boot before any module registers.
+        $this->container->register(
+            Config::class,
+            fn (): Config => $this->config(),
+            [],
+            'framework',
+            ServiceLifetime::SINGLETON,
+        );
+        $this->config();
         // v2.8.0: tagged service locator — read side for ServiceDefinition tags.
         $this->container->register(
             TaggedServiceLocator::class,

@@ -1,0 +1,104 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework — Configuration System v2 (Domain layer: ports, contracts,
+ * value objects). Added in v2.21.0 (multi-source application configuration:
+ * PHP file sources, environment overlay, secrets provider, schema-validated
+ * typed accessors with fail-fast startup).
+ */
+
+namespace Zef\Framework\Config;
+
+/**
+ * Validates a merged configuration tree against a {@see ConfigSchema}.
+ *
+ * The validator COLLECTS every violation instead of failing at the first
+ * one, so a broken deployment reports all of its problems in a single
+ * fail-fast startup exception. Violation order is deterministic:
+ * declaration order of the schema keys first, then unknown-key violations
+ * in sorted path order (strict mode).
+ */
+final class ConfigSchemaValidator
+{
+    /**
+     * @param array<array-key,mixed> $values
+     *
+     * @return list<ConfigViolation>
+     */
+    public function validate(array $values, ConfigSchema $schema): array
+    {
+        $violations = [];
+        foreach ($schema->keys as $key) {
+            $violation = $this->checkKey($values, $key);
+            if ($violation instanceof ConfigViolation) {
+                $violations[] = $violation;
+            }
+        }
+        if (!$schema->allowUnknownKeys) {
+            foreach (DottedPaths::leafPaths($values) as $path) {
+                if (!$schema->key($path) instanceof ConfigKey) {
+                    $violations[] = new ConfigViolation($path, 'unknown configuration key');
+                }
+            }
+        }
+
+        return $violations;
+    }
+
+    /**
+     * Returns a copy of the values with every optional key's default applied.
+     *
+     * @param array<array-key,mixed> $values
+     *
+     * @return array<array-key,mixed>
+     */
+    public function applyDefaults(array $values, ConfigSchema $schema): array
+    {
+        foreach ($schema->keys as $key) {
+            if ($key->default === null) {
+                continue;
+            }
+            if (!DottedPaths::has($values, $key->key)) {
+                $values = DottedPaths::set($values, $key->key, $key->default);
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param array<array-key,mixed> $values
+     */
+    private function checkKey(array $values, ConfigKey $key): ?ConfigViolation
+    {
+        if (!DottedPaths::has($values, $key->key)) {
+            return $key->required ? new ConfigViolation($key->key, 'is required') : null;
+        }
+        $raw = DottedPaths::valueAt($values, $key->key);
+        if (!$key->type->accepts($raw, $key->enumClass)) {
+            return new ConfigViolation(
+                $key->key,
+                "expects {$key->type->value}, got " . ConfigValueType::describe($raw),
+            );
+        }
+        $coerced = $key->type->coerce($raw, $key->enumClass);
+        if ($key->min !== null && (is_int($coerced) || is_float($coerced)) && $coerced < $key->min) {
+            return new ConfigViolation($key->key, 'must be >= ' . $this->renderBound($key->min));
+        }
+        if ($key->max !== null && (is_int($coerced) || is_float($coerced)) && $coerced > $key->max) {
+            return new ConfigViolation($key->key, 'must be <= ' . $this->renderBound($key->max));
+        }
+        if ($key->pattern !== null && is_string($raw) && preg_match($key->pattern, $raw) !== 1) {
+            return new ConfigViolation($key->key, 'does not match pattern');
+        }
+
+        return null;
+    }
+
+    private function renderBound(float|int $bound): string
+    {
+        return is_int($bound) ? (string) $bound : var_export($bound, true);
+    }
+}

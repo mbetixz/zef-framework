@@ -22,6 +22,10 @@
   - [ ] `gRPC adapter`
   - [x] `Event sourcing adapter` (v2.19.0: EventStore port + InMemory/PDO adapters, `AggregateRoot`, snapshot policy, `Projector` + checkpoints, transactional outbox + relay dead-letter)
   - [x] `OpenAPI documentation` (v2.20.0: generator spesifikasi 3.1 dari route table + validation engine + PHP 8.4 Attributes, serializer JSON/YAML dependency-free, `SpecHandler` ETag/304 + Swagger UI dev-only, CLI `openapi:generate`, export Postman v2.1, validator struktural; runtime validation middleware & security enforcement menyusul)
+  - [x] `Configuration System v2` (v2.21.0: multi-source `config/*.php` + overlay env `ZEF_*__KEY` + secrets provider `%secret:name%`, skema fail-fast collect-all (tipe/required/default/enum/min/max/pattern + strict unknown-key), accessor bertipe `string()/int()/float()/bool()/array()/enum()`, export config terkompilasi atomik + `CompiledConfigSource` untuk boot produksi, singleton `Config::class` di container)
+  - [ ] `OpenAPI runtime validation` — validasi request/response terhadap spesifikasi saat runtime
+  - [ ] `OpenAPI client SDK generation` — generator SDK klien dari spesifikasi
+  - [ ] `OpenAPI breaking-change detection` — diff spesifikasi otomatis untuk evolusi API
   - [ ] `Social auth adapters (Google, Facebook, GitHub)`
   - [ ] `SMS/Email service adapters`
   - [ ] `CDN/storage adapters (S3, GCS, Local)`

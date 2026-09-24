@@ -10,13 +10,13 @@
   <img src="https://img.shields.io/badge/RoadRunner-4.1-1f2937?style=for-the-badge" alt="RoadRunner 4.1">
   <img src="https://img.shields.io/badge/Architecture-Hexagonal-38bdf8?style=for-the-badge" alt="Hexagonal">
   <br>
-  <img src="https://img.shields.io/badge/Kelas%20PSR--4-360-818cf8?style=for-the-badge" alt="360 kelas">
-  <img src="https://img.shields.io/badge/Test%20PHPUnit-1498-c084fc?style=for-the-badge" alt="1498 test">
+  <img src="https://img.shields.io/badge/Kelas%20PSR--4-776-818cf8?style=for-the-badge" alt="776 kelas">
+  <img src="https://img.shields.io/badge/Test%20PHPUnit-2203-c084fc?style=for-the-badge" alt="2203 test">
   <img src="https://img.shields.io/badge/Coverage%20gate-%E2%89%A5%2090%25-22c55e?style=for-the-badge" alt="Coverage gate 90%">
   <img src="https://img.shields.io/badge/Mutation%20gate-MSI%20%E2%89%A5%2085-f59e0b?style=for-the-badge" alt="Mutation gate MSI 85">
   <br>
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT">
-  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.20.0-0ea5e9?style=for-the-badge" alt="v2.20.0">
+  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.21.0-0ea5e9?style=for-the-badge" alt="v2.21.0">
 
 </div>
 
@@ -91,6 +91,10 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
     <td>Spesifikasi <b>OpenAPI 3.1</b> otomatis dari route table + PHP 8.4 Attributes · endpoint <code>/openapi.json</code> (ETag/304) · Swagger UI dev-only · CLI <code>bin/zef openapi:generate</code> · export Postman v2.1 · serializer JSON/YAML dependency-free · validator struktural</td>
   </tr>
   <tr>
+    <td><b>Configuration</b></td>
+    <td><b>Config System v2</b>: multi-source (<code>config/*.php</code> + overlay env <code>ZEF_DATABASE__HOST</code> + secrets provider) · skema tervalidasi <i>fail-fast</i> yang melaporkan semua pelanggaran sekaligus · accessor bertipe <code>string()/int()/enum()</code> · export config terkompilasi untuk boot produksi</td>
+  </tr>
+  <tr>
     <td><b>Event Sourcing</b></td>
     <td>Port <code>EventStore</code> + adapter <code>InMemory</code>/<code>PDO</code> (persist atomik dalam transaction ambien) · <code>AggregateRoot</code> + kebijakan snapshot · <code>Projector</code> catch-up ber-checkpoint · transactional outbox + relay (retry eksponensial, dead letter)</td>
   </tr>
@@ -121,7 +125,7 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
 </table>
 
 <details>
-<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.20.0)</b> — 24 catatan perubahan</summary>
+<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.21.0)</b> — 25 catatan perubahan</summary>
 
 <br>
 
@@ -140,8 +144,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.18.0** | **Database Core**: Query Builder + PDO, Migrator, Repository base |
 | **v2.19.0** | **Event Sourcing**: EventStore + adapter, AggregateRoot, Projector, transactional outbox |
 | **v2.20.0** | **OpenAPI 3.1 Docs**: spesifikasi otomatis dari route table + Attributes, validator struktural, Swagger UI dev-only, CLI + export Postman |
+| **v2.21.0** | **Configuration System v2**: multi-source + env overlay + secrets provider, skema fail-fast collect-all, accessor bertipe + native enum, config terkompilasi |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.20.0.md`](docs/CHANGELOG-v2.20.0.md), [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 24 berkas di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`docs/CHANGELOG-v2.20.0.md`](docs/CHANGELOG-v2.20.0.md), [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 25 berkas di [`docs/`](docs/README.md).
 
 </details>
 
@@ -341,7 +346,7 @@ zef-framework/
 ├── tests/                       # 90 berkas PHP — suite PHPUnit native + self-test
 ├── benchmarks/ContainerBench.php
 ├── deploy/                      # Dockerfile · docker-compose.yml · k8s/
-├── docs/                        # 24 CHANGELOG + panduan (lihat bagian Dokumentasi)
+├── docs/                        # 25 CHANGELOG + panduan (lihat bagian Dokumentasi)
 ├── scripts/
 │   ├── lint.php                 # lint seluruh berkas PHP
 │   ├── build_docs.php           # Markdown → situs HTML statis
