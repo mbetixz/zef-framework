@@ -291,20 +291,20 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 57**, counted from the markers themselves rather than by
+**Registered suppressions: 61**, counted from the markers themselves rather than by
 arithmetic. Breakdown by the rule id named on the marker, as measured with
 `grep -rhoE 'nosemgrep: *[^ ]+' --include=*.php .`:
 
 | Rule id on the marker | Count |
 |---|---|
-| `php.lang.security.unlink-use` | 42 |
+| `php.lang.security.unlink-use` | 46 |
 | `exec-use` | 6 |
 | `unlink-use` (ZEF-local scope) | 4 |
 | `php.lang.security.eval-use` | 3 |
 | `eval-use` | 2 |
-| **Total** | **57** |
+| **Total** | **61** |
 
-That is **46 `unlink` + 6 `exec` + 5 `eval`**. The count is of marker directives on
+That is **50 `unlink` + 6 `exec` + 5 `eval`**. The count is of marker directives on
 call lines: an explanatory comment that merely *mentions* a marker, such as the prose
 line above `TinkerSession.php:70`, is not one. One earlier accounting in this document
 reached 47 by adding four to a 43 that was itself derived rather than counted; the
@@ -594,6 +594,10 @@ current tree contains exactly the four intended occurrences.
 | 22 | `unlink-use-qualified` | `tests/Unit/EdgeMatrixF8ObsInfraTest.php:566` | Same teardown shape; `$sink` is computed by `runOtlpServerSession()` as `$buildDir . '/f8_otlp_sink_' . \uniqid('', true) . '.jsonl'`. | **Permanent** |
 | 23 | `unlink-use-qualified` | `tests/Unit/MutationDeepHttpTest.php:81` | `$this->tmpFile` is this test's own `\tempnam(\sys_get_temp_dir(), 'zefmut')` (line 62), used as a simulated upload source; the call is additionally guarded by `\is_file()`. | **Permanent** |
 | 24 | `unlink-use-qualified` | `tests/Unit/ObservabilityTest.php:666` | Same teardown shape; `$sink` from `runOtlpServerSession()` (`$buildDir . '/otlp_sink_' . \uniqid('', true) . '.jsonl'`). | **Permanent** |
+| 25 | `php.lang.security.unlink-use` | `src/Application/Config/ConfigCompiler.php:58` | Best-effort cleanup of `'.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp'` — a name this method generated itself at line 48. No request input reaches the argument, and the call runs only on the failure path (`if (!@rename($tmp, $targetFile))`), after the atomic `rename()` of the compiled config has already failed. Added with the v2.21.0 Configuration System; re-measured per §7.2 (58 markers). | **Permanent** |
+| 26 | `php.lang.security.unlink-use` | `tests/Unit/ConfigV2SourcesLoaderTest.php:41` | Teardown of the test's own `sys_get_temp_dir() . '/zef-configv2-' . uniqid()` workspace; `$file` comes from `glob()` over that directory. Same shape as rows 21–24. v2.21.0. | **Permanent** |
+| 27 | `php.lang.security.unlink-use` | `tests/Unit/ConfigV2MutationSweepTest.php:49` | Same teardown shape as row 26 (`zef-configv2sweep-` workspace). v2.21.0. | **Permanent** |
+| 28 | `php.lang.security.unlink-use` | `tests/Unit/ConfigV2ApplicationTest.php:38` | Same teardown shape as row 26 (`zef-configv2app-` workspace, plus a nested secrets dir). v2.21.0. | **Permanent** |
 
 **Verified behaviour** — CI-equivalent invocation, config path in the exact form the
 workflow uses (`/src/.github/semgrep/rules`), `--severity WARNING --error`:
