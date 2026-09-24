@@ -9,8 +9,6 @@
 #
 # Exception layers (deliberate, documented deviations):
 #   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
-#   - TrustedProxy:  Zef\Framework\Http\TrustedProxyMatcher — consumed by
-#                    the Application-layer client address resolver.
 #   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
 #                    default exporter wired by the Telemetry facade.
 #   - ContainerImpl: Zef\Framework\Container\Container — the provider
@@ -18,6 +16,11 @@
 #                    the concrete container in their signatures.
 #
 # Retired carve-outs (issue #36 exit ramp — history, kept honest):
+#   - TrustedProxy: Zef\Framework\Http\TrustedProxyMatcher — moved unchanged
+#                    to src/Domain/Http (pure static CIDR-matching helper; no
+#                    state, no I/O), so the Application client-address resolver
+#                    and the Adapters request factory now resolve it as a
+#                    Domain class via ordinary layer rules.
 #   - EnvConfig:     Zef\Framework\Foundation\Env — moved unchanged to
 #                    src/Domain/Foundation (pure typed getenv() wrapper); all
 #                    38 static call sites now resolve to a Domain class. A
@@ -57,7 +60,7 @@ deptrac:
         -   name: Adapters
             collectors:
                 -   type: directory
-                    value: src/Adapters/(?!Http/TrustedProxyMatcher\.php).*
+                    value: src/Adapters/.*
         -   name: Compat
             collectors:
                 -   type: directory
@@ -76,10 +79,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: plugins/.*
-        -   name: TrustedProxy
-            collectors:
-                -   type: directory
-                    value: src/Adapters/Http/TrustedProxyMatcher\.php
         -   name: OtlpExporter
             collectors:
                 -   type: directory
@@ -91,12 +90,8 @@ deptrac:
     ruleset:
         Domain:
             - Compat
-            - TrustedProxy
             - ContainerImpl
         Compat: []
-        TrustedProxy:
-            - Domain
-            - Compat
         OtlpExporter:
             - Domain
             - Application
@@ -109,7 +104,6 @@ deptrac:
         Application:
             - Domain
             - Compat
-            - TrustedProxy
             - OtlpExporter
             - ContainerImpl
         Infrastructure:
@@ -122,7 +116,6 @@ deptrac:
             - Infrastructure
             - Compat
             - ContainerImpl
-            - TrustedProxy
         App:
             - Domain
             - Application

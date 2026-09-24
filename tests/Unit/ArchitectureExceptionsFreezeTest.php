@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Guild Action Item 1 — audit deptrac exceptions (follow-up guard).
  *
  * deptrac.yaml documents deliberate exception layers (Compat + the
- * single-class carve-outs: TrustedProxy, OtlpExporter, ContainerImpl).
+ * single-class carve-outs: OtlpExporter, ContainerImpl).
  * The risk called out by the audit is *silent* growth: every new
  * exception widens the coupling the hexagonal rules are supposed to
  * prevent, and without a tripwire nothing fails until the architecture
@@ -24,8 +24,9 @@ declare(strict_types=1);
  *      port/interface inside src/Domain, then DELETE the exception here —
  *      the way EnvConfig (Env relocated to Domain/Foundation),
  *      KernelSleeper (SleeperInterface port + SystemSleeper default),
- *      RouteDefSpec (RouteDefinition relocated to Domain/Router), and
- *      OriginPolicySpec (OriginPolicy relocated to Domain/Security)
+ *      RouteDefSpec (RouteDefinition relocated to Domain/Router),
+ *      OriginPolicySpec (OriginPolicy relocated to Domain/Security), and
+ *      TrustedProxy (TrustedProxyMatcher relocated to Domain/Http)
  *      were retired per issue #36. The remaining documented long-term
  *      plan is the ContainerImpl provider contracts (plus an optional
  *      future instance-based EnvInterface for composition-root
@@ -54,7 +55,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'App',
         'Module',
         'Plugin',
-        'TrustedProxy',
         'OtlpExporter',
         'ContainerImpl',
     ];
@@ -68,12 +68,11 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'Domain' => ['src/Domain/.*'],
         'Application' => ['src/Application/(?!Container/Container\.php).*'],
         'Infrastructure' => ['src/Infrastructure/(?!Observability/OtlpHttpJsonExporter\.php).*'],
-        'Adapters' => ['src/Adapters/(?!Http/TrustedProxyMatcher\.php).*'],
+        'Adapters' => ['src/Adapters/.*'],
         'Compat' => ['src/Compat/.*'],
         'App' => ['src/Bootstrap\.php', 'src/Middleware/.*'],
         'Module' => ['modules/.*'],
         'Plugin' => ['plugins/.*'],
-        'TrustedProxy' => ['src/Adapters/Http/TrustedProxyMatcher\.php'],
         'OtlpExporter' => ['src/Infrastructure/Observability/OtlpHttpJsonExporter\.php'],
         'ContainerImpl' => ['src/Application/Container/Container\.php'],
     ];
@@ -82,14 +81,13 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      * Peta edge ruleset lengkap — layer => daftar layer yang boleh dipakai.
      */
     private const array RULESET = [
-        'Domain' => ['Compat', 'TrustedProxy', 'ContainerImpl'],
+        'Domain' => ['Compat', 'ContainerImpl'],
         'Compat' => [],
-        'TrustedProxy' => ['Domain', 'Compat'],
         'OtlpExporter' => ['Domain', 'Application', 'Infrastructure', 'Compat'],
         'ContainerImpl' => ['Domain', 'Application', 'Compat'],
-        'Application' => ['Domain', 'Compat', 'TrustedProxy', 'OtlpExporter', 'ContainerImpl'],
+        'Application' => ['Domain', 'Compat', 'OtlpExporter', 'ContainerImpl'],
         'Infrastructure' => ['Domain', 'Application', 'Compat'],
-        'Adapters' => ['Domain', 'Application', 'Infrastructure', 'Compat', 'ContainerImpl', 'TrustedProxy'],
+        'Adapters' => ['Domain', 'Application', 'Infrastructure', 'Compat', 'ContainerImpl'],
         'App' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl', 'Module', 'Plugin'],
         'Module' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl'],
         'Plugin' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl'],
@@ -135,9 +133,9 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      * ContainerImpl — carve-out tersisa yang masih disorot audit Guild —
      * tetap berupa kelas konkret tunggal; kontrak migrasi ke port Domain
      * tercatat di header deptrac.yaml. EnvConfig, KernelSleeper,
-     * RouteDefSpec, dan OriginPolicySpec sudah pensiun (relokasi FQN-
-     * preserving ke src/Domain). Test ini menjaga ContainerImpl tidak
-     * meluas jadi multi-kelas.
+     * RouteDefSpec, OriginPolicySpec, dan TrustedProxy sudah pensiun
+     * (relokasi FQN-preserving ke src/Domain). Test ini menjaga
+     * ContainerImpl tidak meluas jadi multi-kelas.
      */
     public function testHighlightedCarveOutsRemainSingleClass(): void
     {
