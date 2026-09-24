@@ -160,7 +160,10 @@ final class CqrsTransactionalBusTest extends TestCase
             #[\Override]
             public function process(object $message, CqrsContext $context, \Closure $next): mixed
             {
-                return 'wrapped-' . $next($message, $context);
+                $result = $next($message, $context);
+                assert(is_string($result));
+
+                return 'wrapped-' . $result;
             }
         });
         self::assertFalse($bus->isFrozen());

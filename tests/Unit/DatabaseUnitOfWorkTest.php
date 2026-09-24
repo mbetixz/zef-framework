@@ -156,6 +156,7 @@ final class DatabaseUnitOfWorkTest extends TestCase
         $uow->record(static function (ConnectionInterface $c): void {
             $c->execute(SqlQuery::raw('INSERT INTO t (missing_column) VALUES (1)'));
         });
+
         try {
             $uow->flush($this->conn);
             self::fail('Expected the query failure to propagate.');

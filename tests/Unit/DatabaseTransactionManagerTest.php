@@ -202,6 +202,7 @@ final class DatabaseTransactionManagerTest extends TestCase
             $this->tx->afterCommit(function () use (&$order): void {
                 $order[] = 'outer-hook';
             });
+
             try {
                 $this->tx->withTransaction(function (ConnectionInterface $inner): void {
                     throw new \RuntimeException('inner fails');
@@ -249,16 +250,18 @@ final class DatabaseTransactionManagerTest extends TestCase
 
     public function testFlushingFlagResetsAfterDrainFailure(): void
     {
+        $hookThrew = false;
+
         try {
             $this->tx->withTransaction(function (ConnectionInterface $conn): void {
                 $this->tx->afterCommit(static function (): void {
                     throw new TransactionException('hook fail');
                 });
             });
-            // @phpstan-ignore-next-line (the hook always throws on this path)
-            self::fail('Expected the hook failure to surface.');
         } catch (TransactionException) {
+            $hookThrew = true;
         }
+        self::assertTrue($hookThrew, 'Expected the hook failure to surface.');
 
         $order = [];
         $this->tx->withTransaction(function (ConnectionInterface $conn) use (&$order): void {
