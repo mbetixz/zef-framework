@@ -26,6 +26,7 @@ use Zef\Framework\Container\DeferrableProviderInterface;
 use Zef\Framework\Container\RequestScope;
 use Zef\Framework\Container\ServiceDefinition as DomServiceDefinition;
 use Zef\Framework\Container\ServiceLifetime;
+use Zef\Framework\Container\ServiceRegistrarInterface;
 use Zef\Framework\Container\ServiceRegistry;
 use Zef\Framework\Container\ServiceRegistryView;
 use Zef\Framework\Container\TaggedServiceLocator;
@@ -56,7 +57,7 @@ final class EdgeMatrixF7ContainerTest extends TestCase
         }
 
         try {
-            $container->register('svc.b', static fn (): \stdClass => new \stdClass(), [123]);
+            $container->register('svc.b', static fn (): \stdClass => new \stdClass(), [123]); // @phpstan-ignore-line
             self::fail('Expected InvalidFactoryException for non-string dependency.');
         } catch (InvalidFactoryException $e) {
             self::assertSame("Factory for 'svc.b' is invalid: dependency IDs must be non-empty strings.", $e->getMessage());
@@ -410,7 +411,7 @@ final class EdgeMatrixF7ContainerTest extends TestCase
             }
 
             #[\Override]
-            public function register(Container $container): void
+            public function register(ServiceRegistrarInterface $container): void
             {
                 foreach ($this->ids as $id) {
                     $container->register($id, static fn (): \stdClass => new \stdClass()); // @phpstan-ignore-line
