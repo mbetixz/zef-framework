@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/Mutation%20gate-MSI%20%E2%89%A5%2085-f59e0b?style=for-the-badge" alt="Mutation gate MSI 85">
   <br>
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT">
-  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.19.0-0ea5e9?style=for-the-badge" alt="v2.19.0">
+  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.20.0-0ea5e9?style=for-the-badge" alt="v2.20.0">
 
 </div>
 
@@ -87,6 +87,10 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
     <td>Command bus &amp; query bus · handler terpisah dari transport · integrasi container</td>
   </tr>
   <tr>
+    <td><b>OpenAPI Docs</b></td>
+    <td>Spesifikasi <b>OpenAPI 3.1</b> otomatis dari route table + PHP 8.4 Attributes · endpoint <code>/openapi.json</code> (ETag/304) · Swagger UI dev-only · CLI <code>bin/zef openapi:generate</code> · export Postman v2.1 · serializer JSON/YAML dependency-free · validator struktural</td>
+  </tr>
+  <tr>
     <td><b>Event Sourcing</b></td>
     <td>Port <code>EventStore</code> + adapter <code>InMemory</code>/<code>PDO</code> (persist atomik dalam transaction ambien) · <code>AggregateRoot</code> + kebijakan snapshot · <code>Projector</code> catch-up ber-checkpoint · transactional outbox + relay (retry eksponensial, dead letter)</td>
   </tr>
@@ -117,7 +121,7 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
 </table>
 
 <details>
-<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.19.0)</b> — 23 catatan perubahan</summary>
+<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.20.0)</b> — 24 catatan perubahan</summary>
 
 <br>
 
@@ -135,8 +139,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.17.0** | Situs dokumentasi resmi diterbitkan ke GitHub Pages |
 | **v2.18.0** | **Database Core**: Query Builder + PDO, Migrator, Repository base |
 | **v2.19.0** | **Event Sourcing**: EventStore + adapter, AggregateRoot, Projector, transactional outbox |
+| **v2.20.0** | **OpenAPI 3.1 Docs**: spesifikasi otomatis dari route table + Attributes, validator struktural, Swagger UI dev-only, CLI + export Postman |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 23 berkas di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.20.0.md`](docs/CHANGELOG-v2.20.0.md), [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 24 berkas di [`docs/`](docs/README.md).
 
 </details>
 
@@ -336,7 +341,7 @@ zef-framework/
 ├── tests/                       # 90 berkas PHP — suite PHPUnit native + self-test
 ├── benchmarks/ContainerBench.php
 ├── deploy/                      # Dockerfile · docker-compose.yml · k8s/
-├── docs/                        # 23 CHANGELOG + panduan (lihat bagian Dokumentasi)
+├── docs/                        # 24 CHANGELOG + panduan (lihat bagian Dokumentasi)
 ├── scripts/
 │   ├── lint.php                 # lint seluruh berkas PHP
 │   ├── build_docs.php           # Markdown → situs HTML statis

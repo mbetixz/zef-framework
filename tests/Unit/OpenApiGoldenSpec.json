@@ -1,0 +1,172 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Golden API",
+        "version": "2.20.0",
+        "description": "Golden document",
+        "termsOfService": "https://zef.dev/tos",
+        "contact": {
+            "name": "Guild",
+            "email": "guild@zef.dev"
+        },
+        "license": {
+            "name": "MIT",
+            "identifier": "MIT"
+        }
+    },
+    "paths": {
+        "/users": {
+            "post": {
+                "operationId": "createUser",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/User"
+                            }
+                        }
+                    },
+                    "description": "New user",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "operationId": "getUser",
+                "summary": "Get one",
+                "description": "Full detail",
+                "tags": [
+                    "users"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "description": "User id",
+                        "required": true,
+                        "example": 7
+                    },
+                    {
+                        "name": "expand",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true,
+                        "deprecated": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Missing"
+                    }
+                },
+                "deprecated": true,
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ]
+            }
+        }
+    },
+    "servers": [
+        {
+            "url": "https://api.zef.dev",
+            "description": "prod",
+            "variables": {
+                "host": {
+                    "default": "api.zef.dev"
+                }
+            }
+        }
+    ],
+    "tags": [
+        {
+            "name": "users",
+            "description": "User management"
+        }
+    ],
+    "components": {
+        "schemas": {
+            "User": {
+                "type": "object",
+                "description": "A user",
+                "title": "User",
+                "deprecated": true,
+                "minProperties": 1,
+                "maxProperties": 99,
+                "required": [
+                    "id",
+                    "email"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "Identifier",
+                        "readOnly": true,
+                        "minimum": 1
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 254,
+                        "example": "u@zef.dev"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "off"
+                        ]
+                    },
+                    "tags": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "nickname": {
+                        "$ref": "#/components/schemas/User",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false,
+                "example": {
+                    "id": 1
+                }
+            }
+        },
+        "securitySchemes": {
+            "bearer": {
+                "type": "http",
+                "description": "JWT auth",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}
