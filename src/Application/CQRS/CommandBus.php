@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace Zef\Framework\CQRS;
 
+use Zef\Framework\Database\TransactionManagerInterface;
 use Zef\Framework\Event\EventBusInterface;
 
 final class CommandBus implements CommandBusInterface
@@ -20,6 +21,7 @@ final class CommandBus implements CommandBusInterface
         private readonly ?IdempotencyStoreInterface $idempotencyStore = null,
         private readonly int $idempotencyTtlSeconds = 3600,
         private readonly ?EventBusInterface $eventBus = null,
+        private readonly ?TransactionManagerInterface $transactions = null,
     ) {
         if ($idempotencyTtlSeconds < 1) {
             throw new \InvalidArgumentException('CQRS idempotency TTL must be positive.');
@@ -86,8 +88,23 @@ final class CommandBus implements CommandBusInterface
         // an idempotent replay, so events are never re-fired. The first
         // caller observes EventDispatchException; all listeners already
         // ran by then (aggregating dispatcher).
+        //
+        // With a TransactionManager wired (v2.22.0), fan-out is queued via
+        // afterCommit(): events fire only after the OUTERMOST transaction
+        // commits — a rolled-back command emits nothing, and listeners
+        // observe committed data. Without one (or outside a managed
+        // scope), afterCommit executes immediately, preserving the exact
+        // pre-2.22 timing.
         foreach ($pendingEvents as $event) {
-            $this->eventBus?->dispatchWithContext($event, $context->toEventContext());
+            $fanOut = function () use ($event, $context): void {
+                $this->eventBus?->dispatchWithContext($event, $context->toEventContext());
+            };
+            if ($this->transactions instanceof TransactionManagerInterface) {
+                $this->transactions->afterCommit($fanOut);
+
+                continue;
+            }
+            $fanOut();
         }
 
         return $result;
