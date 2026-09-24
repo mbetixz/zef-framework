@@ -3,9 +3,18 @@
 declare(strict_types=1);
 
 /*
- * ZEF Framework v2.7.0 — Application layer (in-process orchestration)
+ * ZEF Framework v2.7.0 — Domain layer (ports, contracts, value objects)
  * Extracted from monolith zef_framework_v2.7.0.php during the
  * hexagonal refactor (move-only, no behavioural changes).
+ *
+ * Issue #36 exit ramp: relocated Application -> Domain with the same
+ * FQN and namespace (classmap + PSR-4 multi-directory both resolve it),
+ * so every consumer — the Domain security policy aggregator
+ * (SecurityPolicy, same namespace) and the middleware origin checks —
+ * is untouched. The class is a pure origin-normalisation policy helper:
+ * its only dependency is the Domain InvalidConfigurationException, and
+ * it performs no I/O, so it satisfies the hexagonal rule the
+ * OriginPolicySpec carve-out used to bypass.
  */
 
 namespace Zef\Framework\Security;

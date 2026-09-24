@@ -550,7 +550,7 @@ parameters:
 			message: '#^Method Zef\\Framework\\Router\\RouteDefinition\:\:fromArray\(\) has parameter \$config with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
-			path: src/Adapters/Router/RouteDefinition.php
+			path: src/Domain/Router/RouteDefinition.php
 
 		-
 			message: '#^Argument of an invalid type mixed supplied for foreach, only iterables are supported\.$#'
