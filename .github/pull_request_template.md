@@ -50,4 +50,7 @@ diff against (see PR #29, which arrived with an empty description).
 - [ ] Any change to a quality gate states which gate it is (aggregate
       `--min-msi=85/90` in `composer mutation:ci`, versus a per-zone goal) and
       whether the number is measured or aspirational.
+- [ ] Moving a gate between workflows also updates the workflow list in
+      `release.yml` ("Verify required CI"): a gate that is not waited on is not a
+      gate, and the deadline must exceed the moved job's `timeout-minutes`.
 - [ ] Documentation under `docs/` is updated when public behaviour changes.

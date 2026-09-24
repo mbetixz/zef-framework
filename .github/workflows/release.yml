@@ -57,8 +57,17 @@ jobs:
           # each required workflow to reach a terminal state — bounded, so
           # a permanently stuck run still fails closed instead of hanging
           # until the job timeout — and only then evaluate its conclusion.
-          deadline=$((SECONDS + 2700))
-          for workflow in "ci.yml" "secret-scan.yml" "phpbench.yml"; do
+          #
+          # mutation.yml is in this list because the aggregate Infection
+          # suite was MOVED there out of ci.yml (see docs/GOVERNANCE.md 2.5).
+          # A gate that is not waited on is not a gate: without this entry the
+          # release would be published without the mutation verdict ever being
+          # read. The deadline must exceed the mutation job's own
+          # timeout-minutes (120) plus the CI job's (45), otherwise a tag pushed
+          # while the suite is in flight would trip the deadline instead of
+          # waiting for the verdict. 5400s = 90 min covers them in sequence.
+          deadline=$((SECONDS + 5400))
+          for workflow in "ci.yml" "mutation.yml" "secret-scan.yml" "phpbench.yml"; do
             status=""
             conclusion=""
             while :; do

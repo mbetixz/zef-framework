@@ -15,6 +15,7 @@
 [![SBOM](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml)
 [![Secret Scan](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml)
 [![Zone mutation ratchet](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/ci.yml)
+[![Mutation release gate](https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml/badge.svg)](https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml)
 
 Framework PHP 8.4 berarsitektur **Hexagonal (Ports & Adapters)** hasil pemecahan monolith
 `zef_framework_v2.7.0.php` (12.639 baris, 1 file) menjadi struktur PSR-4 multi-file per layer.
@@ -86,7 +87,7 @@ mengubah perilaku lama.
 # Opsi A — tanpa Composer (zero-composer fallback, seperti monolith aslinya)
 php bin/zef --self-test
 php bin/zef --self-test=v280   # hanya suite fitur v2.8.0 (103 assertion)
-php bin/zef --self-test=v290   # hanya suite autowiring v2.9.0 (59 assertion)
+php bin/zef --self-test=v290   # hanya suite autoloading v2.9.0 (59 assertion)
 php bin/zef --self-test=v210   # hanya suite enterprise v2.10.0 (107 assertion)
 php bin/zef --self-test=v211   # hanya suite radix-tree v2.11.0 (87 assertion)
 
