@@ -17,6 +17,10 @@ use Zef\Framework\Exception\InvalidConfigurationException;
  * Orchestrates the configuration pipeline in one deterministic order:
  *
  * 1. merge sources in registration order (LATER sources override EARLIER);
+ * 1b. since v2.23.0 (issue #60 P4): when a {@see ConfigMigrator} is bound
+ *     AND the incoming data is stamped with an older schema version
+ *     (`$sourceSchemaVersion` < schema version), run the registered
+ *     migration steps IN ORDER on the merged raw tree;
  * 2. resolve `%secret:name%` references through the secrets port;
  * 3. validate against the schema (collect ALL violations);
  * 4. apply declared defaults;
@@ -38,11 +42,21 @@ final readonly class ConfigLoader
 
     /**
      * @param list<ConfigSourceInterface> $sources later sources override earlier
+     * @param null|ConfigMigrator $migrator         optional ordered migration
+     *                                             steps (issue #60 P4); requires
+     *                                             a schema
+     * @param null|int $sourceSchemaVersion         schema version the RAW
+     *                                             incoming data carries
+     *                                             (defaults to
+     *                                             {@see ConfigSchema::CURRENT_VERSION}
+     *                                             — no migration)
      */
     public function __construct(
         private array $sources,
         private ?SecretsProviderInterface $secrets = null,
         private ?ConfigSchema $schema = null,
+        private ?ConfigMigrator $migrator = null,
+        private ?int $sourceSchemaVersion = null,
     ) {
         $seen = [];
         foreach (array_values($sources) as $source) {
@@ -59,6 +73,21 @@ final readonly class ConfigLoader
                 throw new \InvalidArgumentException("Duplicate config source name '{$name}'.");
             }
             $seen[$name] = true;
+        }
+        if ($this->migrator !== null && $this->schema === null) {
+            throw new \InvalidArgumentException(
+                'A config migrator requires a schema to target (pass ConfigSchema too).'
+            );
+        }
+        if ($this->sourceSchemaVersion !== null && $this->migrator === null) {
+            throw new \InvalidArgumentException(
+                'A source schema version requires a migrator to be meaningful.'
+            );
+        }
+        if ($this->sourceSchemaVersion !== null && $this->sourceSchemaVersion < 1) {
+            throw new \InvalidArgumentException(
+                'Source schema version must be a positive integer, got ' . $this->sourceSchemaVersion . '.'
+            );
         }
     }
 
@@ -88,6 +117,7 @@ final readonly class ConfigLoader
     public function load(): Config
     {
         $values = $this->mergeSources();
+        $values = $this->migrateValues($values);
         $violations = [];
         if ($this->secrets instanceof SecretsProviderInterface) {
             $resolved = $this->resolveSecrets($values, '', $violations);
@@ -106,6 +136,26 @@ final readonly class ConfigLoader
         }
 
         return new Config($values);
+    }
+
+    /**
+     * Schema-version ladder (issue #60 P4): no-op unless a migrator AND a
+     * source version older than the schema's version are bound. The merged
+     * RAW tree migrates in order BEFORE secrets/validation/defaults — steps
+     * rename and restructure, they must not resolve secrets.
+     *
+     * @param array<array-key,mixed> $values
+     *
+     * @return array<array-key,mixed>
+     */
+    private function migrateValues(array $values): array
+    {
+        if ($this->migrator === null || $this->schema === null) {
+            return $values;
+        }
+        $from = $this->sourceSchemaVersion ?? ConfigSchema::CURRENT_VERSION;
+
+        return $this->migrator->migrate($values, $from, $this->schema->version);
     }
 
     /**

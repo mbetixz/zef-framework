@@ -18,9 +18,12 @@ use Psr\Log\NullLogger;
 use Zef\Framework\Config\Config;
 use Zef\Framework\Config\ConfigAggregator;
 use Zef\Framework\Config\ConfigLoader;
+use Zef\Framework\Config\ConfigMetricsInterface;
+use Zef\Framework\Config\ConfigMigrator;
 use Zef\Framework\Config\ConfigProviderInterface;
 use Zef\Framework\Config\ConfigSchema;
 use Zef\Framework\Config\ConfigSourceInterface;
+use Zef\Framework\Config\MeterConfigMetrics;
 use Zef\Framework\Config\ModuleInterface;
 use Zef\Framework\Config\ModuleRegistry;
 use Zef\Framework\Config\SecretsProviderInterface;
@@ -64,6 +67,8 @@ final class Application
     private array $configSources = [];
     private ?SecretsProviderInterface $secretsProvider = null;
     private ?ConfigSchema $configSchema = null;
+    private ?ConfigMigrator $configMigrator = null;
+    private ?int $configSourceSchemaVersion = null;
     private ?Config $appConfig = null;
     private readonly Http\RequestBodyPolicy $bodyPolicy;
     private readonly Policy\ArchitecturePolicy $architecturePolicy;
@@ -145,12 +150,32 @@ final class Application
     }
 
     /**
+     * Bind the ordered schema-version migration steps (v2.23.0, issue #60
+     * P4) used when the incoming configuration data carries an older
+     * schema version than {@see setConfigSchema()}'s target.
+     */
+    public function setConfigMigrator(ConfigMigrator $migrator, ?int $sourceSchemaVersion = null): void
+    {
+        if ($this->booted) {
+            throw new \LogicException('Cannot set the config migrator after boot.');
+        }
+        $this->configMigrator = $migrator;
+        $this->configSourceSchemaVersion = $sourceSchemaVersion;
+    }
+
+    /**
      * The validated, immutable application configuration bag (also available
      * as the `Config::class` container singleton after boot).
      */
     public function config(): Config
     {
-        $this->appConfig ??= new ConfigLoader($this->configSources, $this->secretsProvider, $this->configSchema)->load();
+        $this->appConfig ??= new ConfigLoader(
+            $this->configSources,
+            $this->secretsProvider,
+            $this->configSchema,
+            $this->configMigrator,
+            $this->configSourceSchemaVersion,
+        )->load();
 
         return $this->appConfig;
     }
@@ -462,6 +487,19 @@ final class Application
                 return $telemetry->meter();
             },
             [Telemetry::class],
+            'framework',
+            ServiceLifetime::SINGLETON,
+        );
+        // v2.23.0 (issue #60 P1): config observability port over the meter.
+        $this->container->register(
+            ConfigMetricsInterface::class,
+            static function (ContainerInterface $c): ConfigMetricsInterface {
+                /** @var Observability\MeterInterface $meter */
+                $meter = $c->get(Observability\MeterInterface::class);
+
+                return new MeterConfigMetrics($meter);
+            },
+            [Observability\MeterInterface::class],
             'framework',
             ServiceLifetime::SINGLETON,
         );
