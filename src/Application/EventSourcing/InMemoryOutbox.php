@@ -141,6 +141,31 @@ final class InMemoryOutbox implements OutboxStoreInterface
         return $pending;
     }
 
+    #[\Override]
+    public function requeue(string $id, ?int $nextAttemptAtUnixNano = null): OutboxEntry
+    {
+        $now = $nextAttemptAtUnixNano ?? ($this->clock ?? static fn (): int => (int) (microtime(true) * 1_000_000_000))();
+        EventGrammar::assertUnixNano($now, 'nextAttemptAtUnixNano');
+        $updated = $this->mutate($id, static fn (OutboxEntry $entry): OutboxEntry => $entry->isFailed()
+            ? new OutboxEntry(
+                id: $entry->id,
+                messageType: $entry->messageType,
+                payload: $entry->payload,
+                metadata: $entry->metadata,
+                attempts: 0,
+                status: OutboxEntry::STATUS_PENDING,
+                nextAttemptAtUnixNano: $now,
+                lastError: $entry->lastError,
+                createdAtUnixNano: $entry->createdAtUnixNano,
+            )
+            : throw new EventSourcingException(
+                "Only failed entries can be requeued (entry '{$entry->id}' is '{$entry->status}').",
+            ));
+        $this->entries[$id] = $updated;
+
+        return $updated;
+    }
+
     /**
      * Test/ops helper: total number of entries in every state.
      */
