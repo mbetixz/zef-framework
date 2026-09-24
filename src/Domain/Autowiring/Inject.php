@@ -21,11 +21,11 @@ namespace Zef\Framework\Autowiring;
  *     public function __construct(#[Inject(SecretKey::class)] SecretKey $key) {}
  */
 #[\Attribute(\Attribute::TARGET_PARAMETER)]
-final class Inject
+final readonly class Inject
 {
     /** @param class-string|non-empty-string $id */
     public function __construct(
-        public readonly string $id,
+        public string $id,
     ) {
         if (trim($id) === '') {
             throw new \InvalidArgumentException('#[Inject] requires a non-empty service ID or class name.');
