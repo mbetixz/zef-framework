@@ -157,7 +157,6 @@ final class ConfigV2SecretsMetricsTest extends TestCase
             new StaticInnerSecrets('v'),
             maxAttempts: 2,
             backoffSeconds: 0.0,
-            metrics: null,
         );
         self::assertSame('v', $provider->get('any'));
     }
@@ -190,12 +189,7 @@ final class ConfigV2SecretsMetricsTest extends TestCase
  */
 final class FlakyInnerSecrets implements SecretsProviderInterface
 {
-    private int $left;
-
-    public function __construct(int $failures, private readonly string $value)
-    {
-        $this->left = $failures;
-    }
+    public function __construct(private int $left, private readonly string $value) {}
 
     #[\Override]
     public function get(string $key): string
@@ -234,12 +228,7 @@ final class StaticInnerSecrets implements SecretsProviderInterface
  */
 final class SucceedsThenFailsSecrets implements SecretsProviderInterface
 {
-    private int $successesLeft;
-
-    public function __construct(int $successes, private readonly string $value)
-    {
-        $this->successesLeft = $successes;
-    }
+    public function __construct(private int $successesLeft, private readonly string $value) {}
 
     #[\Override]
     public function get(string $key): string

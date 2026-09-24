@@ -43,7 +43,7 @@ final class ConfigV2RadixCacheTest extends TestCase
 
     public function testStoredIndexAnswersQueriesIdenticallyToAFreshBuild(): void
     {
-        $values = self::sampleValues();
+        $values = $this->sampleValues();
         $cache = new RadixTreeCache();
         $file = $this->workspace . '/radix.cache';
 
@@ -58,7 +58,7 @@ final class ConfigV2RadixCacheTest extends TestCase
 
     public function testHydrateReusesCachedIndexOnSecondCall(): void
     {
-        $values = self::sampleValues();
+        $values = $this->sampleValues();
         $cache = new RadixTreeCache();
         $file = $this->workspace . '/radix.cache';
 
@@ -77,9 +77,9 @@ final class ConfigV2RadixCacheTest extends TestCase
     {
         $file = $this->workspace . '/radix.cache';
         $cache = new RadixTreeCache();
-        $cache->store(self::sampleValues(), $file);
+        $cache->store($this->sampleValues(), $file);
 
-        $changed = self::sampleValues();
+        $changed = $this->sampleValues();
         $changed['cache'] = ['driver' => 'redis', 'ttl' => 301];
 
         self::assertNull($cache->read($file, $changed));
@@ -90,7 +90,7 @@ final class ConfigV2RadixCacheTest extends TestCase
     public function testVersionStampMismatchInvalidates(): void
     {
         $file = $this->workspace . '/radix.cache';
-        $values = self::sampleValues();
+        $values = $this->sampleValues();
         // Hand-craft an envelope with a stale framework version.
         $entry = serialize([
             'version' => '0.0.0-not-this-release',
@@ -105,7 +105,7 @@ final class ConfigV2RadixCacheTest extends TestCase
     public function testMissingTreeMemberInvalidates(): void
     {
         $file = $this->workspace . '/radix.cache';
-        $values = self::sampleValues();
+        $values = $this->sampleValues();
         file_put_contents($file, serialize([
             'version' => ZefVersion::VERSION,
             'fingerprint' => hash('sha256', serialize($values)),
@@ -123,16 +123,16 @@ final class ConfigV2RadixCacheTest extends TestCase
         file_put_contents($file, 'O:8:"stdClass":0:{}not-really-serializable');
 
         $cache = new RadixTreeCache();
-        self::assertNull($cache->read($file, self::sampleValues()));
+        self::assertNull($cache->read($file, $this->sampleValues()));
 
-        $config = $cache->hydrate(self::sampleValues(), $file);
+        $config = $cache->hydrate($this->sampleValues(), $file);
         self::assertSame('redis', $config->get('cache.driver'));
     }
 
     public function testForeignClassPayloadIsASoftMiss(): void
     {
         $file = $this->workspace . '/radix.cache';
-        $values = self::sampleValues();
+        $values = $this->sampleValues();
         file_put_contents($file, serialize([
             'version' => ZefVersion::VERSION,
             'fingerprint' => hash('sha256', serialize($values)),
@@ -144,7 +144,7 @@ final class ConfigV2RadixCacheTest extends TestCase
 
     public function testAbsentFileIsASoftMiss(): void
     {
-        self::assertNull(new RadixTreeCache()->read($this->workspace . '/nope.cache', self::sampleValues()));
+        self::assertNull(new RadixTreeCache()->read($this->workspace . '/nope.cache', $this->sampleValues()));
     }
 
     // ---- write guarantees ------------------------------------------------------
@@ -152,7 +152,7 @@ final class ConfigV2RadixCacheTest extends TestCase
     public function testStoredFileCarriesRestrictivePermissionsAndNoTempResidue(): void
     {
         $file = $this->workspace . '/radix.cache';
-        new RadixTreeCache()->store(self::sampleValues(), $file);
+        new RadixTreeCache()->store($this->sampleValues(), $file);
 
         self::assertFileExists($file);
         clearstatcache(true, $file);
@@ -166,7 +166,7 @@ final class ConfigV2RadixCacheTest extends TestCase
     public function testCustomFileModeIsHonoured(): void
     {
         $file = $this->workspace . '/radix.cache';
-        new RadixTreeCache(0o640)->store(self::sampleValues(), $file);
+        new RadixTreeCache(0o640)->store($this->sampleValues(), $file);
 
         clearstatcache(true, $file);
         self::assertSame(0o640, fileperms($file) & 0o777);
@@ -181,22 +181,22 @@ final class ConfigV2RadixCacheTest extends TestCase
     public function testStoreIntoMissingDirectoryFailsFast(): void
     {
         $this->expectException(InvalidConfigurationException::class);
-        new RadixTreeCache()->store(self::sampleValues(), $this->workspace . '/missing-dir/radix.cache');
+        new RadixTreeCache()->store($this->sampleValues(), $this->workspace . '/missing-dir/radix.cache');
     }
 
     public function testStoreIsIdempotentForIdenticalValues(): void
     {
         $file = $this->workspace . '/radix.cache';
         $cache = new RadixTreeCache();
-        $first = $cache->store(self::sampleValues(), $file);
-        $second = $cache->store(self::sampleValues(), $file);
+        $first = $cache->store($this->sampleValues(), $file);
+        $second = $cache->store($this->sampleValues(), $file);
 
         self::assertSame($first->query('database.connections.*'), $second->query('database.connections.*'));
-        self::assertNotNull($cache->read($file, self::sampleValues()));
+        self::assertNotNull($cache->read($file, $this->sampleValues()));
     }
 
     /** @return array<string,mixed> */
-    private static function sampleValues(): array
+    private function sampleValues(): array
     {
         return [
             'database' => [

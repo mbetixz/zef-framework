@@ -74,12 +74,12 @@ final readonly class ConfigLoader
             }
             $seen[$name] = true;
         }
-        if ($this->migrator !== null && $this->schema === null) {
+        if ($this->migrator instanceof ConfigMigrator && !$this->schema instanceof ConfigSchema) {
             throw new \InvalidArgumentException(
                 'A config migrator requires a schema to target (pass ConfigSchema too).'
             );
         }
-        if ($this->sourceSchemaVersion !== null && $this->migrator === null) {
+        if ($this->sourceSchemaVersion !== null && !$this->migrator instanceof ConfigMigrator) {
             throw new \InvalidArgumentException(
                 'A source schema version requires a migrator to be meaningful.'
             );
@@ -150,7 +150,7 @@ final readonly class ConfigLoader
      */
     private function migrateValues(array $values): array
     {
-        if ($this->migrator === null || $this->schema === null) {
+        if (!$this->migrator instanceof ConfigMigrator || !$this->schema instanceof ConfigSchema) {
             return $values;
         }
         $from = $this->sourceSchemaVersion ?? ConfigSchema::CURRENT_VERSION;

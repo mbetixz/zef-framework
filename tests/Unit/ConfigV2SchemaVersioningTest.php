@@ -126,7 +126,7 @@ final class ConfigV2SchemaVersioningTest extends TestCase
     {
         $migrator = new ConfigMigrator();
         $step // @param array<array-key,mixed> $v
-            = static function (array $v) {
+            = static function (array $v): string {
                 return 'oops'; // deliberately wrong return shape
             };
         $migrator->to(2, $step); // @phpstan-ignore argument.type

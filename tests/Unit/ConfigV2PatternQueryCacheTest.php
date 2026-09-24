@@ -20,7 +20,7 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 {
     public function testFirstCallMissesAndRepeatsHit(): void
     {
-        $cache = new PatternQueryCache(new Config(self::values()));
+        $cache = new PatternQueryCache(new Config($this->values()));
 
         $first = $cache->query('database.connections.*.host');
         self::assertSame(['database.connections.mysql.host' => 'db.internal', 'database.connections.pg.host' => 'pg.internal'], $first);
@@ -33,7 +33,7 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 
     public function testDistinctPatternsAreCachedSeparately(): void
     {
-        $cache = new PatternQueryCache(new Config(self::values()));
+        $cache = new PatternQueryCache(new Config($this->values()));
         $cache->query('database.connections.*.host');
         $cache->query('database.connections.*.port');
         $cache->query('cache.*');
@@ -51,7 +51,7 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 
     public function testResultsMatchDirectConfigQuery(): void
     {
-        $config = new Config(self::values());
+        $config = new Config($this->values());
         $cache = new PatternQueryCache($config);
 
         self::assertSame($config->query('database.connections.mysql.*'), $cache->query('database.connections.mysql.*'));
@@ -60,7 +60,7 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 
     public function testCallerMutationCannotPoisonTheMemo(): void
     {
-        $cache = new PatternQueryCache(new Config(self::values()));
+        $cache = new PatternQueryCache(new Config($this->values()));
 
         $result = $cache->query('database.connections.*.host');
         $result['database.connections.mysql.host'] = 'tampered';
@@ -75,7 +75,7 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 
     public function testClearDropsMemoAndCounters(): void
     {
-        $cache = new PatternQueryCache(new Config(self::values()));
+        $cache = new PatternQueryCache(new Config($this->values()));
         $cache->query('cache.*');
         $cache->query('cache.*');
 
@@ -88,11 +88,11 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 
     public function testNewConfigInstanceMeansFreshCache(): void
     {
-        $configA = new Config(self::values());
+        $configA = new Config($this->values());
         $cacheA = new PatternQueryCache($configA);
         self::assertSame('redis', $cacheA->query('cache.*')['cache.driver'] ?? null);
 
-        $valuesB = self::values();
+        $valuesB = $this->values();
         $valuesB['cache'] = ['driver' => 'apcu', 'ttl' => 300];
         $configB = new Config($valuesB);
         self::assertSame('apcu', $configB->query('cache.*')['cache.driver']);
@@ -103,14 +103,14 @@ final class ConfigV2PatternQueryCacheTest extends TestCase
 
     public function testInvalidPatternValidationPassesThrough(): void
     {
-        $cache = new PatternQueryCache(new Config(self::values()));
+        $cache = new PatternQueryCache(new Config($this->values()));
 
         $this->expectException(\InvalidArgumentException::class);
         $cache->query('');
     }
 
     /** @return array<string,mixed> */
-    private static function values(): array
+    private function values(): array
     {
         return [
             'database' => [

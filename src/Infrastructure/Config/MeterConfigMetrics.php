@@ -41,7 +41,7 @@ final readonly class MeterConfigMetrics implements ConfigMetricsInterface
 
     private const string METRIC_FALLBACK = 'zef.config.secrets.fallback.total';
 
-    public function __construct(private readonly MeterInterface $meter) {}
+    public function __construct(private MeterInterface $meter) {}
 
     #[\Override]
     public function secretRetry(string $provider, string $key): void

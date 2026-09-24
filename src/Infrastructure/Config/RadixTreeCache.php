@@ -84,7 +84,7 @@ final readonly class RadixTreeCache
     public function store(array $values, string $cacheFile): Config
     {
         $cached = $this->read($cacheFile, $values);
-        if ($cached !== null) {
+        if ($cached instanceof ConfigRadixTree) {
             return new Config($values, $cached);
         }
         $tree = new ConfigRadixTree($values);
