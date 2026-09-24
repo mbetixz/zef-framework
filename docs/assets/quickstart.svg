@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 450" width="880" height="450" role="img" aria-labelledby="qs-title qs-desc">
+  <title id="qs-title">ZEF Framework — quick start</title>
+  <desc id="qs-desc">Sesi terminal bergaya asciinema: menjalankan dev server, memeriksa /health, memeriksa rute /, lalu menjalankan self-test dengan hasil PASSED 501 FAILED 0.</desc>
+  <defs>
+    <linearGradient id="qs-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="qs-bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <clipPath id="qs-clip"><rect x="1" y="39" width="878" height="410"/></clipPath>
+    <style>
+      /* Static-safe by design: base opacity is 1, and the reveal comes from
+         animation-fill-mode: both. A renderer that does not run CSS animations
+         therefore shows the full terminal instead of an empty one. */
+      .qs-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 14.5px; }
+      .qs-prompt { fill: #22c55e; font-weight: 700; }
+      .qs-cmd { fill: #e5e7eb; }
+      .qs-info { fill: #38bdf8; }
+      .qs-dim { fill: #64748b; }
+      .qs-json { fill: #a5b4fc; }
+      .qs-ok { fill: #22c55e; font-weight: 700; }
+      .qs-ttl { fill: #cbd5e1; font-size: 12.5px; }
+      .qs-stage { opacity: 1; animation: qs-cycle 26s cubic-bezier(.4,0,.2,1) infinite both; }
+      .qs-ln { opacity: 1; animation: qs-appear 26s linear infinite both; }
+      .qs-cursor { opacity: 1; animation: qs-blink 1.05s steps(1,end) infinite; }
+      @keyframes qs-appear { 0% { opacity: 0 } 1.3% { opacity: 1 } 100% { opacity: 1 } }
+      @keyframes qs-cycle { 0% { opacity: 0 } 1% { opacity: 1 } 90% { opacity: 1 } 96% { opacity: 0 } 100% { opacity: 0 } }
+      @keyframes qs-blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+      @media (prefers-reduced-motion: reduce) {
+        .qs-stage, .qs-ln, .qs-cursor { animation: none; opacity: 1; }
+      }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="878" height="448" rx="14" fill="url(#qs-bg)" stroke="#1e293b" stroke-width="2"/>
+  <path d="M1 15 A14 14 0 0 1 15 1 H865 A14 14 0 0 1 879 15 V39 H1 Z" fill="url(#qs-bar)"/>
+  <circle cx="26" cy="20" r="6.5" fill="#ef4444"/>
+  <circle cx="48" cy="20" r="6.5" fill="#f59e0b"/>
+  <circle cx="70" cy="20" r="6.5" fill="#22c55e"/>
+  <text class="qs-mono qs-ttl" x="440" y="25" text-anchor="middle">zef — quick start</text>
+
+  <g clip-path="url(#qs-clip)">
+    <g class="qs-stage">
+      <text class="qs-mono qs-ln" x="26" y="78" style="animation-delay:.30s"><tspan class="qs-prompt">$</tspan><tspan class="qs-cmd"> php bin/zef --serve 0.0.0.0:8080</tspan></text>
+      <text class="qs-mono qs-ln qs-info" x="26" y="105" style="animation-delay:.65s">ZEF dev server listening on http://0.0.0.0:8080</text>
+      <text class="qs-mono qs-ln qs-dim" x="26" y="132" style="animation-delay:1.00s">PHP 8.4.25 Development Server (http://0.0.0.0:8080) started</text>
+
+      <text class="qs-mono qs-ln" x="26" y="166" style="animation-delay:1.45s"><tspan class="qs-prompt">$</tspan><tspan class="qs-cmd"> curl -s http://127.0.0.1:8080/health</tspan></text>
+      <text class="qs-mono qs-ln qs-json" x="26" y="193" style="animation-delay:1.80s">{&quot;status&quot;:&quot;ok&quot;,&quot;checks&quot;:[{&quot;name&quot;:&quot;container&quot;,&quot;status&quot;:&quot;up&quot;,</text>
+      <text class="qs-mono qs-ln qs-json" x="26" y="220" style="animation-delay:2.05s" xml:space="preserve">  &quot;message&quot;:&quot;canary resolvable&quot;}]}</text>
+
+      <text class="qs-mono qs-ln" x="26" y="254" style="animation-delay:2.50s"><tspan class="qs-prompt">$</tspan><tspan class="qs-cmd"> curl -s http://127.0.0.1:8080/</tspan></text>
+      <text class="qs-mono qs-ln qs-json" x="26" y="281" style="animation-delay:2.85s">{&quot;module&quot;:&quot;core&quot;,&quot;page&quot;:&quot;home&quot;,&quot;framework&quot;:&quot;ZEF Framework v2.19.0&quot;,</text>
+      <text class="qs-mono qs-ln qs-json" x="26" y="308" style="animation-delay:3.10s" xml:space="preserve">  &quot;psr&quot;:{&quot;container&quot;:true,&quot;http-message&quot;:true,&quot;http-server-handler&quot;:true,</text>
+      <text class="qs-mono qs-ln qs-json" x="26" y="335" style="animation-delay:3.35s" xml:space="preserve">    &quot;http-server-middleware&quot;:true,&quot;http-factory&quot;:true}}</text>
+
+      <text class="qs-mono qs-ln" x="26" y="369" style="animation-delay:3.80s"><tspan class="qs-prompt">$</tspan><tspan class="qs-cmd"> php bin/zef --self-test</tspan></text>
+      <text class="qs-mono qs-ln qs-ok" x="26" y="396" style="animation-delay:4.15s">PASSED: 501  FAILED: 0</text>
+      <text class="qs-mono qs-ln qs-prompt" x="26" y="425" style="animation-delay:4.50s">$</text>
+    </g>
+  </g>
+  <rect class="qs-cursor" x="42" y="413" width="9" height="16" rx="1.5" fill="#e5e7eb"/>
+</svg>
