@@ -69,7 +69,6 @@ final class ConfigCompiler
         foreach ($values as $key => $value) {
             $path = $prefix === '' ? (string) $key : $prefix . '.' . $key;
             if (is_array($value)) {
-                /** @var array<string,mixed> $value */
                 $nested = self::firstUnexportable($value, $path);
                 if ($nested !== null) {
                     return $nested;
