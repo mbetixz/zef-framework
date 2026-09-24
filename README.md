@@ -193,6 +193,12 @@ composer docs            # API reference Doctum → build/api
 
 ## Quick Start
 
+<div align="center">
+  <img src="docs/assets/quickstart.svg" alt="Sesi terminal ZEF: dev server, /health, rute /, dan self-test" width="100%">
+  <br>
+  <sub><b>Cuplikan quick start</b> — animasi terminal SVG di <code>docs/assets/quickstart.svg</code> (bukan rekaman asciinema; <code>asciinema</code> tidak tersedia di lingkungan build). Setiap baris keluaran disalin dari sesi nyata di repositori ini dengan <b>PHP 8.4.25</b>.</sub>
+</div>
+
 ### 1. Menjalankan server
 
 ```bash
@@ -469,7 +475,7 @@ Situs dokumentasi diterbitkan otomatis ke GitHub Pages pada setiap push ke `main
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Pembongkaran monolith, layer hexagonal, aturan arah dependensi |
 | [`docs/QUALITY.md`](docs/QUALITY.md) | Tujuh gerbang, mutation testing per area, triage mutan ekuivalen |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Worker persisten RoadRunner, state lintas-request, observabilitas |
-| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Kebijakan gerbang rilis & ratchet |
+| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Kebijakan gerbang rilis &amp; ratchet |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Rencana &amp; status fitur |
 | [`docs/EDGE-CASE-MATRIX.md`](docs/EDGE-CASE-MATRIX.md) | Kurikulum uji edge-case per fase kampanye mutasi |
 | [`docs/security/php-sast.md`](docs/security/php-sast.md) | Panduan SAST PHP |
@@ -497,9 +503,11 @@ php scripts/build_docs.php     # situs dokumentasi → build/docs
 
 ## Lisensi
 
-**MIT** — dideklarasikan pada [`composer.json`](composer.json).
+**MIT** — deklarasi pada [`composer.json`](composer.json) dan teks penuh pada [`LICENSE`](LICENSE).
 
-> Berkas `LICENSE` belum ditambahkan ke repositori; lisensi saat ini bersumber dari deklarasi `composer.json`.
+<div align="center">
+  <sub>Hak cipta © 2026 <b>mbetixz</b> · <a href="LICENSE">MIT License</a></sub>
+</div>
 
 <br>
 
