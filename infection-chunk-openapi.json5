@@ -1,0 +1,18 @@
+{
+  "source": {
+    "directories": [
+      "src/Domain",
+      "src/Application",
+      "src/Infrastructure",
+      "src/Adapters"
+    ]
+  },
+  "timeout": 90,
+  "logs": {
+    "text": "build/infection-openapi.log",
+    "summary": "build/infection-summary-openapi.json"
+  },
+  "mutators": {
+    "@default": true
+  }
+}

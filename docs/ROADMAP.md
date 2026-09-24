@@ -21,6 +21,7 @@
   - [ ] `WebSocket adapter`
   - [ ] `gRPC adapter`
   - [x] `Event sourcing adapter` (v2.19.0: EventStore port + InMemory/PDO adapters, `AggregateRoot`, snapshot policy, `Projector` + checkpoints, transactional outbox + relay dead-letter)
+  - [x] `OpenAPI documentation` (v2.20.0: generator spesifikasi 3.1 dari route table + validation engine + PHP 8.4 Attributes, serializer JSON/YAML dependency-free, `SpecHandler` ETag/304 + Swagger UI dev-only, CLI `openapi:generate`, export Postman v2.1, validator struktural; runtime validation middleware & security enforcement menyusul)
   - [ ] `Social auth adapters (Google, Facebook, GitHub)`
   - [ ] `SMS/Email service adapters`
   - [ ] `CDN/storage adapters (S3, GCS, Local)`

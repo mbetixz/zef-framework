@@ -46,6 +46,13 @@
  *   bin/zef module:list            Print registered modules (boots the app).
  *   bin/zef plugin:list            Print plugins found on disk.
  *   bin/zef config:show [key]      Dump aggregated config / one dotted key.
+ *
+ * v2.20.0 OpenAPI documentation module:
+ *   bin/zef openapi:generate       Assemble the OpenAPI 3.1 document from the
+ *                                  route table (--format=json|yaml,
+ *                                  --output=<path>, --pretty/--no-pretty,
+ *                                  --postman=<path> for a Postman v2.1 export,
+ *                                  --base-url=<url> to add a server entry).
  */
 
 declare(strict_types=1);
@@ -126,6 +133,10 @@ if ($command === 'tinker') {
     exit(zef_tinker($args));
 }
 
+if ($command === 'openapi:generate') {
+    exit(zef_openapi_generate($args));
+}
+
 if ($command === 'list' || ($command !== null && str_starts_with((string) $command, 'make:'))) {
     exit($maker->run($args));
 }
@@ -159,6 +170,48 @@ function zef_route_list(): int
     }
     printf("\n%d route(s)\n", count($routes));
     return 0;
+}
+
+/**
+ * bin/zef openapi:generate — v2.20.0 OpenAPI documentation module.
+ *
+ * Assembles the spec from the booted route table (attribute metadata of
+ * handler classes is merged when the container can resolve the service
+ * id) and writes openapi.json / openapi.yaml (+ optional Postman export).
+ */
+function zef_openapi_generate(array $argv): int
+{
+    $options = [];
+    foreach ($argv as $arg) {
+        if (!str_starts_with((string) $arg, '--')) {
+            continue;
+        }
+        $pair = substr((string) $arg, 2);
+        if (str_contains($pair, '=')) {
+            [$key, $value] = explode('=', $pair, 2);
+        } else {
+            $key = $pair;
+            $value = 'true';
+        }
+        $options[$key] = $value;
+    }
+
+    $app = \Zef\App\Bootstrap::createApp(false);
+    $app->boot();
+    $routes = $app->getRouter()->getRoutes();
+    $container = $app->getContainer();
+    $resolver = static function (string $handler) use ($container): ?string {
+        try {
+            $service = $container->get($handler);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_object($service) ? $service::class : null;
+    };
+
+    return (new \Zef\Framework\OpenApi\Console\GenerateSpecCommand())
+        ->run(new \Zef\Framework\Console\ConsoleIO(), $routes, $resolver, $options);
 }
 
 function zef_tinker(array $argv): int

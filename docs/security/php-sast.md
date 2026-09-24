@@ -291,20 +291,20 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 48**, counted from the markers themselves rather than by
+**Registered suppressions: 57**, counted from the markers themselves rather than by
 arithmetic. Breakdown by the rule id named on the marker, as measured with
 `grep -rhoE 'nosemgrep: *[^ ]+' --include=*.php .`:
 
 | Rule id on the marker | Count |
 |---|---|
-| `php.lang.security.unlink-use` | 33 |
+| `php.lang.security.unlink-use` | 42 |
 | `exec-use` | 6 |
 | `unlink-use` (ZEF-local scope) | 4 |
 | `php.lang.security.eval-use` | 3 |
 | `eval-use` | 2 |
-| **Total** | **48** |
+| **Total** | **57** |
 
-That is **37 `unlink` + 6 `exec` + 5 `eval`**. The count is of marker directives on
+That is **46 `unlink` + 6 `exec` + 5 `eval`**. The count is of marker directives on
 call lines: an explanatory comment that merely *mentions* a marker, such as the prose
 line above `TinkerSession.php:70`, is not one. One earlier accounting in this document
 reached 47 by adding four to a 43 that was itself derived rather than counted; the
@@ -411,10 +411,22 @@ applies unchanged.
 | 19 | `tests/V2100EnterpriseSuite.php` | 450 | temp route-cache path from the suite's own `tempnam()` |
 | 20 | `tests/V290AutowireSuite.php` | 300, 301 | `tempnam()` malformed-AOT fixture and the AOT export path |
 | 21 | `unlink-use-qualified` (ZEF-local) | `tests/Unit/EdgeMatrixF10KernelTest.php:436`, `tests/Unit/EdgeMatrixF8ObsInfraTest.php:566`, `tests/Unit/MutationDeepHttpTest.php:81`, `tests/Unit/ObservabilityTest.php:666` | Four backslash-qualified `@\unlink()` teardowns that the pinned rule never matched — a ruleset **false negative**, closed on 2026-09-24 by a ZEF-local rule. Detail, measurement and negative control in §7.3. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
+| 22 | `tests/Unit/OpenApiAdaptersTest.php` | 87, 110, 111 | spec/Postman artefacts the CLI test itself named: `sys_get_temp_dir() . '/zef-openapi-test-' . uniqid('', true)` suffixes, deleted after `file_get_contents()` assertions pass |
+| 23 | `tests/Unit/OpenApiInfectionSweepTest.php` | 910, 940, 958, 974, 992, 993 | spec/Postman artefacts and the suite's own `openapi.json`/`'0'` dirents in `finally` teardown, over a directory the test created via `mkdir()` |
 
 **Lifetime: permanent** — §7.1 applies unchanged, no rewrite satisfies the rule.
 Every entry is `inSource`, single-line, and carries its reason inline. The alerts
 stay visible in code scanning.
+
+Re-measured on the OpenAPI 3.1 branch (v2.20.0): the promotion of the
+`tests/`/`scripts/`/`tools/` pass caught **9 new `php.lang.security.unlink-use`
+sites** introduced with the package's own tests (entries 22–23). Same disposition
+path as the original population: each call site was read, the argument traces to
+a name the test itself computed (`sys_get_temp_dir()` + `uniqid()` suffix, or a
+dirent of a directory the test created) — no request superglobal can be in scope
+in a PHPUnit process — and each now carries its own inline marker. The gate was
+reproduced locally with semgrep 1.177.0 and the pinned ruleset before pushing:
+0 findings across all four scans.
 
 ### 7.4 The whole class of the qualified-call miss — closed, and the register after it
 
