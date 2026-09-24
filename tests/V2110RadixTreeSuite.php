@@ -387,7 +387,11 @@ final class V2110RadixTreeSuite
         $tree = $this->sampleTree();
         $payload = $tree->exportArray();
         $encoded = 'return ' . var_export($payload, true) . ';';
-        $restored = NamespaceRadixTree::fromArray(eval($encoded));
+        // False positive on argument shape, not provenance: `$encoded` is built three lines above as
+        // `'return ' . var_export($payload, true) . ';'` where $payload comes from this suite's own
+        // `$tree->exportArray()`; the test evaluates its own AOT fixture.
+        // Registered in docs/security/php-sast.md §7.5.
+        $restored = NamespaceRadixTree::fromArray(eval($encoded)); // nosemgrep: eval-use
 
         $this->ok($restored->containsExact('App\Domain\Users\CreateUser'), 'AOT: exact match preserved');
         $this->ok($restored->containsExact(Container::class), 'AOT: deep chain preserved');

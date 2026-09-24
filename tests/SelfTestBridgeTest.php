@@ -68,7 +68,11 @@ final class SelfTestBridgeTest extends TestCase
     {
         $bin = __DIR__ . '/../bin/zef';
         $cmd = escapeshellarg(\PHP_BINARY) . ' ' . escapeshellarg($bin) . ' ' . escapeshellarg($arg) . ' 2>&1';
-        exec($cmd, $outputLines, $exitCode);
+        // False positive on argument shape, not provenance: `$cmd` is assembled on the line above from
+        // escapeshellarg(\PHP_BINARY), escapeshellarg(<this file>/../bin/zef) and escapeshellarg($arg),
+        // where $arg is the class's own suite key. Every fragment is shell-quoted and no
+        // request-derived value reaches it. Registered in docs/security/php-sast.md §7.5.
+        exec($cmd, $outputLines, $exitCode); // nosemgrep: exec-use
 
         return [$exitCode, implode("\n", $outputLines)];
     }

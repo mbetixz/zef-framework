@@ -246,6 +246,56 @@ jobs:
               --output=/out/sast-tests.sarif \
               ${targets}
 
+      - name: Scan tests and tooling PHP at ERROR severity (blocking)
+        # Closes the last measured coverage hole in this workflow: before this step,
+        # the combination "ERROR floor over tests/, scripts/, tools/" was evaluated by
+        # NO pass. The tooling pass above floors at WARNING and the two src/ passes
+        # cover only production source, so a zero count under the WARNING floor never
+        # meant "no ERROR-level match" in these trees — it meant the question was not
+        # asked. An ERROR-severity rule whose subject appears only in test or tooling
+        # code was therefore structurally invisible to this gate.
+        #
+        # BLOCKING from the start, unlike the two WARNING-floor promotions above: the
+        # population here is not untriaged. Enumerating this exact combination reported
+        # exactly four findings, and all four were read, traced to their argument's
+        # origin and dispositioned in docs/security/php-sast.md §7.5 *before* this step
+        # was added — two exec-use on a command assembled entirely from
+        # escapeshellarg()-quoted fragments, two eval-use on a fixture the test authored
+        # itself. No rule was disabled, no path excluded and no finding left unexamined;
+        # in particular no suppression was written for anything this gate does not
+        # evaluate, which would have hidden the finding rather than dispositioned it.
+        #
+        # The four steps around this one are deliberately UNCHANGED — same configs, same
+        # thresholds, same ruleset. Nothing was relaxed: blocking width on this tree
+        # increased from zero passes to one.
+        run: |
+          set -euo pipefail
+          targets=""
+          for d in tests scripts tools; do
+            if [ -d "${PWD}/${d}" ]; then targets="${targets} /src/${d}"; fi
+          done
+          if [ -z "${targets}" ]; then
+            echo "No tests/scripts/tools PHP directories present; nothing to evaluate."
+            : > "${RUNNER_TEMP}/sast-tests-error.sarif"
+            exit 0
+          fi
+          docker run --rm \
+            -v "${PWD}:/src:ro" \
+            -v "${RUNNER_TEMP}/rules:/rules:ro" \
+            -v "${RUNNER_TEMP}/rules-overlay:/rules-overlay:ro" \
+            -v "${RUNNER_TEMP}:/out" \
+            "${SEMGREP_IMAGE}" \
+            semgrep scan \
+              --config=/rules-overlay/php/lang/security \
+              --config=/src/.github/semgrep/rules \
+              --metrics=off \
+              --disable-version-check \
+              --severity ERROR \
+              --error \
+              --sarif \
+              --output=/out/sast-tests-error.sarif \
+              ${targets}
+
       - name: Upload SARIF (production source)
         # Best-effort publication only. The blocking decision is made by the exit
         # code of the scan above, never by code scanning being available.
@@ -277,6 +327,17 @@ jobs:
           sarif_file: ${{ runner.temp }}/sast-tests.sarif
           category: php-sast-tests
 
+      - name: Upload SARIF (tests and tooling, ERROR severity)
+        # Own category again, so a reviewer can still tell which severity floor over
+        # these trees produced an alert. Best-effort, like every upload here:
+        # publication is never the gate.
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: ${{ runner.temp }}/sast-tests-error.sarif
+          category: php-sast-tests-error
+
       - name: Job summary
         if: always()
         # Informational only. This step must never decide the outcome of the gate, so
@@ -302,10 +363,12 @@ jobs:
             echo "- production source, ERROR severity: blocking"
             echo "- production source, WARNING severity: blocking (promoted 2026-09-24)"
             echo "- tests and tooling, WARNING severity: blocking (promoted 2026-09-24)"
+            echo "- tests and tooling, ERROR severity: blocking (coverage hole closed 2026-09-24)"
             for pair in \
               "sast-src.sarif=production, ERROR severity (blocking)" \
               "sast-src-warning.sarif=production, WARNING severity (blocking)" \
-              "sast-tests.sarif=tests and tooling, WARNING severity (blocking)"; do
+              "sast-tests.sarif=tests and tooling, WARNING severity (blocking)" \
+              "sast-tests-error.sarif=tests and tooling, ERROR severity (blocking)"; do
               f="${RUNNER_TEMP}/${pair%%=*}"
               label="${pair##*=}"
               if [ -s "${f}" ]; then
@@ -317,6 +380,7 @@ jobs:
             done
             echo ""
             echo "Findings are published to code scanning under the categories"
-            echo "\`php-sast-source\`, \`php-sast-source-warning\` and \`php-sast-tests\`."
+            echo "\`php-sast-source\`, \`php-sast-source-warning\`, \`php-sast-tests\` and"
+            echo "\`php-sast-tests-error\`."
             echo "See docs/security/php-sast.md."
           } >> "${GITHUB_STEP_SUMMARY}"
