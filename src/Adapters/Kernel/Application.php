@@ -359,10 +359,25 @@ final class Application
 
     private function registerObservabilityServices(?LoggerInterface $logger): void
     {
+        // Issue #36 exit ramp (OtlpExporter): the default exporter factory is
+        // an ordinary container service — the default wiring is a config-level
+        // decision applications can override by re-registering the port.
+        $this->container->register(
+            Observability\OtlpExporterFactoryInterface::class,
+            static fn (): Observability\OtlpExporterFactoryInterface => new Observability\OtlpExporterFactory(),
+            [],
+            'framework',
+            ServiceLifetime::SINGLETON,
+        );
         $this->container->register(
             Telemetry::class,
-            static fn (): Telemetry => Telemetry::fromEnvironment($logger),
-            [],
+            static function (ContainerInterface $c) use ($logger): Telemetry {
+                /** @var Observability\OtlpExporterFactoryInterface $exporterFactory */
+                $exporterFactory = $c->get(Observability\OtlpExporterFactoryInterface::class);
+
+                return Telemetry::fromEnvironment($logger, true, $exporterFactory);
+            },
+            [Observability\OtlpExporterFactoryInterface::class],
             'framework',
             ServiceLifetime::SINGLETON,
         );

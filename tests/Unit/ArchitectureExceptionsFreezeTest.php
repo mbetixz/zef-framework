@@ -5,16 +5,16 @@ declare(strict_types=1);
 /*
  * Guild Action Item 1 — audit deptrac exceptions (follow-up guard).
  *
- * deptrac.yaml documents deliberate exception layers (Compat + the
- * single-class carve-out: OtlpExporter).
+ * deptrac.yaml documents deliberate exception layers. After the issue
+ * #36 exit ramp landed in full, Compat (pure PSR contracts, by design)
+ * is the only exception layer left.
  * The risk called out by the audit is *silent* growth: every new
  * exception widens the coupling the hexagonal rules are supposed to
  * prevent, and without a tripwire nothing fails until the architecture
  * has already drifted.
  *
  * This test freezes the entire exception graph — the layer set, every
- * collector path, the negative-lookahead carve-outs inside the base
- * layer collectors, and the full ruleset edge map. ANY change to the
+ * collector path, and the full ruleset edge map. ANY change to the
  * dependency graph now requires a conscious diff against this snapshot.
  *
  * When this test fails on purpose:
@@ -26,13 +26,16 @@ declare(strict_types=1);
  *      KernelSleeper (SleeperInterface port + SystemSleeper default),
  *      RouteDefSpec (RouteDefinition relocated to Domain/Router),
  *      OriginPolicySpec (OriginPolicy relocated to Domain/Security),
- *      TrustedProxy (TrustedProxyMatcher relocated to Domain/Http), and
+ *      TrustedProxy (TrustedProxyMatcher relocated to Domain/Http),
  *      ContainerImpl (ServiceRegistrarInterface composition port; the
  *      provider contracts now type the narrow registrar surface instead
- *      of the concrete container) were retired per issue #36. The
- *      remaining documented long-term plan is the OtlpExporter default
- *      wiring (plus an optional future instance-based EnvInterface for
- *      composition-root injection).
+ *      of the concrete container), and OtlpExporter (the Telemetry facade
+ *      now composes its default exporter through the
+ *      OtlpExporterFactoryInterface port in Domain/Observability; the
+ *      kernel composition root wires the default via container config)
+ *      were retired per issue #36. The only remaining documented
+ *      long-term plan is an optional instance-based EnvInterface for
+ *      composition-root injection.
  */
 
 namespace Zef\Test\Unit;
@@ -57,7 +60,6 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'App',
         'Module',
         'Plugin',
-        'OtlpExporter',
     ];
 
     /**
@@ -68,13 +70,12 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     private const array COLLECTORS = [
         'Domain' => ['src/Domain/.*'],
         'Application' => ['src/Application/.*'],
-        'Infrastructure' => ['src/Infrastructure/(?!Observability/OtlpHttpJsonExporter\.php).*'],
+        'Infrastructure' => ['src/Infrastructure/.*'],
         'Adapters' => ['src/Adapters/.*'],
         'Compat' => ['src/Compat/.*'],
         'App' => ['src/Bootstrap\.php', 'src/Middleware/.*'],
         'Module' => ['modules/.*'],
         'Plugin' => ['plugins/.*'],
-        'OtlpExporter' => ['src/Infrastructure/Observability/OtlpHttpJsonExporter\.php'],
     ];
 
     /**
@@ -83,8 +84,7 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     private const array RULESET = [
         'Domain' => ['Compat'],
         'Compat' => [],
-        'OtlpExporter' => ['Domain', 'Application', 'Infrastructure', 'Compat'],
-        'Application' => ['Domain', 'Compat', 'OtlpExporter'],
+        'Application' => ['Domain', 'Compat'],
         'Infrastructure' => ['Domain', 'Application', 'Compat'],
         'Adapters' => ['Domain', 'Application', 'Infrastructure', 'Compat'],
         'App' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'Module', 'Plugin'],
@@ -129,19 +129,27 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     }
 
     /**
-     * OtlpExporter — carve-out terakhir yang masih disorot audit Guild —
-     * tetap berupa kelas konkret tunggal; jalur keluarnya (injeksi
-     * exporter default lewat port) tercatat di header deptrac.yaml.
-     * EnvConfig, KernelSleeper, RouteDefSpec, OriginPolicySpec,
-     * TrustedProxy, dan ContainerImpl sudah pensiun (relokasi ke
-     * src/Domain atau port Domain per issue #36). Test ini menjaga
-     * OtlpExporter tidak meluas jadi multi-kelas.
+     * End state issue #36: seluruh carve-out sudah pensiun — Compat
+     * (kontrak PSR murni, keep-by-design) adalah SATU-SATUNYA layer
+     * exception yang tersisa, dan mekanisme carve-out (layer kelas-tunggal
+     * atau negative-lookahead di layer dasar) tidak boleh kembali
+     * diam-diam; snapshot beku di atas sudah memaksa perubahan sadar.
      */
-    public function testHighlightedCarveOutsRemainSingleClass(): void
+    public function testCompatIsTheOnlyExceptionLayerLeft(): void
     {
-        $collectors = $this->layerCollectors();
+        $base = ['Domain', 'Application', 'Infrastructure', 'Adapters', 'App', 'Module', 'Plugin'];
 
-        self::assertSame(['src/Infrastructure/Observability/OtlpHttpJsonExporter\.php'], $collectors['OtlpExporter'], 'OtlpExporter wajib tetap satu kelas exporter (jalur keluar: port exporter default)');
+        self::assertSame(
+            ['Compat'],
+            array_values(array_diff(self::LAYERS, $base)),
+            'issue #36 end state: layer exception hanya boleh Compat — carve-out baru = keputusan sadar via snapshot',
+        );
+
+        foreach ($this->layerCollectors() as $layer => $patterns) {
+            foreach ($patterns as $pattern) {
+                self::assertStringNotContainsString('(?!', $pattern, "layer {$layer} menghidupkan ulang mekanisme carve-out lookahead");
+            }
+        }
     }
 
     // ------------------------------------------------------------- Helpers

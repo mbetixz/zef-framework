@@ -21,6 +21,7 @@ use Zef\Framework\Observability\LogExporterInterface;
 use Zef\Framework\Observability\LogRecord;
 use Zef\Framework\Observability\MetricExporterInterface;
 use Zef\Framework\Observability\NoopTracer;
+use Zef\Framework\Observability\OtlpExporterFactory;
 use Zef\Framework\Observability\OtlpHttpJsonExporter;
 use Zef\Framework\Observability\SpanContext;
 use Zef\Framework\Observability\Telemetry;
@@ -130,7 +131,7 @@ final class MutationDeepTelemetryTest extends TestCase
         \putenv('ZEF_OTEL_ENABLED=1');
         \putenv('ZEF_OTEL_EXPORTER_OTLP_ENDPOINT= http://collector:4318 ');
         \putenv('ZEF_OTEL_SERVICE_NAME=svc-probe');
-        $telemetry = Telemetry::fromEnvironment(null, false);
+        $telemetry = Telemetry::fromEnvironment(null, false, new OtlpExporterFactory());
         self::assertTrue($telemetry->isEnabled());
         self::assertFalse($telemetry->isInMemoryExporter());
         $exporter = $this->reflectedExporter($telemetry);
@@ -217,7 +218,7 @@ final class MutationDeepTelemetryTest extends TestCase
             \putenv('ZEF_OTEL_EXPORTER_OTLP_ENDPOINT=' . $endpoint);
 
             try {
-                $telemetry = Telemetry::fromEnvironment(null, false);
+                $telemetry = Telemetry::fromEnvironment(null, false, new OtlpExporterFactory());
                 if ($expectedFragment !== null) {
                     self::fail("Endpoint '{$endpoint}' must be rejected.");
                 }

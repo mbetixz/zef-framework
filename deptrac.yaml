@@ -9,10 +9,19 @@
 #
 # Exception layers (deliberate, documented deviations):
 #   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
-#   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
-#                    default exporter wired by the Telemetry facade.
 #
 # Retired carve-outs (issue #36 exit ramp — history, kept honest):
+#   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter — the
+#                    Telemetry facade hard-wired the concrete Infrastructure
+#                    exporter inside fromEnvironment(). Retired via the
+#                    OtlpExporterFactoryInterface port in
+#                    src/Domain/Observability: the facade now composes the
+#                    default exporter through the port, the kernel
+#                    composition root registers the default factory as an
+#                    ordinary container service (config-overridable), and
+#                    every OtlpExporter edge disappeared from the ruleset
+#                    (the exporter resolves as an ordinary Infrastructure
+#                    class again).
 #   - ContainerImpl: Zef\Framework\Container\Container — the provider
 #                    contracts (ServiceProviderInterface & friends) exposed
 #                    the concrete container in their signatures. Retired via
@@ -63,7 +72,7 @@ deptrac:
         -   name: Infrastructure
             collectors:
                 -   type: directory
-                    value: src/Infrastructure/(?!Observability/OtlpHttpJsonExporter\.php).*
+                    value: src/Infrastructure/.*
         -   name: Adapters
             collectors:
                 -   type: directory
@@ -86,23 +95,13 @@ deptrac:
             collectors:
                 -   type: directory
                     value: plugins/.*
-        -   name: OtlpExporter
-            collectors:
-                -   type: directory
-                    value: src/Infrastructure/Observability/OtlpHttpJsonExporter\.php
     ruleset:
         Domain:
             - Compat
         Compat: []
-        OtlpExporter:
-            - Domain
-            - Application
-            - Infrastructure
-            - Compat
         Application:
             - Domain
             - Compat
-            - OtlpExporter
         Infrastructure:
             - Domain
             - Application

@@ -43,10 +43,16 @@ final class Telemetry
 
     /**
      * Bug fix #10: added $registerShutdownHook parameter.
+     *
+     * Issue #36 exit ramp: the default OTLP exporter is composed through the
+     * OtlpExporterFactoryInterface port; the kernel composition root wires the
+     * default factory via container config. Endpoint validation and every env
+     * knob stay here — only the concrete exporter construction is delegated.
      */
     public static function fromEnvironment(
         ?LoggerInterface $logger = null,
         bool $registerShutdownHook = true,
+        ?OtlpExporterFactoryInterface $exporterFactory = null,
     ): self {
         $enabled = Env::bool('ZEF_OTEL_ENABLED', false);
         $logger ??= new NullLogger();
@@ -76,7 +82,9 @@ final class Telemetry
             'telemetry.sdk.name' => 'zef-observability',
             'telemetry.sdk.language' => 'php',
         ];
-        $exporter = $endpoint !== '' ? new OtlpHttpJsonExporter($endpoint, $resource, $timeout) : null;
+        $exporter = $endpoint !== '' && $exporterFactory instanceof OtlpExporterFactoryInterface
+            ? $exporterFactory->create($endpoint, $resource, $timeout)
+            : null;
         $spanExporter = $exporter ?? new InMemorySpanExporter();
         $processor = new BatchSpanProcessor($spanExporter, $queue, $batch);
         $t = new self(new Tracer($processor), new CounterMeter(), $processor, $exporter, $exporter, true);
