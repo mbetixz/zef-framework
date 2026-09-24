@@ -78,7 +78,7 @@ final class MutationDeepHttpTest extends TestCase
             // created by this test's own setUp() (line 62) and used as a simulated
             // upload source. No request input reaches the argument, and the call is
             // guarded by \is_file(). Accepted suppression: section 7.3.
-            @\unlink($this->tmpFile); // nosemgrep: unlink-use-qualified
+            @unlink($this->tmpFile); // nosemgrep: unlink-use
         }
     }
 
@@ -111,7 +111,7 @@ final class MutationDeepHttpTest extends TestCase
         $uploads = $request->getUploadedFiles();
         self::assertArrayHasKey('doc', $uploads);
         $upload = $uploads['doc'];
-        \assert($upload instanceof UploadedFileInterface);
+        assert($upload instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_OK, $upload->getError());
         self::assertSame('doc.txt', $upload->getClientFilename());
         self::assertSame(14, $upload->getSize());
@@ -373,7 +373,7 @@ final class MutationDeepHttpTest extends TestCase
         $portOf = static function (array $server): ?int {
             // @phpstan-ignore argument.type (mixed server values are intentional here)
             $request = RequestFactory::fromServer($server + ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => '/']);
-            \assert($request instanceof ServerRequest);
+            assert($request instanceof ServerRequest);
 
             return $request->getUri()->getPort();
         };
@@ -695,7 +695,7 @@ final class MutationDeepHttpTest extends TestCase
             'ghost' => ['name' => 'x.txt', 'type' => 'text/plain', 'tmp_name' => '', 'error' => \UPLOAD_ERR_OK, 'size' => 100],
         ]);
         $upload = $request->getUploadedFiles()['ghost'];
-        \assert($upload instanceof UploadedFileInterface);
+        assert($upload instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_NO_FILE, $upload->getError(), 'OK upload without tmp_name is a ghost and must be downgraded.');
         self::assertSame(100, $upload->getSize(), 'Client-declared size is preserved; only the error state changes.');
     }
@@ -709,15 +709,15 @@ final class MutationDeepHttpTest extends TestCase
         ]);
         $uploads = $request->getUploadedFiles();
         $ok = $uploads['ok'];
-        \assert($ok instanceof UploadedFileInterface);
+        assert($ok instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_OK, $ok->getError());
         self::assertSame(14, $ok->getSize());
         self::assertSame('upload-payload', (string) $ok->getStream());
         $bad = $uploads['bad'];
-        \assert($bad instanceof UploadedFileInterface);
+        assert($bad instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_NO_FILE, $bad->getError());
         $null = $uploads['null'];
-        \assert($null instanceof UploadedFileInterface);
+        assert($null instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_NO_FILE, $null->getError());
         self::assertSame(0, $null->getSize(), 'Missing size falls back to the empty stream size.');
     }
@@ -728,7 +728,7 @@ final class MutationDeepHttpTest extends TestCase
             'err' => ['name' => 'd.txt', 'type' => 'text/plain', 'tmp_name' => '/nonexistent/tmp', 'error' => \UPLOAD_ERR_NO_FILE, 'size' => 5],
         ]);
         $upload = $request->getUploadedFiles()['err'];
-        \assert($upload instanceof UploadedFileInterface);
+        assert($upload instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_NO_FILE, $upload->getError());
         $this->expectException(\RuntimeException::class);
         $upload->getStream();
@@ -773,7 +773,7 @@ final class MutationDeepHttpTest extends TestCase
         self::assertIsArray($files['group']);
         $first = $files['group'][0];
         $second = $files['group'][1];
-        \assert($first instanceof UploadedFileInterface && $second instanceof UploadedFileInterface);
+        assert($first instanceof UploadedFileInterface && $second instanceof UploadedFileInterface);
         self::assertSame(\UPLOAD_ERR_NO_FILE, $first->getError());
         self::assertSame(\UPLOAD_ERR_NO_FILE, $second->getError());
         self::assertSame('a.txt', $first->getClientFilename());
@@ -897,7 +897,7 @@ final class MutationDeepHttpTest extends TestCase
             'REMOTE_ADDR' => 123,
         ];
         $request = RequestFactory::fromServer($server);
-        \assert($request instanceof ServerRequest);
+        assert($request instanceof ServerRequest);
         self::assertSame('/', $request->getUri()->getPath());
     }
 
@@ -946,7 +946,7 @@ final class MutationDeepHttpTest extends TestCase
     private function factory(array $server, ?RequestBodyPolicy $policy = null, array $trustedProxies = []): ServerRequest
     {
         $request = RequestFactory::fromServer($server, [], $trustedProxies, $policy);
-        \assert($request instanceof ServerRequest);
+        assert($request instanceof ServerRequest);
 
         return $request;
     }
@@ -964,7 +964,7 @@ final class MutationDeepHttpTest extends TestCase
             null,
             $files,
         );
-        \assert($request instanceof ServerRequest);
+        assert($request instanceof ServerRequest);
 
         return $request;
     }

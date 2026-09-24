@@ -1,0 +1,104 @@
+# ZEF-local SAST rule: one rule that closes a whole CLASS of call-form blind spot.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Most pinned Semgrep rules express their subject as a function *call pattern*,
+# e.g. `pattern: unlink(...)`, `pattern: system(...)`, `pattern: assert($SINK, ...)`.
+# A pattern like that matches the call by its name as written, and a
+# backslash-qualified call is not matched by it. Measured with semgrep 1.177.0
+# against the pinned ruleset (commit 40b8c63f), fixture outside the repository:
+#
+#   bare `fn(...)` and error-suppressed `@fn(...)`  -> matched by the pinned rule
+#   `\fn(...)` and `@\fn(...)`                      -> MISSED by the pinned rule
+#
+# `@` is transparent in every case measured; only the leading backslash hides the
+# call. Nineteen functions covered by pinned security rules were measured to have
+# this blind spot. `unlink` was closed separately by `unlink-use-qualified.yaml`;
+# rather than add nineteen more per-rule companions, this single rule bans the
+# qualified *writing style* for every function that a pinned security rule matches
+# by name, so the pinned rules can do their job on code written in this style.
+#
+# THE AST ROUTE WAS MEASURED AND IS IMPOSSIBLE
+# --------------------------------------------
+# Semgrep's AST pattern matching does not match a backslash-qualified call at all,
+# so there is no way to express "the qualified form of this call" as an AST pattern:
+#
+#   pattern: $F(...) + metavariable-regex on $F   -> 0 findings on \assert/\exec/...
+#   metavariable-regex without a leading backslash -> only bare calls matched
+#
+# Hence pattern-regex. Its cost is documented below.
+#
+# WHAT THIS RULE DOES NOT DO
+# --------------------------
+# `pattern-regex` is evaluated against source *text*, not the AST, so it would also
+# match the construct where it appears inside a quoted string or a block comment.
+# The `pattern-not-regex` arms below cancel those cases: a not-regex range that
+# CONTAINS the match removes it (measured - this is the mechanism the upstream
+# `unlink-use` rule relies on).
+#
+# There is deliberately NO line-comment arm. A regex cannot tell a `//` inside a
+# quoted string from a real comment without lookback over quote state, and an arm
+# of that shape was measured to cancel a REAL call that merely followed a string
+# containing `//` (`$p = 'a//b'; \exec($cmd, ...);` was lost). A hidden real call is
+# a false negative, which is the worse direction for a rule whose whole purpose is
+# to stop hiding calls. The bounded residual is therefore: a line comment that
+# *mentions* a qualified call is reported, the same known and accepted limitation
+# already recorded for `unlink-use-qualified.yaml`.
+#
+# SCOPE OF THE EXCLUSION
+# ----------------------
+# The lookbehind requires that the call is not itself preceded by an identifier
+# character, `$`, `>`, `:` or `-`, so method calls (`$o->unlink(...)`), static calls
+# (`Foo::unlink(...)`) and namespaced functions (`\Zef\unlink(...)`) are out of
+# scope. A class instantiation or a class constant (`\Foo\Bar::class`) does not
+# match either, because a `(` must follow the name.
+#
+# FUNCTION LIST - derived from the call-form coverage matrix, not guessed
+# ----------------------------------------------------------------------
+# Each entry is a function a pinned rule matches by name, with that rule's id:
+#   exec system passthru popen shell_exec pcntl_exec proc_open -> exec-use, tainted-exec
+#   unlink                                                    -> unlink-use, tainted-filename
+#   eval                                                      -> eval-use
+#   assert                                                    -> assert-use, assert-use-audit
+#   unserialize                                               -> unserialize-use
+#   phpinfo                                                   -> phpinfo-use
+#   extract                                                   -> extract-user-data
+#   trigger_error                                             -> trigger-error
+#   ldap_bind                                                 -> ldap-bind-without-password
+#   openssl_decrypt                                           -> openssl-decrypt-validate
+#   mb_ereg_replace                                           -> mb-ereg-replace-eval
+#   base_convert                                              -> base-convert-loses-precision
+#   header                                                    -> redirect-to-request-uri
+#   md5 sha1 str_rot13                                        -> weak-crypto
+# `include`/`require` are language constructs: a backslash-qualified form is a PHP
+# parse error, so they cannot appear and are not listed.
+rules:
+- id: ban-qualified-global-call
+  patterns:
+  - pattern-regex: |-
+      (?<![\w$>:\-])\\(exec|system|passthru|popen|shell_exec|pcntl_exec|proc_open|unlink|eval|assert|unserialize|phpinfo|extract|trigger_error|ldap_bind|openssl_decrypt|mb_ereg_replace|base_convert|header|md5|sha1|str_rot13)\s*\(
+  - pattern-not-regex: |-
+      /\*[\s\S]*?\*/
+  - pattern-not-regex: |-
+      '[^'\n]*'
+  - pattern-not-regex: |-
+      "[^"\n]*"
+  message: >-
+    Call the global function without a leading backslash. Pinned security rules
+    match the unqualified call form, so a backslash-qualified call such as
+    `\unlink($p)` is not evaluated by them at all. Writing `unlink($p)` is
+    equivalent at runtime inside a namespace (PHP falls back to the global
+    function) and keeps the call visible to the pinned rules.
+  metadata:
+    references:
+    - https://www.php.net/manual/en/language.namespaces.fallback.php
+    category: security
+    technology:
+    - php
+    subcategory:
+    - audit
+    likelihood: LOW
+    impact: LOW
+    confidence: MEDIUM
+  languages: [php]
+  severity: WARNING

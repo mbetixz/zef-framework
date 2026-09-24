@@ -433,7 +433,7 @@ final class EdgeMatrixF10KernelTest extends TestCase
             // ($buildDir . '/f10_otlp_sink_' . \uniqid('', true) . '.jsonl'), in the
             // finally block. No request input reaches the argument. Accepted
             // suppression: docs/security/php-sast.md section 7.3.
-            @\unlink($sink); // nosemgrep: unlink-use-qualified
+            @unlink($sink); // nosemgrep: unlink-use
             @\fclose($server);
         }
     }

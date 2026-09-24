@@ -11,12 +11,22 @@ name: PHP SAST
 #     which is required solely to publish SARIF into code scanning),
 #   * never modifies source code.
 #
-# The analysis inputs are the pinned upstream ruleset *plus* the ZEF-local rules in
-# `.github/semgrep/rules`. The local rules close a measured false negative of the
-# pinned ruleset: a backslash-qualified `\unlink()` call is not matched by
-# `pattern: unlink(...)`, so four live call sites in `tests/` previously produced no
-# finding at all. Detection width therefore increased; no threshold, exclusion or
-# floor was relaxed. See docs/security/php-sast.md section 3 for the measurement.
+# The analysis inputs are three things, and all three are reviewable in-tree:
+#   1. the pinned upstream ruleset (verified by sha256 before use),
+#   2. the ZEF-local rules in `.github/semgrep/rules`. These close a measured false
+#      negative of the pinned ruleset: a backslash-qualified `\unlink()` call is not
+#      matched by `pattern: unlink(...)`, so four live call sites in `tests/`
+#      previously produced no finding at all. `ban-qualified-global-call.yaml`
+#      closes the whole class of that miss (nineteen functions were measured to have
+#      it) by banning the qualified *writing style* for every function a pinned rule
+#      matches by name.
+#   3. an overlay directory (`rules-overlay`) that resolves a duplicated rule id in
+#      the pinned ruleset - `tainted-exec` is declared in two loaded directories at
+#      two different severities - to a single severity. The overlay is copied from
+#      the verified tarball, so the pin stays authoritative; see the overlay step.
+# Detection width therefore increased and the id/severity ambiguity was removed;
+# no threshold, exclusion or floor was relaxed. See docs/security/php-sast.md
+# sections 3 and 7 for the measurements.
 
 on:
   pull_request:
@@ -76,6 +86,35 @@ jobs:
           test -d "${RUNNER_TEMP}/rules/php/lang/security"
           echo "Ruleset ${RULES_SHA} verified (sha256 matches the pinned digest)."
 
+      - name: Build the rule overlay (reconcile the duplicated tainted-exec id)
+        # The pinned ruleset declares the id `tainted-exec` twice at two different
+        # severities, in two directories this workflow loads:
+        #     php/lang/security/tainted-exec.yaml            severity ERROR
+        #     php/lang/security/injection/tainted-exec.yaml  severity WARNING
+        # Semgrep does not deduplicate a rule id across config paths, so the same
+        # issue was reported at one severity in one pass and at another severity in
+        # the next. The fix resolves the id to a single severity by copying the pinned
+        # injection directory (read-only source, bytes untouched) into an overlay and
+        # replacing exactly that one file with the in-tree merged definition, which
+        # uses the UNION of both pinned pattern sets so no detection is narrowed.
+        # Only the canonical directory is loaded unchanged, so its ERROR copy now
+        # agrees with the overlay instead of competing with it.
+        run: |
+          set -euo pipefail
+          overlay="${RUNNER_TEMP}/rules-overlay"
+          rm -rf "${overlay}"
+          mkdir -p "${overlay}"
+          cp -R "${RUNNER_TEMP}/rules/php" "${overlay}/php"
+          cp "${PWD}/.github/semgrep/rules/php-lang-security/injection/tainted-exec.yaml" \
+             "${overlay}/php/lang/security/injection/tainted-exec.yaml"
+          # Fail-closed: the overlay must be readable, must contain the reconciled id,
+          # and must resolve it exactly once at a single severity.
+          test -f "${overlay}/php/lang/security/injection/tainted-exec.yaml"
+          grep -q '^- id: tainted-exec$' "${overlay}/php/lang/security/injection/tainted-exec.yaml"
+          n_sev=$(grep -c 'severity: ERROR' "${overlay}/php/lang/security/injection/tainted-exec.yaml")
+          test "${n_sev}" = "1"
+          echo "Overlay ready: injection/tainted-exec.yaml reconciled to a single ERROR severity."
+
       - name: Scan production PHP source (blocking)
         # src/**/ is the merge-blocking set: the pinned baseline scan of main found
         # zero findings here, so ERROR-level findings block without false-positive
@@ -93,7 +132,7 @@ jobs:
             "${SEMGREP_IMAGE}" \
             semgrep scan \
               --config=/rules/php/lang/security \
-              --config=/rules/php/lang/security/injection \
+              --config=/rules-overlay/php/lang/security/injection \
               --config=/rules/php/lang/security/audit \
               --config=/src/.github/semgrep/rules \
               --metrics=off \
@@ -134,7 +173,7 @@ jobs:
             "${SEMGREP_IMAGE}" \
             semgrep scan \
               --config=/rules/php/lang/security \
-              --config=/rules/php/lang/security/injection \
+              --config=/rules-overlay/php/lang/security/injection \
               --config=/rules/php/lang/security/audit \
               --config=/src/.github/semgrep/rules \
               --metrics=off \
@@ -181,7 +220,7 @@ jobs:
             "${SEMGREP_IMAGE}" \
             semgrep scan \
               --config=/rules/php/lang/security \
-              --config=/rules/php/lang/security/injection \
+              --config=/rules-overlay/php/lang/security/injection \
               --config=/rules/php/lang/security/audit \
               --config=/src/.github/semgrep/rules \
               --metrics=off \

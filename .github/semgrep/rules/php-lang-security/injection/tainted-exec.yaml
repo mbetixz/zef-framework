@@ -1,0 +1,107 @@
+# ZEF-local overlay for a duplicated rule id in the pinned ruleset.
+#
+# THE PROBLEM, MEASURED
+# ---------------------
+# The pinned ruleset (semgrep/semgrep-rules commit 40b8c63f) declares the SAME id
+# twice, with DIFFERENT severities, in two directories this workflow loads:
+#
+#   php/lang/security/tainted-exec.yaml            -> severity ERROR
+#   php/lang/security/injection/tainted-exec.yaml  -> severity WARNING
+#
+# Semgrep does not deduplicate a rule id across config paths, and it does not let a
+# later definition override an earlier one; both are loaded and evaluated. Measured
+# with semgrep 1.177.0 on the pinned commit, against a fixture with one tainted
+# `exec()` sink outside the repository:
+#
+#   no --severity filter    -> TWO results for the id: (tainted-exec, ERROR)
+#                              and (tainted-exec, WARNING) on the same line
+#   --severity WARNING      -> only the WARNING copy is reported
+#   --severity ERROR        -> only the ERROR copy is reported
+#
+# Consequences of leaving it alone: the same issue is reported at one severity in
+# one pass and at another severity in the next, and which copy is *seen* depends on
+# the pass's severity filter. The two copies are also NOT supersets of each other -
+# the ERROR copy adds the sink `pcntl_exec`, while the WARNING copy adds the source
+# `file_get_contents('php://input')`, the sinks `expect_popen(...)` and backticks,
+# and the sanitizer `escapeshellcmd`. So neither copy alone covers the other, and
+# picking one would NARROW detection.
+#
+# THE FIX
+# -------
+# This file is the ZEF-local merged definition. The workflow copies the pinned
+# injection rule directory into a separate overlay directory (leaving the verified
+# tarball untouched - its sha256 is checked before the overlay is applied) and
+# replaces exactly this one file. The id consequently resolves at a single severity,
+# ERROR, and the pattern sets are the UNION of both pinned copies, so detection
+# width is preserved rather than narrowed:
+#
+#   sources    : $_REQUEST, $_GET, $_POST, $_COOKIE, file_get_contents('php://input')
+#                (union: the ERROR copy lacked the php://input source)
+#   sanitizers : escapeshellarg, escapeshellcmd
+#                (union: the ERROR copy lacked escapeshellcmd)
+#   sinks      : exec, system, passthru, popen, shell_exec, pcntl_exec, proc_open
+#                (excluding its array-argument form), expect_popen, backticks
+#                (union: the WARNING copy lacked pcntl_exec; the ERROR copy lacked
+#                 expect_popen and backticks)
+#
+# Severity before -> after, per path:
+#   php/lang/security/tainted-exec.yaml            ERROR   -> ERROR   (unchanged)
+#   php/lang/security/injection/tainted-exec.yaml  WARNING -> ERROR   (aligned, superseded by this file)
+#
+# Known residual: because the canonical ERROR copy is still loaded and now agrees in
+# severity, a sink span matched by both copies can be reported twice (same rule id,
+# same severity). That is noise, not a weakened gate, and it is measurable: the tree
+# currently contains no `tainted-exec` finding at all, so the present-day impact is
+# zero. Fully de-duplicating the id requires consolidating the two upstream files,
+# which is an upstream change - recorded as an owner decision in the report.
+rules:
+- id: tainted-exec
+  mode: taint
+  pattern-sources:
+  - pattern: $_REQUEST
+  - pattern: $_GET
+  - pattern: $_POST
+  - pattern: $_COOKIE
+  - pattern: file_get_contents('php://input')
+  pattern-sanitizers:
+  - pattern: escapeshellarg(...)
+  - pattern: escapeshellcmd(...)
+  pattern-sinks:
+  - pattern: exec(...)
+  - pattern: system(...)
+  - pattern: passthru(...)
+  - pattern: popen(...)
+  - pattern: shell_exec(...)
+  - pattern: pcntl_exec(...)
+  - pattern: expect_popen(...)
+  - patterns:
+    - pattern: proc_open(...)
+    - pattern-not: proc_open([...], ...)
+  - pattern: |-
+      `...`
+  message: >-
+    Executing non-constant commands. This can lead to command injection. You should
+    use `escapeshellarg()` when using command.
+  metadata:
+    cwe:
+    - "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+    - "CWE-94: Improper Control of Generation of Code ('Code Injection')"
+    references:
+    - https://owasp.org/Top10/A03_2021-Injection
+    - https://www.stackhawk.com/blog/php-command-injection/
+    - https://brightsec.com/blog/code-injection-php/
+    - https://www.acunetix.com/websitesecurity/php-security-2/
+    category: security
+    technology:
+    - php
+    owasp:
+    - A03:2021 - Injection
+    - A05:2025 - Injection
+    cwe2022-top25: true
+    subcategory:
+    - vuln
+    likelihood: HIGH
+    impact: HIGH
+    confidence: MEDIUM
+  languages: [php]
+  severity: ERROR
