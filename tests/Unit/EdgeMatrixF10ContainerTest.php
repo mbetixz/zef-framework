@@ -113,7 +113,11 @@ final class EdgeMatrixF10ContainerTest extends TestCase
         $code = $result->factoryCode[F10NullableDefaultConsumer::class];
         self::assertStringContainsString(F10NullableDefaultConsumer::class . '(null)', $code, 'tepat satu argumen null');
 
-        $factory = eval('return ' . $code . ';');
+        // False positive on argument shape, not provenance: `$code` is
+        // `$result->factoryCode[F10NullableDefaultConsumer::class]`, a factory expression produced by
+        // AutowireCompilerPass itself; the test evaluates the compiler's own output to assert it is
+        // callable, which is the assertion's subject. Registered in docs/security/php-sast.md §7.5.
+        $factory = eval('return ' . $code . ';'); // nosemgrep: eval-use
 
         // @phpstan-ignore-next-line — data refleksi/JSON tak-tiped disengaja di kurikulum edge-case
         self::assertInstanceOf(F10NullableDefaultConsumer::class, $factory([]), 'factory hasil autowire wajib bisa dipanggil tanpa TypeError argumen ganda');

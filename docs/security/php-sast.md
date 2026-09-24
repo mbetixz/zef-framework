@@ -30,8 +30,10 @@ This gate **does not replace, duplicate or weaken any of the above.** Concretely
   supports no PHP language at all. Code scanning receives the SARIF this workflow
   uploads, under its own categories (`php-sast-source` — production at the `ERROR`
   floor, blocking; `php-sast-source-warning` — production at the `WARNING` floor,
-  **blocking since 2026-09-24**; `php-sast-tests` — test and tooling code, **also
-  blocking since 2026-09-24**). Those results must not be read as CodeQL output.
+  **blocking since 2026-09-24**; `php-sast-tests` — test and tooling code at the
+  `WARNING` floor, **blocking since 2026-09-24**; `php-sast-tests-error` — test and
+  tooling code at the `ERROR` floor, **blocking since 2026-09-24**). Those results
+  must not be read as CodeQL output.
 - It is **not** a type checker. PHPStan already covers correctness; Semgrep only
   looks for security-relevant patterns, and a Semgrep-clean tree says nothing
   about type correctness.
@@ -132,7 +134,7 @@ the exact path form the workflow uses.
 | `src/**/*.php` (production / runtime source), `ERROR` severity | yes | **Blocking** — the job fails |
 | `src/**/*.php` (production / runtime source), `WARNING` severity | yes | **Blocking** — the job fails (promoted 2026-09-24) |
 | `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php`, `WARNING` severity | yes | **Blocking** — the job fails (promoted 2026-09-24) |
-| `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php`, `ERROR` severity | **measured only** | **No workflow pass evaluates this combination today.** An explicit `ERROR`-floor pass over those trees reports **4** findings that are therefore never evaluated; they are listed in §7.4 and the choice between adding the pass and registering them is an owner decision. Recorded here so the gap is reviewable rather than implied. |
+| `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php`, `ERROR` severity | yes | **Blocking** — the job fails (coverage hole closed 2026-09-24) |
 
 **Why test and tooling code is scanned *and* blocks.** The alternative ("it is not
 production, so skip it") is not accepted here: test and CI helper code runs with
@@ -172,22 +174,24 @@ That behaviour was verified empirically, not assumed.
 | `ERROR` in `src/**` | **Blocks the pull request.** Semgrep is invoked with `--severity ERROR --error`; any `ERROR` finding makes the job fail. Error-level PHP rules in the pinned ruleset cover the injection classes where a false negative is most damaging (code injection via dynamic evaluation, command execution, SSRF). |
 | `WARNING`, in `src/**` | **Blocks the pull request** (promoted 2026-09-24). A dedicated pass (*Scan production PHP source at WARNING severity*) scans production source at `--severity WARNING --error`, so warning-level rules — including the taint rules whose confidence metadata is `MEDIUM CONFIDENCE` — are looked for in production code *and* can fail the job. Before that pass existed, `src/**` was evaluated at `ERROR` only, so a whole severity band was invisible in production *by construction*: a zero count under `ERROR` never meant "no warning-level match". The pass shipped report-only for one change (PR #41) so its findings could be triaged first; that triage is in §7, and promotion followed it. |
 | `WARNING`, in `tests/**`, `scripts/**`, `tools/**` | **Blocks the pull request** (promoted 2026-09-24). A dedicated pass (*Scan tests and tooling PHP*) scans these trees at `--severity WARNING --error`. All 30 findings it produced were triaged and registered in §7.2 **before** the promotion; §4 explains why the ordering matters. |
+| `ERROR`, in `tests/**`, `scripts/**`, `tools/**` | **Blocks the pull request** (added 2026-09-24). A dedicated pass (*Scan tests and tooling PHP at ERROR severity*) scans these trees at `--severity ERROR --error`. Until then this combination was evaluated by **no pass at all**, so an `ERROR`-severity rule whose subject appeared only in test or tooling code was structurally invisible to the gate. The four findings it reports were triaged and registered in §7.5 **before** the pass was added. |
 | `INFO` | Not reported (`--severity WARNING` floors the reporting scan). |
 
 **Policy shape.** The gate fails on high-severity findings only, and never because
 a scan *ran*. Crucially, the gate is **not** made green by ignoring findings: no
 rule is disabled, there is no blanket path exclusion, and there is no `|| true` on
-the blocking scan step. There **are** thirty-nine in-source `#nosemgrep`
-suppressions — two on `eval()`, thirty-seven on `unlink()`; they are accepted,
-justified and registered in sections 7.1 to 7.3. This document previously stated that none
-existed — that was wrong, and is corrected there.
+the blocking scan step. There **are** forty-eight in-source `#nosemgrep`
+suppressions — five on `eval()`, thirty-seven on `unlink()`, six on `exec()`; they are
+accepted, justified and registered in sections 7.1 to 7.5. This document previously
+stated that none existed — that was wrong, and is corrected there.
 
-**Three-pass policy — every floor is blocking as of 2026-09-24 (owner decision).**
+**Four-pass policy — every floor is blocking as of 2026-09-24 (owner decision).**
 The `WARNING` floor over `src/**` is evaluated in its own pass and supplies
 `--error`, exactly as the `ERROR` floor does; the `WARNING` floor over `tests/`,
-`scripts/` and `tools/` supplies `--error` as well. **There is no report-only
-surface left.** What differs between the three passes is only *what is scanned*,
-never *whether a finding blocks*.
+`scripts/` and `tools/` supplies `--error` as well, and so now does the `ERROR`
+floor over those same trees. **There is no report-only surface left.** What
+differs between the four passes is only *what is scanned*, never *whether a
+finding blocks*.
 
 The promotion was **sequenced, not bundled**. The pass was introduced report-only
 (PR #41) so that its findings would be *visible* without turning an untriaged
@@ -287,11 +291,24 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 43** — after the 2026-09-24 whole-class fix they are two
-`php.lang.security.eval-use`, thirty-three `php.lang.security.unlink-use` plus four
-`unlink-use`, and four `php.lang.security.exec-use`. (Count is of marker directives on
+**Registered suppressions: 48**, counted from the markers themselves rather than by
+arithmetic. Breakdown by the rule id named on the marker, as measured with
+`grep -rhoE 'nosemgrep: *[^ ]+' --include=*.php .`:
+
+| Rule id on the marker | Count |
+|---|---|
+| `php.lang.security.unlink-use` | 33 |
+| `exec-use` | 6 |
+| `unlink-use` (ZEF-local scope) | 4 |
+| `php.lang.security.eval-use` | 3 |
+| `eval-use` | 2 |
+| **Total** | **48** |
+
+That is **37 `unlink` + 6 `exec` + 5 `eval`**. The count is of marker directives on
 call lines: an explanatory comment that merely *mentions* a marker, such as the prose
-line above `TinkerSession.php:70`, is not one.) Three of the `unlink-use` entries are
+line above `TinkerSession.php:70`, is not one. One earlier accounting in this document
+reached 47 by adding four to a 43 that was itself derived rather than counted; the
+table above is the count, and it is reproducible with the command shown. Three of the `unlink-use` entries are
 in production source (§7.1); the rest are in test and tooling code (§7.2, §7.4); the
 four qualified-call entries formerly registered under `unlink-use-qualified` are
 **superseded** — their call sites were normalised to the bare form and now carry
@@ -314,7 +331,7 @@ possible without ignoring a finding.
 | 4 | `php.lang.security.unlink-use` | `src/Adapters/Router/RouteCache.php:48` | Same shape: cleanup of `$path . '.' . bin2hex(random_bytes(6)) . '.tmp'` (line 39), a self-named temp sibling of the cache file, on the branch where `rename($tmp, $path)` has already returned false. Not reachable with request-controlled input. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 5 | `php.lang.security.unlink-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:104` | Same shape: cleanup of `$path . '.tmp.' . getmypid()` (line 95), a self-named temp sibling of the AOT export, on the branch where `rename($tmp, $path)` has already returned false. Reached from the compile-time CLI path, never from a request. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 
-All thirty-nine suppressions are `inSource` and scoped to a single line. None hides
+All forty-eight suppressions are `inSource` and scoped to a single line. None hides
 a rule-class-wide exclusion, and none removes an evaluation that would otherwise be
 counted: every suppressed finding stays published to code scanning as an alert
 carrying `"kind": "inSource"`, so a reviewer sees the suppression instead of it
@@ -497,10 +514,17 @@ over `tests/`, `scripts/` and `tools/` — a combination **no workflow pass eval
 reports four findings that are pre-existing and un-triaged:
 `tests/SelfTestBridgeTest.php:71` (`exec-use`), `tests/Unit/EdgeMatrixF10ContainerTest.php:116`
 (`eval-use`), `tests/V2110RadixTreeSuite.php:390` (`eval-use`), `scripts/lint.php:52`
-(`exec-use`). They are **left un-suppressed on purpose**: registering a suppression for a
-finding no gate evaluates would hide it, and adding the missing pass would turn this
-pull request red on findings it did not create. Both options are owner decisions, and
-the gap is recorded in §4 so it is visible rather than implied.
+(`exec-use`). They were **left un-suppressed on purpose** at that point in time, for the
+reason recorded above. **Closed 2026-09-24 — see §7.5.**
+
+#### Former coverage gap — now closed
+
+That gap was the last measured blind spot in this workflow and it is closed: an
+`ERROR`-floor pass over `tests/`, `scripts/` and `tools/` now runs and blocks (§4, §5).
+The four findings were triaged first and each one was **read, traced and dispositioned**
+before the pass existed, because the whole point of recording the gap rather than
+suppressing it was that a suppression on a finding no gate evaluates hides the finding
+instead of dispositioning it. The register is §7.5.
 
 #### Former false negative — now closed
 
@@ -585,6 +609,57 @@ If a finding must be suppressed in future, the rules are:
 
 ---
 
+### 7.5 The four `ERROR`-floor findings over test and tooling code — the coverage hole, closed
+
+Added when the *Scan tests and tooling PHP at ERROR severity* pass was introduced.
+Unlike §7.2 and §7.4 this was not a promotion of an existing report-only pass: the
+combination had **never been evaluated by any pass**, so the findings below were
+invisible by construction. The order therefore had to be reversed — the population was
+triaged first and the blocking pass was added on top of a dispositioned set, because a
+suppression written for a finding no gate evaluates would have hidden it rather than
+dispositioned it.
+
+**All four are false positives on the same measured mechanism.** Both rules match on
+*argument shape*, never on provenance: `exec-use` is `metavariable-regex:
+exec|passthru|proc_open|popen|shell_exec|system|pcntl_exec` minus
+`$FUNC('...', ...)`, so **any** `exec()` with a non-literal first argument matches, and
+`eval-use` is `pattern: eval(...)` minus `eval('...')`. Both rule files' own metadata
+rates them `confidence: LOW` / `likelihood: LOW`.
+
+| # | Rule | Location | Reason | Lifetime |
+|---|---|---|---|---|
+| 44 | `php.lang.security.exec-use` | `tests/SelfTestBridgeTest.php:71` | The test's stated subject is invoking `bin/zef` as a subprocess. `$cmd` is assembled on line 70 from `escapeshellarg(\PHP_BINARY)`, `escapeshellarg(__DIR__ . '/../bin/zef')` and `escapeshellarg($arg)`, where `$arg` is the class's own suite key (`'--self-test=' . $key` from the data provider). Every fragment is shell-quoted, two are fixed paths to a repository binary, and no request-derived value reaches it. | **Permanent** — the call is the test's subject |
+| 45 | `php.lang.security.exec-use` | `scripts/lint.php:52` | The tool's stated subject is running `php -l` over the repository. `$php` is `\PHP_BINARY` (the running interpreter's own path) and `$file` is a relative path yielded by the `RecursiveIteratorIterator` walk defined above, wrapped in `escapeshellarg()`; `$root` is `dirname(__DIR__)`. No request-derived value reaches the command. | **Permanent** — the call is the tool's subject |
+| 46 | `php.lang.security.eval-use` | `tests/Unit/EdgeMatrixF10ContainerTest.php:116` | `$code` is `$result->factoryCode[F10NullableDefaultConsumer::class]`, a factory expression produced one step earlier by `AutowireCompilerPass::process()` in this same test. The assertion is that the compiler's own output is callable — evaluating it **is** the assertion. | **Permanent** — evaluating the compiler's own output is the assertion |
+| 47 | `php.lang.security.eval-use` | `tests/V2110RadixTreeSuite.php:390` | `$encoded` is built on line 389 as `'return ' . var_export($payload, true) . ';'` where `$payload = $tree->exportArray()` and `$tree = $this->sampleTree()` — both this suite's own fixture. The test round-trips its own AOT export; no external string is evaluated. | **Permanent** — evaluating the suite's own fixture is the assertion |
+
+Each marker is `inSource`, single-line, names the rule and states its reason inline;
+none is a path or rule-class exclusion, and all four findings stay published to code
+scanning as open alerts under `php-sast-tests-error`. Two of the four (`#46`, `#47`) sit
+on the same statement shape as the `eval-use` entries already accepted in §7.1/§7.2 —
+evaluating code the codebase itself just produced — so this is an existing, reviewed
+category rather than a new one.
+
+**Verified behaviour** — CI-equivalent invocation, same config paths and pinned inputs,
+`--severity ERROR --error`, over `tests/` + `scripts/`:
+
+| Condition | Findings | Exit code |
+|---|---|---|
+| Markers present, `tests/` + `scripts/` | 0 | **0** |
+| Markers stripped on a copy outside the repository | **4** | **1** |
+| `src/` at the `ERROR` floor, markers present | 0 | **0** |
+| `src/` at the `WARNING` floor, markers present | 0 | **0** |
+| `tests/` + `scripts/` at the `WARNING` floor, markers present | 0 | **0** |
+
+The second row is the load-bearing one: it shows the new pass can actually fail the job.
+The marker neutralises the *exit code*, not the *finding*.
+
+**Register total now stands at 48** (§7). §7.4's "Register after this change: 43
+entries" remains as the figure for that change; the four entries above are additive to
+it, and the four entries §7.4 added are themselves counted in the 48.
+
+---
+
 ## 8. Trigger policy
 
 | Event | Reason |
@@ -607,7 +682,7 @@ security justification for that here.
 | Job `permissions` | `contents: read`, `security-events: write` | `security-events: write` is required **only** by `upload-sarif`, to publish SARIF into code scanning. The job cannot write to the repository. |
 | Repository secret | **None** | Semgrep CE needs no token to run against local source, and this workflow does not log in to the Semgrep platform, so no `SEMGREP_APP_TOKEN` is configured or required. |
 | Network access | Outbound to `codeload.github.com` (pinned ruleset) and the container registry (pinned engine image) | No source code is uploaded to any Semgrep service. Telemetry is disabled (`--metrics=off`) and version checks are disabled (`--disable-version-check`). |
-| Artefacts | Three SARIF files in the runner temp directory (production-`ERROR`, production-`WARNING`, tooling), published to code scanning under three categories | The workspace is not archived and uploaded, and no credential is written to an artefact. |
+| Artefacts | Four SARIF files in the runner temp directory (production-`ERROR`, production-`WARNING`, tooling-`WARNING`, tooling-`ERROR`), published to code scanning under four categories | The workspace is not archived and uploaded, and no credential is written to an artefact. |
 | Fork behaviour | Analysis runs; the upload is the only privileged step, and a fork pull request receives a read-only token, so `security-events: write` is not granted | Upload is `continue-on-error` so a token-scope limitation cannot turn an otherwise clean analysis red. |
 
 **Known weakness (accepted, owner decision).** The SARIF **upload** steps are

@@ -49,7 +49,11 @@ $checked  = 0;
 $php = \PHP_BINARY;
 foreach ($iterate($root) as $file) {
     $checked++;
-    exec('' . $php . ' -l ' . escapeshellarg($root . '/' . $file) . ' 2>&1', $out, $code);
+    // False positive on argument shape, not provenance: `$php` is \PHP_BINARY (the running
+    // interpreter's own path) and $file is a relative path yielded by the directory walker above,
+    // escaped with escapeshellarg(); no request-derived value reaches the command.
+    // Registered in docs/security/php-sast.md §7.5.
+    exec('' . $php . ' -l ' . escapeshellarg($root . '/' . $file) . ' 2>&1', $out, $code); // nosemgrep: exec-use
     if ($code !== 0) {
         $failures++;
         fwrite(STDERR, implode("\n", $out) . "\n");
