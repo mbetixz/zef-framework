@@ -28,7 +28,7 @@ final class ZefCliContractTest extends TestCase
         self::assertFileExists($bin);
 
         $cmd = \escapeshellarg($php) . ' ' . \escapeshellarg($bin) . ' --self-test=container 2>&1';
-        \exec($cmd, $outputLines, $exitCode);
+        exec($cmd, $outputLines, $exitCode); // nosemgrep: exec-use
         $output = \implode("\n", $outputLines);
 
         self::assertSame(0, $exitCode, "CLI self-test must exit 0:\n{$output}");
@@ -42,7 +42,7 @@ final class ZefCliContractTest extends TestCase
         $bin = __DIR__ . '/../bin/zef';
 
         $cmd = \escapeshellarg($php) . ' ' . \escapeshellarg($bin) . ' --self-test=no-such-suite-key 2>&1';
-        \exec($cmd, $outputLines, $exitCode);
+        exec($cmd, $outputLines, $exitCode); // nosemgrep: exec-use
         $output = \implode("\n", $outputLines);
 
         self::assertNotSame(0, $exitCode, 'unknown filter must not exit 0');
@@ -55,7 +55,7 @@ final class ZefCliContractTest extends TestCase
         $bin = __DIR__ . '/../bin/zef';
 
         $cmd = \escapeshellarg($php) . ' ' . \escapeshellarg($bin) . ' 2>&1';
-        \exec($cmd, $outputLines, $exitCode);
+        exec($cmd, $outputLines, $exitCode); // nosemgrep: exec-use
 
         self::assertSame(0, $exitCode);
         self::assertStringContainsString('ZEF Framework', \implode("\n", $outputLines));

@@ -563,7 +563,7 @@ final class EdgeMatrixF8ObsInfraTest extends TestCase
             // runOtlpServerSession(), which computes it as
             // $buildDir . '/f8_otlp_sink_' . \uniqid('', true) . '.jsonl'. No request
             // input reaches the argument. Accepted suppression: section 7.3.
-            @\unlink($sink); // nosemgrep: unlink-use-qualified
+            @unlink($sink); // nosemgrep: unlink-use
         }
     }
 

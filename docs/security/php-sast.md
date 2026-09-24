@@ -99,6 +99,23 @@ nor `@\unlink(...)`, so four live call sites in `tests/` produced no finding at 
 (§7.3). The pinned commit and its digest are unchanged; the local directory only
 **adds** detection width, and no engine or ruleset pin moved.
 
+**A second ZEF-local rule closes the whole *class* of that miss.** The qualified-call
+false negative is not specific to `unlink`: the same call-form matrix measured **19**
+functions covered by pinned rules that a backslash-qualified call hides. Rather than
+add nineteen per-rule companions, `.github/semgrep/rules/php-lang-security/ban-qualified-global-call.yaml`
+bans the qualified *writing style* for every function a pinned rule matches by name,
+so the pinned rules can see code written in that style. The nineteen call sites were
+then normalised to the bare form, which is equivalent at runtime inside a namespace
+and is proved safe here (§7.4).
+
+**A ruleset overlay resolves a duplicated rule id.** The pinned ruleset declares the
+id `tainted-exec` twice at two different severities, in two directories the workflow
+loads. The workflow builds a small overlay from the *verified* tarball (its `sha256`
+check is unchanged) and replaces exactly that one file with the in-tree merged
+definition, so the id resolves at a single severity with the **union** of both pinned
+pattern sets. The pin therefore stays authoritative and no detection is narrowed;
+details and measurements in §7.4.
+
 One behaviour of the tool matters for maintaining this: Semgrep **namespaces rule
 ids by configuration path**, so the local rule reports as
 `github.semgrep.rules.php-lang-security.unlink-use-qualified` rather than as
@@ -115,6 +132,7 @@ the exact path form the workflow uses.
 | `src/**/*.php` (production / runtime source), `ERROR` severity | yes | **Blocking** — the job fails |
 | `src/**/*.php` (production / runtime source), `WARNING` severity | yes | **Blocking** — the job fails (promoted 2026-09-24) |
 | `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php`, `WARNING` severity | yes | **Blocking** — the job fails (promoted 2026-09-24) |
+| `tests/**/*.php`, `tools/**/*.php`, `scripts/**/*.php`, `ERROR` severity | **measured only** | **No workflow pass evaluates this combination today.** An explicit `ERROR`-floor pass over those trees reports **4** findings that are therefore never evaluated; they are listed in §7.4 and the choice between adding the pass and registering them is an owner decision. Recorded here so the gap is reviewable rather than implied. |
 
 **Why test and tooling code is scanned *and* blocks.** The alternative ("it is not
 production, so skip it") is not accepted here: test and CI helper code runs with
@@ -212,6 +230,19 @@ is recorded in §7.3.
 | `tests/**` + `scripts/**`, `WARNING` floor | 97 files | 30 | yes (`--error`, promoted 2026-09-24) |
 | `tests/**` + `scripts/**`, `WARNING` floor **after** the §7.2 triage | 97 files | 30 registered (exit `0`) | yes (`--error`) |
 
+**Re-measured once more on `main` @ `5bc88c3` (2026-09-24), which is the figure that
+supersedes the two rows above.** After the whole-class qualified-call fix (§7.4) and
+the normalisation of the nineteen call sites, all three blocking passes report **zero
+findings and exit `0`**: `src/` at the `ERROR` floor (360 files), `src/` at the
+`WARNING` floor (360 files), and `tests/`+`scripts/`+`tools/` at the `WARNING` floor
+(97 files). The `src/` `WARNING` row's "3 findings" no longer holds: those three calls
+were rewritten out of the qualified form, so the sibling `unlink-use-qualified` rule now
+matches nothing on this tree and the pinned `unlink-use` rule takes over their
+disposition (§7.4). Nothing was deleted to make this true — the detection width went
+**up** (a rule that flagged 0 calls of this class now flags the class), and each of the
+three blocked passes was re-verified with `--error`, plus a negative control proving the
+suppression markers still carry the exit code.
+
 Re-measured again on `main` @ `2ed883e` after the promotion: the same three
 `WARNING` findings, all `php.lang.security.unlink-use`, on best-effort cleanup of a
 temporary file this code named itself on the failure path of an atomic `rename()`:
@@ -256,14 +287,18 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 39** — two `php.lang.security.eval-use` and thirty-seven
-`unlink-use` (thirty-three under the pinned rule id, four under the ZEF-local
-`unlink-use-qualified`), all accepted by owner decision on 2026-09-24. Three of the
-`unlink-use` entries are in production source (§7.1); thirty are in test code
-(§7.2); the four qualified-call entries close a measured false negative of the
-pinned ruleset and are registered in §7.3. This section previously stated that nothing was suppressed; that was
-wrong, and the register below is the correction. Under rule 4, the accepted list is
-reviewable here as a whole rather than scattered across source files.
+**Registered suppressions: 43** — after the 2026-09-24 whole-class fix they are two
+`php.lang.security.eval-use`, thirty-three `php.lang.security.unlink-use` plus four
+`unlink-use`, and four `php.lang.security.exec-use`. (Count is of marker directives on
+call lines: an explanatory comment that merely *mentions* a marker, such as the prose
+line above `TinkerSession.php:70`, is not one.) Three of the `unlink-use` entries are
+in production source (§7.1); the rest are in test and tooling code (§7.2, §7.4); the
+four qualified-call entries formerly registered under `unlink-use-qualified` are
+**superseded** — their call sites were normalised to the bare form and now carry
+`unlink-use` markers (§7.4). This section previously stated that nothing was
+suppressed; that was wrong, and the register below is the correction. Under rule 4,
+the accepted list is reviewable here as a whole rather than scattered across source
+files.
 
 The three `unlink-use` entries were added when the `WARNING` pass over production
 source was promoted to blocking, and the order matters: the pass first reported
@@ -363,6 +398,109 @@ applies unchanged.
 **Lifetime: permanent** — §7.1 applies unchanged, no rewrite satisfies the rule.
 Every entry is `inSource`, single-line, and carries its reason inline. The alerts
 stay visible in code scanning.
+
+### 7.4 The whole class of the qualified-call miss — closed, and the register after it
+
+§7.3 closed the miss for `unlink` alone. A measured call-form matrix showed that was
+**one instance of a class**: nineteen functions covered by pinned rules were hidden by
+the same backslash-qualified writing style (`assert`, `exec`, `system`, `passthru`,
+`popen`, `shell_exec`, `pcntl_exec`, `proc_open`, `unlink`, `eval`, `unserialize`,
+`phpinfo`, `extract`, `trigger_error`, `ldap_bind`, `openssl_decrypt`,
+`mb_ereg_replace`, `base_convert`, `header`, plus the weak-hash trio). The `@` operator
+is transparent in every case measured — only the leading backslash hides the call.
+
+**The fix is one rule, not nineteen.** `ban-qualified-global-call` (severity
+`WARNING`) bans the qualified writing style for those functions, so the pinned rules
+match the calls they were written to match. The nineteen real call sites were then
+normalised to the bare form: **11** `\assert()`, **4** `\exec()` and **4** `@\unlink()`,
+across six files in `tests/` — `tests/` already carried suppressions for the same
+calls, so this swapped a workaround for the plain form rather than introducing a new
+class of change.
+
+**Bare form is equivalent and proved so.** Inside a namespace, PHP falls back to the
+global function when no function of that name exists in the namespace; the repository
+declares no such shadowing function and no `use function` import of those names
+(measured), so the fallback is unconditional here. The touched suites were executed:
+**129 tests, 527 assertions, OK**.
+
+**Why a regex and not an AST pattern.** The AST route was measured and is impossible:
+`pattern: $F(...)` with a `metavariable-regex` on `$F` matched **zero** qualified calls,
+and the same capture without the backslash matched only bare calls — Semgrep's AST
+matcher does not match a backslash-qualified call at all. This is the same technique
+(and the same limitation) as the §7.3 arm.
+
+**The text-reach cost is contained, not ignored.** `pattern-regex` is evaluated on
+text, so `pattern-not-regex` arms for block comments and quoted strings cancel matches
+that fall inside them — measured working. There is deliberately **no line-comment arm**:
+a regex cannot distinguish `//` inside a quoted string from a real comment, and an arm
+of that shape was measured to cancel a **real** call that merely followed a string
+containing `//`. A hidden real call is a false negative, the worse direction for this
+rule, so the bounded residual is: a line comment *mentioning* a qualified call is
+reported. Same accepted limitation as §7.3.
+
+**Register after this change: 43 entries.**
+
+| # | Rule | Location | Reason | Lifetime |
+|---|---|---|---|---|
+| 22 | `php.lang.security.exec-use` | `tests/ZefCliContractTest.php:31, 45, 58` | `exec()` of a command this test builds from `escapeshellarg($php)` and the path to `bin/zef` — a fixed binary, no test- or request-controlled fragment. The normalisation to bare form is what made the pinned `ERROR` rule see these calls; without the marker the tests pass fails. | **Permanent** — the call is the test's subject |
+| 23 | `php.lang.security.exec-use` | `tests/ZefCliDispatchTest.php:124` | Same shape: the suite's own helper runs `bin/zef` with `escapeshellarg`-quoted arguments. | **Permanent** — the call is the test's subject |
+| 24 | `php.lang.security.unlink-use` | `tests/Unit/EdgeMatrixF10KernelTest.php:436`, `tests/Unit/EdgeMatrixF8ObsInfraTest.php:566`, `tests/Unit/MutationDeepHttpTest.php:81`, `tests/Unit/ObservabilityTest.php:666` | The four §7.3 sites after normalisation. Previously registered under the ZEF-local `unlink-use-qualified` id; now bare, so the **pinned** rule flags them and its id is the correct one. Those four §7.3 entries are **superseded by these**. | **Permanent** — §7.1 applies unchanged |
+
+The ZEF-local `unlink-use-qualified` rule stays loaded even though it now matches
+nothing on this tree. It is **kept rather than deleted** so that no rule is removed as
+part of a change whose purpose was to widen detection; `ban-qualified-global-call`
+covers the same class, so the duplication is inert (zero matches) rather than
+load-bearing.
+
+**Ruleset overlay — the duplicated `tainted-exec` id.** The pinned ruleset declares
+that id twice at different severities, and Semgrep neither deduplicates an id across
+config paths nor lets a later definition override an earlier one. Measured with the
+pinned engine on a fixture outside the repository: with no `--severity` filter the same
+sink line reports **twice**, once at `ERROR` and once at `WARNING`; with a filter, only
+the copy matching that severity is reported. The two copies are also **not supersets**
+— the `ERROR` copy alone adds the sink `pcntl_exec`, while the `WARNING` copy alone adds
+the source `file_get_contents('php://input')`, the sinks `expect_popen`/backticks, and
+the sanitizer `escapeshellcmd`. Picking either would therefore **narrow** detection.
+The workflow consequently composes a derived copy of the *verified* tarball (its
+`sha256` check is unchanged and still runs first) in which the **canonical** file is
+replaced by the in-tree union definition and the divergent copy is **removed**:
+
+| Path in the ruleset | Before | After |
+|---|---|---|
+| `php/lang/security/tainted-exec.yaml` | `ERROR`, 1 result | `ERROR`, 1 result — replaced by the in-tree union definition |
+| `php/lang/security/injection/tainted-exec.yaml` | `WARNING`, 1 result | **removed from the composed tree** — 0 results |
+
+This is a gate **strengthening** and is recorded as such: one id, one definition, one
+severity, union pattern set. Measured on a tainted-`exec()` fixture outside the
+repository, the sink span reported **three** results before (canonical `ERROR`,
+injection `WARNING`, and the separate `exec-use` rule) and **two** after (one
+`tainted-exec` at `ERROR`, plus that separate rule) — the ambiguity is gone and no
+coverage was lost. Residual: `exec-use` still reports the same `exec()` sink under its
+own independently pinned id, which is a distinct rule reporting a real finding rather
+than an ambiguous duplicate. The composed tree is asserted to declare `tainted-exec`
+exactly once, so neither a leftover copy nor a silently skipped overlay can pass.
+
+The overlay rule file lives at `.github/semgrep/overlay/tainted-exec.yaml`, deliberately
+**outside** `.github/semgrep/rules/` — that directory is itself a config input, so a rule
+file inside it would be loaded directly *and* through the composed tree, reintroducing
+the duplication the overlay exists to remove.
+
+**Negative control.** The markers are load-bearing, not decorative. On a copy of the six
+files with every `// nosemgrep:` marker stripped, the same CI-equivalent invocation
+reports **4 active `unlink-use` findings at the `WARNING` floor and 4 active `exec-use`
+findings at the `ERROR` floor**, exiting `1`; with the markers in place the same pass
+exits `0`. Each invocation asserts that files were actually scanned, because an earlier
+probe of this control returned zero findings simply because nothing had been scanned.
+
+**Measured coverage gap, deliberately not closed here.** Enumerating the `ERROR` floor
+over `tests/`, `scripts/` and `tools/` — a combination **no workflow pass evaluates** —
+reports four findings that are pre-existing and un-triaged:
+`tests/SelfTestBridgeTest.php:71` (`exec-use`), `tests/Unit/EdgeMatrixF10ContainerTest.php:116`
+(`eval-use`), `tests/V2110RadixTreeSuite.php:390` (`eval-use`), `scripts/lint.php:52`
+(`exec-use`). They are **left un-suppressed on purpose**: registering a suppression for a
+finding no gate evaluates would hide it, and adding the missing pass would turn this
+pull request red on findings it did not create. Both options are owner decisions, and
+the gap is recorded in §4 so it is visible rather than implied.
 
 #### Former false negative — now closed
 
