@@ -91,6 +91,21 @@ memory**; each was resolved and cross-checked against its upstream source.
 All `uses:` in this workflow resolve to 40-character commit SHAs. No tag, branch
 or `latest` reference is used as a security boundary.
 
+**ZEF-local rules (additive, not a replacement).** `.github/semgrep/rules` is a
+repository-owned rules directory passed to every scan as a fourth `--config`. It
+exists because the pinned ruleset has a **measured false negative** on the
+backslash-qualified call form: `pattern: unlink(...)` does not match `\unlink(...)`
+nor `@\unlink(...)`, so four live call sites in `tests/` produced no finding at all
+(§7.3). The pinned commit and its digest are unchanged; the local directory only
+**adds** detection width, and no engine or ruleset pin moved.
+
+One behaviour of the tool matters for maintaining this: Semgrep **namespaces rule
+ids by configuration path**, so the local rule reports as
+`github.semgrep.rules.php-lang-security.unlink-use-qualified` rather than as
+`unlink-use-qualified`. A `#nosemgrep` marker, however, is matched against the
+rule's **own** id, not against that namespaced `check_id` — measured in §7.3 with
+the exact path form the workflow uses.
+
 ---
 
 ## 4. Scope
@@ -144,9 +159,9 @@ That behaviour was verified empirically, not assumed.
 **Policy shape.** The gate fails on high-severity findings only, and never because
 a scan *ran*. Crucially, the gate is **not** made green by ignoring findings: no
 rule is disabled, there is no blanket path exclusion, and there is no `|| true` on
-the blocking scan step. There **are** thirty-five in-source `#nosemgrep`
-suppressions — two on `eval()`, thirty-three on `unlink()`; they are accepted,
-justified and registered in sections 7.1 and 7.2. This document previously stated that none
+the blocking scan step. There **are** thirty-nine in-source `#nosemgrep`
+suppressions — two on `eval()`, thirty-seven on `unlink()`; they are accepted,
+justified and registered in sections 7.1 to 7.3. This document previously stated that none
 existed — that was wrong, and is corrected there.
 
 **Three-pass policy — every floor is blocking as of 2026-09-24 (owner decision).**
@@ -181,7 +196,14 @@ count; they are corrected here.
 
 Pinned ruleset inventory: **36** rule files under `php/lang/security` (23
 top-level + 10 in `injection/` + 3 in `audit/`). Rules actually evaluated: **20**
-under the `ERROR` floor, **16** under the `WARNING` floor.
+under the `ERROR` floor, **17** under the `WARNING` floor — the 16 pinned
+WARNING-severity rules plus the one ZEF-local rule added on 2026-09-24 (§3).
+
+The `WARNING`-floor figure including the local rule is **17**, confirmed by the
+engine itself (`Ran 17 rules on 90 files`). The figures below were captured before
+the local rule existed, so the *pinned-ruleset* columns remain the comparison
+baseline; the local rule adds findings only under its own id, and the one addition
+is recorded in §7.3.
 
 | Pass | Targets | Findings | Blocking |
 |---|---|---|---|
@@ -234,10 +256,12 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 35** — two `php.lang.security.eval-use` and thirty-three
-`php.lang.security.unlink-use`, all accepted by owner decision on 2026-09-24. Three
-of the `unlink-use` entries are in production source (§7.1); thirty are in test
-code (§7.2). This section previously stated that nothing was suppressed; that was
+**Registered suppressions: 39** — two `php.lang.security.eval-use` and thirty-seven
+`unlink-use` (thirty-three under the pinned rule id, four under the ZEF-local
+`unlink-use-qualified`), all accepted by owner decision on 2026-09-24. Three of the
+`unlink-use` entries are in production source (§7.1); thirty are in test code
+(§7.2); the four qualified-call entries close a measured false negative of the
+pinned ruleset and are registered in §7.3. This section previously stated that nothing was suppressed; that was
 wrong, and the register below is the correction. Under rule 4, the accepted list is
 reviewable here as a whole rather than scattered across source files.
 
@@ -250,12 +274,12 @@ possible without ignoring a finding.
 | # | Rule | Location | Reason | Lifetime |
 |---|---|---|---|---|
 | 1 | `php.lang.security.eval-use` | `src/Adapters/Runtime/TinkerSession.php:68-70` | The `bin/zef tinker` REPL evaluates developer-typed code **by design**. Its caller (`bin/zef`, `zef_tinker()`) refuses to start when `ZEF_ENV=production` unless `--force` is passed, so the input is neither remote nor untrusted; the class itself performs no I/O. Removing `eval()` would remove the feature. | **Permanent** — the feature *is* `eval` |
-| 2 | `php.lang.security.eval-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:163` | `evalFactory()` evaluates **code this compiler generated itself** one step earlier (`generateFactory()` returns a `static fn` expression assembled from `var_export`'d scalars, a `\`-prefixed class name, and integer dependency placeholders — no caller-supplied payload reaches the string). It is the compile-time pattern Symfony's DI container dump uses, and the resulting closure is what makes reflection-free cold start possible. The suppression is **load-bearing**: the CI invocation over `src/**` exits `1` ("2 findings (2 blocking)") without it, measured on the same ruleset. | **Permanent** — the pattern is the feature |
+| 2 | `php.lang.security.eval-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:167` | `evalFactory()` evaluates **code this compiler generated itself** one step earlier (`generateFactory()` returns a `static fn` expression assembled from `var_export`'d scalars, a `\`-prefixed class name, and integer dependency placeholders — no caller-supplied payload reaches the string). It is the compile-time pattern Symfony's DI container dump uses, and the resulting closure is what makes reflection-free cold start possible. The suppression is **load-bearing**: the CI invocation over `src/**` exits `1` ("2 findings (2 blocking)") without it, measured on the same ruleset. | **Permanent** — the pattern is the feature |
 | 3 | `php.lang.security.unlink-use` | `src/Adapters/Http/UploadedFile.php:136` | Best-effort cleanup of `$targetPath . '.zef-tmp-' . bin2hex(random_bytes(8))` — a name this method generated itself at line 66. No request input reaches the argument, and the call runs only on the failure path (`if (!$success)`), after the atomic `rename()` to the caller's destination has already failed; it can therefore only remove a partially written temp file of this method's own making. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 4 | `php.lang.security.unlink-use` | `src/Adapters/Router/RouteCache.php:48` | Same shape: cleanup of `$path . '.' . bin2hex(random_bytes(6)) . '.tmp'` (line 39), a self-named temp sibling of the cache file, on the branch where `rename($tmp, $path)` has already returned false. Not reachable with request-controlled input. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 5 | `php.lang.security.unlink-use` | `src/Application/Container/Autowiring/AutowireAotCompiler.php:104` | Same shape: cleanup of `$path . '.tmp.' . getmypid()` (line 95), a self-named temp sibling of the AOT export, on the branch where `rename($tmp, $path)` has already returned false. Reached from the compile-time CLI path, never from a request. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 
-All thirty-five suppressions are `inSource` and scoped to a single line. None hides
+All thirty-nine suppressions are `inSource` and scoped to a single line. None hides
 a rule-class-wide exclusion, and none removes an evaluation that would otherwise be
 counted: every suppressed finding stays published to code scanning as an alert
 carrying `"kind": "inSource"`, so a reviewer sees the suppression instead of it
@@ -334,26 +358,80 @@ applies unchanged.
 | 18 | `tests/Unit/RuntimeEdgeTest.php` | 248 | `tempnam()` `error_log` sink |
 | 19 | `tests/V2100EnterpriseSuite.php` | 450 | temp route-cache path from the suite's own `tempnam()` |
 | 20 | `tests/V290AutowireSuite.php` | 300, 301 | `tempnam()` malformed-AOT fixture and the AOT export path |
+| 21 | `unlink-use-qualified` (ZEF-local) | `tests/Unit/EdgeMatrixF10KernelTest.php:436`, `tests/Unit/EdgeMatrixF8ObsInfraTest.php:566`, `tests/Unit/MutationDeepHttpTest.php:81`, `tests/Unit/ObservabilityTest.php:666` | Four backslash-qualified `@\unlink()` teardowns that the pinned rule never matched — a ruleset **false negative**, closed on 2026-09-24 by a ZEF-local rule. Detail, measurement and negative control in §7.3. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 
 **Lifetime: permanent** — §7.1 applies unchanged, no rewrite satisfies the rule.
 Every entry is `inSource`, single-line, and carries its reason inline. The alerts
 stay visible in code scanning.
 
-#### Known false negative (recorded, not patched)
+#### Former false negative — now closed
 
-Four call sites in the same tree are **not** reported by the rule and therefore
-carry **no** suppression marker:
-`tests/Unit/EdgeMatrixF10KernelTest.php:432`,
-`tests/Unit/EdgeMatrixF8ObsInfraTest.php:562`,
-`tests/Unit/MutationDeepHttpTest.php:77`,
-`tests/Unit/ObservabilityTest.php:662` — all written as the fully-qualified
-`@\unlink($sink)`, which the rule's `pattern: unlink(...)` does not match.
+This section previously recorded four call sites as a **known false negative** that
+was deliberately left unpatched, on the correct reasoning that a suppression marker
+on a call the rule does not flag is decoration rather than evidence. That standing
+condition changed on 2026-09-24: the gap was closed by a ZEF-local rule instead of
+being carried in a checklist, because leaving a *false negative* open is the more
+dangerous half of a security gate to leave open. The four sites are now detected,
+suppressed narrowly and registered in **§7.3**.
 
-This is recorded rather than patched for two reasons. First, a suppression marker
-on a call the rule does not flag would be decoration, not evidence. Second, it is a
-**ruleset false negative** — the more consequential direction for a security gate —
-and it now belongs in the review checklist for the next ruleset pin move. The same
-construct appears nowhere under `src/`, so production coverage is unaffected today.
+### 7.3 The four qualified-call findings — a rule false negative, closed
+
+Section 7.2 formerly carried these four call sites as a known false negative, left
+unpatched. Owner decision on 2026-09-24 closed it with a ZEF-local rule
+(`.github/semgrep/rules/php-lang-security/unlink-use-qualified.yaml`), because an
+open false negative is the more consequential half of a security gate to leave open.
+
+**The gap, measured** against the pinned ruleset (semgrep 1.177.0, commit
+`40b8c63f`) on a probe **outside this repository** — no insecure code was ever placed
+in `src/`:
+
+| Call form | Pinned rule | ZEF-local rule |
+|---|---|---|
+| `unlink($p)` | flagged | — |
+| `@unlink($p)` | flagged | — |
+| `unlink(realpath($p))` | flagged | — |
+| `\unlink($p)` | **missed** | flagged |
+| `@\unlink($p)` | **missed** | flagged |
+| `@\unlink(realpath($p))` | **missed** | flagged |
+| `unlink('/tmp/lit')`, `\unlink('/tmp/lit')` | — | not flagged (literal exemption) |
+| `$o->unlink($p)`, `Foo::unlink($p)`, `\Zef\unlink($p)` | — | not flagged (method / qualified call) |
+
+**Why a regex arm rather than a second AST pattern.** A qualified-only AST arm
+matched nothing at all, inside or outside `pattern-either`
+(`pattern: '\unlink(...)'` → 0 findings; `pattern: '\unlink($FILE, ...)'` → 0
+findings). Adding the qualified arm *alongside* the unqualified one inside
+`pattern-either` did match — but then double-reported every unqualified span,
+because a second configuration path re-declares the same rule id and Semgrep does
+not deduplicate a rule id across configurations (measured: 4 duplicate spans). The
+local rule therefore uses `pattern-regex` under **its own id**, so it never competes
+with the upstream definition.
+
+**Cost of the regex form (measured, accepted).** `pattern-regex` is evaluated
+against source *text*, not the AST, so it also matches the construct inside a line
+comment, a block comment and a string literal. `pattern-not-regex` cannot cancel
+that: a not-regex range that merely contains the match does not remove it
+(measured). This is accepted because the arm runs under `--severity WARNING
+--error`, so any match is a reviewable finding carrying its own rule id, and the
+current tree contains exactly the four intended occurrences.
+
+| # | Rule | Location | Reason | Lifetime |
+|---|---|---|---|---|
+| 21 | `unlink-use-qualified` | `tests/Unit/EdgeMatrixF10KernelTest.php:436` | Teardown of `$sink`, computed by the test itself at line 248 (`$buildDir . '/f10_otlp_sink_' . \uniqid('', true) . '.jsonl'`), in a `finally` block. No request input reaches the argument. | **Permanent** |
+| 22 | `unlink-use-qualified` | `tests/Unit/EdgeMatrixF8ObsInfraTest.php:566` | Same teardown shape; `$sink` is computed by `runOtlpServerSession()` as `$buildDir . '/f8_otlp_sink_' . \uniqid('', true) . '.jsonl'`. | **Permanent** |
+| 23 | `unlink-use-qualified` | `tests/Unit/MutationDeepHttpTest.php:81` | `$this->tmpFile` is this test's own `\tempnam(\sys_get_temp_dir(), 'zefmut')` (line 62), used as a simulated upload source; the call is additionally guarded by `\is_file()`. | **Permanent** |
+| 24 | `unlink-use-qualified` | `tests/Unit/ObservabilityTest.php:666` | Same teardown shape; `$sink` from `runOtlpServerSession()` (`$buildDir . '/otlp_sink_' . \uniqid('', true) . '.jsonl'`). | **Permanent** |
+
+**Verified behaviour** — CI-equivalent invocation, config path in the exact form the
+workflow uses (`/src/.github/semgrep/rules`), `--severity WARNING --error`:
+
+| Condition | Findings | Exit code |
+|---|---|---|
+| Markers present, `tests/` | 0 | **0** |
+| Markers stripped on a copy outside the repository, same four files | **4** | **1** |
+| `src/` (all three trees), markers present | 0 | **0** |
+
+The negative control is the load-bearing half: it shows the new arm can actually
+fail the job. The marker neutralises the exit code, not the finding.
 
 If a finding must be suppressed in future, the rules are:
 
@@ -440,8 +518,10 @@ A Docker-less local equivalent uses the same version from PyPI
 - **When moving the pin, re-test the suppression markers.** A new ruleset version
   may rename a rule id (which silently un-suppresses every marker) or extend a rule
   to a construct it previously missed. §7.2's recorded false negative on the
-  fully-qualified `\unlink()` form is a concrete instance of the latter: a pin move
-  is the moment to check whether it has been fixed.
+  fully-qualified `\unlink()` form was a concrete instance of the latter; it is now
+  closed by a local rule (§7.3), so a pin move is the moment to check whether the
+  upstream rule has *also* fixed it — if it has, the local rule becomes redundant
+  and should be removed rather than left to double-report.
 - **Never replace the pin with a tag or `latest`.** `latest` as a security
   boundary means the analysis changes without review.
 - **Revisit this decision** if first-party PHP source grows enough that a

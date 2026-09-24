@@ -429,7 +429,11 @@ final class EdgeMatrixF10KernelTest extends TestCase
         } finally {
             $this->restoreOtlpEnv($backupEnv);
             \pcntl_waitpid($pid, $status);
-            @\unlink($sink);
+            // Teardown of $sink, a name this test computed itself at line 248
+            // ($buildDir . '/f10_otlp_sink_' . \uniqid('', true) . '.jsonl'), in the
+            // finally block. No request input reaches the argument. Accepted
+            // suppression: docs/security/php-sast.md section 7.3.
+            @\unlink($sink); // nosemgrep: unlink-use-qualified
             @\fclose($server);
         }
     }

@@ -659,7 +659,11 @@ final class ObservabilityTest extends TestCase
         } finally {
             \pcntl_waitpid($pid, $status);
             \fclose($server);
-            @\unlink($sink);
+            // Server side of the same teardown: $sink comes from
+            // runOtlpServerSession(), which computes it as
+            // $buildDir . '/otlp_sink_' . \uniqid('', true) . '.jsonl'. No request
+            // input reaches the argument. Accepted suppression: section 7.3.
+            @\unlink($sink); // nosemgrep: unlink-use-qualified
         }
     }
 

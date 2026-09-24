@@ -10,6 +10,13 @@ name: PHP SAST
 #   * grants write authority to no job (only security-events: write on this job,
 #     which is required solely to publish SARIF into code scanning),
 #   * never modifies source code.
+#
+# The analysis inputs are the pinned upstream ruleset *plus* the ZEF-local rules in
+# `.github/semgrep/rules`. The local rules close a measured false negative of the
+# pinned ruleset: a backslash-qualified `\unlink()` call is not matched by
+# `pattern: unlink(...)`, so four live call sites in `tests/` previously produced no
+# finding at all. Detection width therefore increased; no threshold, exclusion or
+# floor was relaxed. See docs/security/php-sast.md section 3 for the measurement.
 
 on:
   pull_request:
@@ -88,6 +95,7 @@ jobs:
               --config=/rules/php/lang/security \
               --config=/rules/php/lang/security/injection \
               --config=/rules/php/lang/security/audit \
+              --config=/src/.github/semgrep/rules \
               --metrics=off \
               --disable-version-check \
               --severity ERROR \
@@ -128,6 +136,7 @@ jobs:
               --config=/rules/php/lang/security \
               --config=/rules/php/lang/security/injection \
               --config=/rules/php/lang/security/audit \
+              --config=/src/.github/semgrep/rules \
               --metrics=off \
               --disable-version-check \
               --severity WARNING \
@@ -174,6 +183,7 @@ jobs:
               --config=/rules/php/lang/security \
               --config=/rules/php/lang/security/injection \
               --config=/rules/php/lang/security/audit \
+              --config=/src/.github/semgrep/rules \
               --metrics=off \
               --disable-version-check \
               --severity WARNING \
@@ -234,6 +244,7 @@ jobs:
             echo "- engine: semgrep ${SEMGREP_VERSION} (image pinned by digest)"
             echo "- engine digest: \`${SEMGREP_IMAGE##*@}\`"
             echo "- ruleset commit: \`${RULES_SHA}\`"
+            echo "- ZEF-local rules: \`.github/semgrep/rules\` (additive; closes the qualified-call false negative)"
             echo "- production source, ERROR severity: blocking"
             echo "- production source, WARNING severity: blocking (promoted 2026-09-24)"
             echo "- tests and tooling, WARNING severity: blocking (promoted 2026-09-24)"
