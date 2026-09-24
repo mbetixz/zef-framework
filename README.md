@@ -87,7 +87,7 @@ mengubah perilaku lama.
 # Opsi A — tanpa Composer (zero-composer fallback, seperti monolith aslinya)
 php bin/zef --self-test
 php bin/zef --self-test=v280   # hanya suite fitur v2.8.0 (103 assertion)
-php bin/zef --self-test=v290   # hanya suite autoloading v2.9.0 (59 assertion)
+php bin/zef --self-test=v290   # hanya suite autowiring v2.9.0 (59 assertion)
 php bin/zef --self-test=v210   # hanya suite enterprise v2.10.0 (107 assertion)
 php bin/zef --self-test=v211   # hanya suite radix-tree v2.11.0 (87 assertion)
 
