@@ -594,7 +594,7 @@ final class EdgeMatrixMakerTest extends TestCase
             if (is_dir($full)) {
                 $this->rmRecursive($full);
             } else {
-                unlink($full);
+                unlink($full); // nosemgrep: php.lang.security.unlink-use
             }
         }
         rmdir($path);

@@ -357,7 +357,7 @@ final class EdgeMatrixF6MixedTest extends TestCase
             ini_set('error_log', $prev);
         }
         $written = (string) file_get_contents((string) $tmp);
-        unlink($tmp);
+        unlink($tmp); // nosemgrep: php.lang.security.unlink-use
         self::assertStringContainsString('CSRF protection disabled', $written);
     }
 

@@ -1,7 +1,12 @@
 /vendor/
 /build/
 /.phpunit.cache/
-/.php-cs-fixer.cache/
+# A trailing slash matches only a DIRECTORY, so the cache FILE of the same name
+# stayed committable — it was swept into a commit once. Dropping the slash makes
+# the pattern match the file too. The leading slash anchors it to the repository
+# root (as before), so a nested directory of this name is covered by neither
+# form; that is deliberate, the tool only writes the cache at the root.
+/.php-cs-fixer.cache
 /infection.log
 composer.phar
 /.deptrac.cache

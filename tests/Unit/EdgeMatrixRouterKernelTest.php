@@ -332,7 +332,7 @@ final class EdgeMatrixRouterKernelTest extends TestCase
     public function testRouteCacheRoundTripPreservesRoutesNamesAndConstraints(): void
     {
         $dir = (string) tempnam(sys_get_temp_dir(), 'zefrc');
-        unlink($dir);
+        unlink($dir); // nosemgrep: php.lang.security.unlink-use
         self::assertTrue(mkdir($dir, 0o777, true));
         $path = $dir . '/routes.cache.php';
 
@@ -350,7 +350,7 @@ final class EdgeMatrixRouterKernelTest extends TestCase
         $leftovers = glob($dir . '/*');
         if ($leftovers !== false) {
             foreach ($leftovers as $leftover) {
-                unlink($leftover);
+                unlink($leftover); // nosemgrep: php.lang.security.unlink-use
             }
         }
         rmdir($dir);
@@ -376,7 +376,7 @@ final class EdgeMatrixRouterKernelTest extends TestCase
         } catch (\RuntimeException $e) {
             self::assertStringContainsString('did not return an array', $e->getMessage());
         }
-        unlink($nonArray);
+        unlink($nonArray); // nosemgrep: php.lang.security.unlink-use
 
         $blocked = (string) tempnam(sys_get_temp_dir(), 'zefrc');
         $path = $blocked . '/sub/cache.php'; // parent is a FILE, not a directory

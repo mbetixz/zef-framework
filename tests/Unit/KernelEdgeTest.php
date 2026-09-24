@@ -451,7 +451,7 @@ final class KernelEdgeTest extends TestCase
             self::assertStringContainsString('[REDACTED]', $entry);
         } finally {
             ini_set('error_log', (string) $previous);
-            @unlink($logFile);
+            @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
         }
     }
 

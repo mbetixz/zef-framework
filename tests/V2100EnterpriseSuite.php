@@ -447,7 +447,7 @@ final class V2100EnterpriseSuite
                 'v210: loaded router enforces custom constraints like the original',
             );
         } finally {
-            @unlink($path);
+            @unlink($path); // nosemgrep: php.lang.security.unlink-use
         }
     }
 
