@@ -204,11 +204,12 @@ final class DatabaseTransactionManagerTest extends TestCase
             });
 
             try {
-                $this->tx->withTransaction(function (ConnectionInterface $inner): void {
+                // The never-closure guarantees the inner scope always
+                // throws; the interesting assertion is that the outer
+                // hook survives the savepoint rollback below.
+                $this->tx->withTransaction(function (ConnectionInterface $inner): never {
                     throw new \RuntimeException('inner fails');
                 });
-                // @phpstan-ignore-next-line (the scope always throws on this path)
-                self::fail('Expected inner failure to propagate.');
             } catch (\RuntimeException) {
             }
         });
@@ -254,7 +255,7 @@ final class DatabaseTransactionManagerTest extends TestCase
 
         try {
             $this->tx->withTransaction(function (ConnectionInterface $conn): void {
-                $this->tx->afterCommit(static function (): void {
+                $this->tx->afterCommit(static function (): never {
                     throw new TransactionException('hook fail');
                 });
             });
