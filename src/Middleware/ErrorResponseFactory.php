@@ -12,9 +12,9 @@ namespace Zef\Middleware;
 
 use Zef\Framework\Http\Response;
 
-final class ErrorResponseFactory
+final readonly class ErrorResponseFactory
 {
-    public function __construct(private readonly bool $devMode = false) {}
+    public function __construct(private bool $devMode = false) {}
 
     public function isDebug(): bool
     {

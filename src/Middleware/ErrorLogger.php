@@ -16,9 +16,9 @@ use Zef\Framework\Observability\TelemetrySanitizer;
 /**
  * Retained for legacy modules; core now depends on Psr\Log\LoggerInterface.
  */
-final class ErrorLogger
+final readonly class ErrorLogger
 {
-    public function __construct(private readonly bool $includeMessage = false) {}
+    public function __construct(private bool $includeMessage = false) {}
 
     public function log(string $correlationId, \Throwable $e, ServerRequestInterface $request): void
     {

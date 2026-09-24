@@ -20,11 +20,11 @@ use Zef\Framework\Http\JsonResponse;
 use Zef\Framework\Http\Response;
 use Zef\Framework\Observability\TelemetrySanitizer;
 
-final class GlobalErrorHandler implements MiddlewareInterface
+final readonly class GlobalErrorHandler implements MiddlewareInterface
 {
     public function __construct(
-        private readonly LoggerInterface $logger,
-        private readonly ErrorResponseFactory $factory,
+        private LoggerInterface $logger,
+        private ErrorResponseFactory $factory,
     ) {}
 
     /**
