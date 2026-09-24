@@ -2,15 +2,7 @@
   <img src="assets/readme-banner.svg" alt="ZEF Framework — Hexagonal · PSR-15 · RoadRunner · PHP 8.4+" width="100%">
 </div>
 
-<h1 align="center">ZEF Framework</h1>
-
-<p align="center">
-  <b>Framework PHP 8.4 berarsitektur Hexagonal (Ports &amp; Adapters) dengan worker persisten RoadRunner.</b>
-</p>
-<p align="center">
-  Hasil pemecahan monolith <code>zef_framework_v2.7.0.php</code> — <b>12.639 baris dalam satu berkas</b> — menjadi
-  <b>360 kelas PSR-4</b> yang tertata per layer, dengan tujuh gerbang kualitas yang harus hijau sebelum sebuah perubahan dianggap selesai.
-</p>
+<br>
 
 <div align="center">
 
@@ -45,6 +37,10 @@
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml/badge.svg" alt="Docs &amp; Pages"></a>
 
 </div>
+
+<p align="center">
+  <b>Framework PHP 8.4 berarsitektur Hexagonal dengan worker persisten RoadRunner.</b>
+</p>
 
 <br>
 
@@ -160,7 +156,7 @@ Rincian per rilis: [`docs/CHANGELOG-v2.19.0.md`](docs/CHANGELOG-v2.19.0.md), [`v
 
 ## Instalasi
 
-### Opsi A — Tanpa Composer <kbd>zero-composer</kbd>
+### Opsi A — Tanpa Composer
 
 Classmap statis memuat seluruh kelas first-party; self-test berjalan tanpa PHPUnit dan tanpa jaringan.
 
@@ -320,7 +316,7 @@ bin/zef make:command PlaceOrder --module=katalog
 ```text
 zef-framework/
 ├── assets/readme-banner.svg     # aset README
-├── autoload/zef_autoload.php    # classmap statis (fallback zero-composer)
+├── autoload/zef_autoload.php    # classmap statis (fallback tanpa Composer)
 ├── bin/
 │   ├── zef                      # CLI: list, --self-test, --serve, route:list, make:* , tinker
 │   ├── worker.php               # worker RoadRunner
@@ -408,7 +404,7 @@ Runtime worker persisten berbeda mendasar dari PHP-FPM: proses hidup lama, sehin
 
 ## Gerbang Kualitas
 
-Sebuah perubahan tidak dianggap selesai sebelum **tujuh gerbang independen** hijau. "Test lulus" bukan bukti kualitas, dan "pipeline hijau" bukan bukti keamanan.
+Sebuah perubahan tidak dianggap selesai sebelum **gerbang independen** hijau. "Test lulus" bukan bukti kualitas, dan "pipeline hijau" bukan bukti keamanan.
 
 <table width="100%">
   <tr><th align="left">#</th><th align="left">Gerbang</th><th align="left">Perintah</th><th align="left">Ambang / bukti</th></tr>
@@ -470,10 +466,10 @@ Situs dokumentasi diterbitkan otomatis ke GitHub Pages pada setiap push ke `main
 | Dokumen | Isi |
 |:--------|:----|
 | [`docs/README.md`](docs/README.md) | Indeks dokumentasi |
-| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | Persyaratan, Composer &amp; zero-composer, RoadRunner, Docker/K8s, variabel lingkungan |
+| [`docs/INSTALLATION.md`](docs/INSTALLATION.md) | Persyaratan, Composer, RoadRunner, Docker/K8s, variabel lingkungan |
 | [`docs/CLI.md`](docs/CLI.md) | Referensi lengkap `bin/zef` |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Pembongkaran monolith, layer hexagonal, aturan arah dependensi |
-| [`docs/QUALITY.md`](docs/QUALITY.md) | Tujuh gerbang, mutation testing per area, triage mutan ekuivalen |
+| [`docs/QUALITY.md`](docs/QUALITY.md) | Gerbang kualitas, mutation testing per area, triage mutan ekuivalen |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Worker persisten RoadRunner, state lintas-request, observabilitas |
 | [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | Kebijakan gerbang rilis &amp; ratchet |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Rencana &amp; status fitur |
@@ -513,7 +509,7 @@ php scripts/build_docs.php     # situs dokumentasi → build/docs
 
 <div align="center">
   <sub>
-    Dibangun dengan <b>PHP 8.4</b> · <b>Hexagonal (Ports &amp; Adapters)</b> · <b>RoadRunner</b><br>
+    Dibangun dengan <b>PHP 8.4</b> · <b>Hexagonal</b> · <b>RoadRunner</b><br>
     Dokumentasi terbit otomatis di setiap push ke <code>main</code>.
   </sub>
 </div>
