@@ -174,7 +174,7 @@ if (!function_exists('zef_framework_autoload')) {
                 "Zef\\Framework\\Http\\Response" => __DIR__ . '/../src/Adapters/Http/Response.php',
                 "Zef\\Framework\\Http\\ServerRequest" => __DIR__ . '/../src/Adapters/Http/ServerRequest.php',
                 "Zef\\Framework\\Http\\Stream" => __DIR__ . '/../src/Adapters/Http/Stream.php',
-                "Zef\\Framework\\Http\\TrustedProxyMatcher" => __DIR__ . '/../src/Adapters/Http/TrustedProxyMatcher.php',
+                "Zef\\Framework\\Http\\TrustedProxyMatcher" => __DIR__ . '/../src/Domain/Http/TrustedProxyMatcher.php',
                 "Zef\\Framework\\Http\\UploadedFile" => __DIR__ . '/../src/Adapters/Http/UploadedFile.php',
                 "Zef\\Framework\\Http\\Uri" => __DIR__ . '/../src/Adapters/Http/Uri.php',
                 "Zef\\Framework\\Job\\CronExpression" => __DIR__ . '/../src/Domain/Job/CronExpression.php',

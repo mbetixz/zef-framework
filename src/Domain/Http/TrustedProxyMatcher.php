@@ -3,9 +3,17 @@
 declare(strict_types=1);
 
 /*
- * ZEF Framework v2.7.0 — Adapters layer (inbound adapters)
+ * ZEF Framework v2.7.0 — Domain layer (ports, contracts, value objects)
  * Extracted from monolith zef_framework_v2.7.0.php during the
  * hexagonal refactor (move-only, no behavioural changes).
+ *
+ * Issue #36 exit ramp: relocated Adapters -> Domain with the same FQN
+ * and namespace (classmap + PSR-4 multi-directory both resolve it), so
+ * every consumer — the Application client-address resolver and the
+ * Adapters request factory — is untouched. The class is a pure static
+ * CIDR-matching helper over string inputs: no state, no I/O, no
+ * outbound coupling, so it satisfies the hexagonal rule the
+ * TrustedProxy carve-out used to bypass.
  */
 
 namespace Zef\Framework\Http;
