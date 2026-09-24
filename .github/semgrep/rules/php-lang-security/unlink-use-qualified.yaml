@@ -1,0 +1,95 @@
+# ZEF-local SAST rule: closes a measured false negative in the pinned ruleset.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# The pinned upstream rule `php.lang.security.unlink-use` matches
+#     pattern:      unlink(...)
+#     pattern-not:  unlink("...",...)
+#
+# That AST pattern matches a call by its *unqualified* function name, so a
+# backslash-qualified call is not matched at all. Measured against the pinned
+# ruleset (semgrep 1.177.0, commit 40b8c63f) on a probe outside this repository:
+#
+#     @unlink($p);        -> flagged by the pinned rule
+#     \unlink($p);        -> MISSED
+#     @\unlink($p);       -> MISSED
+#     @\unlink(realpath($p)); -> MISSED
+#
+# Backslash qualification is idiomatic in this codebase (every global function
+# call in `tests/` is written `\foo()`), so the miss is not exotic: four live
+# call sites in `tests/` carried no finding and therefore no suppression.
+# A false negative is the more dangerous direction for a security gate.
+#
+# WHY A REGEX ARM AND NOT A SECOND AST PATTERN
+# --------------------------------------------
+# Adding the qualified form to the AST pattern was measured and rejected. A
+# qualified-only AST arm never matched anything at all, inside or outside
+# `pattern-either`:
+#
+#     patterns: [pattern: '\unlink(...)']                      -> 0 findings
+#     patterns: [pattern: '\unlink($FILE, ...)']               -> 0 findings
+#     pattern-either: [unlink(...), '\unlink(...)']            -> matched, but the
+#         unqualified arm then double-reported every unqualified span, because a
+#         second config path re-declares the same rule id and Semgrep does not
+#         deduplicate it across configs (measured: 4 duplicate spans).
+#
+# The regex arm is therefore used deliberately, and its cost is recorded below.
+#
+# WHAT THIS ARM DOES NOT DO
+# -------------------------
+# `pattern-regex` is evaluated against source *text*, not against the AST. It
+# consequently also matches the construct where it appears inside a comment or a
+# string literal. That was measured (`// \unlink($p)`, `/* \unlink($p) */`,
+# `"call \unlink($p)"` all match). `pattern-not-regex` cannot cancel it: a
+# not-regex range that merely contains the match does not remove it (measured -
+# a same-line `// ... \unlink` exclusion left the finding in place).
+#
+# This is a known, bounded limitation. It is acceptable here because:
+#   * the arm is invoked with `--severity WARNING --error`, so a match is a
+#     reviewable finding, not a silent decision, and the rule id distinguishes it
+#     from the upstream rule in the SARIF and in code scanning;
+#   * the current tree was measured: exactly the 4 intended call sites are
+#     reported, and the whole repository contains no other occurrence.
+# The mitigation if it ever becomes noisy is to move to an AST-capable
+# taint/qualification rule, not to widen the exclusion further.
+#
+# SCOPE OF THE EXCLUSION
+# ----------------------
+# A call whose first argument is a bare string literal is not reported, matching
+# the intent of the pinned rule's `pattern-not: unlink("...",...)`. The
+# lookbehind additionally requires that the call is not itself preceded by an
+# identifier, namespace separator, `->` or `::`, so `$this->unlink(...)`,
+# `Foo::unlink(...)` and `\Zef\unlink(...)` are out of scope - this arm exists to
+# close a specific miss, not to broaden the rule's subject matter.
+rules:
+- id: unlink-use-qualified
+  patterns:
+  - pattern-regex: '(?<![\\\w$>:\-])\\unlink\s*\((?!\s*["''][^"'']*["''])'
+  message: >-
+    Using user input when deleting files with `\unlink()` is potentially
+    dangerous. A malicious actor could use this to modify or access files they
+    have no right to. This is the backslash-qualified call form, which the pinned
+    upstream `php.lang.security.unlink-use` rule does not match; see the ZEF-local
+    rule's own header for the measurement.
+  metadata:
+    references:
+    - https://www.php.net/manual/en/function.unlink
+    - https://owasp.org/www-project-top-ten/2017/A5_2017-Broken_Access_Control.html
+    category: security
+    technology:
+    - php
+    owasp:
+    - A05:2017 - Broken Access Control
+    - A01:2021 - Broken Access Control
+    - A01:2025 - Broken Access Control
+    cwe:
+    - "CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')"
+    cwe2022-top25: true
+    cwe2021-top25: true
+    subcategory:
+    - audit
+    likelihood: LOW
+    impact: MEDIUM
+    confidence: LOW
+  languages: [php]
+  severity: WARNING

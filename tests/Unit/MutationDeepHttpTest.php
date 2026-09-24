@@ -74,7 +74,11 @@ final class MutationDeepHttpTest extends TestCase
         \putenv('ZEF_MAX_HEADER_VALUE_BYTES');
         \putenv('ZEF_MAX_HEADERS_TOTAL_BYTES');
         if ($this->tmpFile !== '' && \is_file($this->tmpFile)) {
-            @\unlink($this->tmpFile);
+            // $this->tmpFile is the \tempnam(\sys_get_temp_dir(), 'zefmut') path
+            // created by this test's own setUp() (line 62) and used as a simulated
+            // upload source. No request input reaches the argument, and the call is
+            // guarded by \is_file(). Accepted suppression: section 7.3.
+            @\unlink($this->tmpFile); // nosemgrep: unlink-use-qualified
         }
     }
 
