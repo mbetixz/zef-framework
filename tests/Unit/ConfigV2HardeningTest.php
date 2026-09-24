@@ -362,7 +362,7 @@ final class ConfigV2HardeningTest extends TestCase
             public static bool $fail = false;
 
             #[\Override]
-            public function get(string $key): ?string
+            public function get(string $key): string
             {
                 if (self::$fail) {
                     throw new \RuntimeException('outage');
