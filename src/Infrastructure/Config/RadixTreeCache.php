@@ -113,8 +113,15 @@ final readonly class RadixTreeCache
 
         try {
             // Silenced: a corrupt payload warns (and/or throws) — both are a
-            // soft miss below, never a boot failure.
-            $entry = @unserialize($blob, ['allowed_classes' => [
+            // soft miss below, never a boot failure. Provenance and blast
+            // radius, for the register (docs/security/php-sast.md §7, row 48):
+            // the blob is a cache file this class itself wrote via the atomic
+            // rename + 0600 contract, and the accepted-classes list is closed
+            // over two final readonly data classes with no magic methods —
+            // no object-injection gadget chain can start, and a tampered
+            // payload still has to survive the version stamp, the SHA-256
+            // fingerprint and the instanceof check below.
+            $entry = @unserialize($blob, ['allowed_classes' => [ // nosemgrep: php.lang.security.unserialize-use
                 ConfigRadixTree::class,
                 ConfigRadixNode::class,
             ]]);
@@ -165,7 +172,7 @@ final readonly class RadixTreeCache
             // ('.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp'). No
             // request input reaches the argument; this runs only when the
             // rename immediately above failed. Registered as an accepted
-            // suppression: docs/security/php-sast.md §7.
+            // suppression: docs/security/php-sast.md §7, row 49.
             @unlink($tmp); // nosemgrep: php.lang.security.unlink-use
 
             throw new InvalidConfigurationException("Failed to publish radix cache '{$cacheFile}'.");

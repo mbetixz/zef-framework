@@ -121,4 +121,21 @@ korupsi + izin file 0600 + residu temp nol, hit/miss memo + anti-poisoning
 CoW + invalidasi struktural, dan tangga migrasi multi-hop + penolakan
 downgrade + integrasi loader (migrasi sebelum resolusi secrets).
 
+## Interaksi quality gate
+
+Run CI pertama PR ini melaporkan tepat SATU temuan SAST yang belum
+terdisposisi: `php.lang.security.unserialize-use` pada jalur baca
+`RadixTreeCache` (gate PHP SAST, pass *production source @ WARNING*, yang
+menjadi blocking sejak 2026-09-24). Disposisinya mengikuti urutan terdaftar
+docs/security/php-sast.md §7 — bukan melonggarkan gate: provenance
+ditelusuri (file cache yang ditulis kelas ini sendiri di bawah kontrak
+rename atomik + 0600), blast radius dibatasi (`allowed_classes` ketat atas
+dua class `final readonly` tanpa magic method — gadget chain object
+injection tidak mungkin dimulai), justifikasi ditulis, marker `#nosemgrep`
+diletakkan tepat di baris call, dan entri register #48–#49 ditambahkan ke
+dokumen. Tidak ada rule yang dimatikan, tidak ada path yang dikecualikan;
+invokasi yang sama kini exit 0 dengan temuan tetap terekam di SARIF
+yang dihasilkan. Marker `unlink` di `write()` (entri #49) mengikuti pola
+entri 3–5 dan 25.
+
 Menutup issue #60 (P1–P4).
