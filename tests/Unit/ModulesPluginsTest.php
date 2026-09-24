@@ -298,7 +298,7 @@ final class ModulesPluginsTest extends TestCase
             assert(is_callable($factory));
             $deps = $spec['deps'] ?? [];
             assert(is_array($deps));
-            $container->register($id, static fn (ContainerInterface $c): mixed => $factory($c), $deps, 'test');
+            $container->register($id, static fn (ContainerInterface $c): mixed => $factory($c), $deps, 'test'); // @phpstan-ignore-line
             self::assertNotNull($container->get($id));
         }
     }

@@ -118,6 +118,7 @@ if (!function_exists('zef_framework_autoload')) {
                 "Zef\\Framework\\Container\\ServiceLifetime" => __DIR__ . '/../src/Domain/Container/ServiceLifetime.php',
                 "Zef\\Framework\\Container\\ServiceProviderInterface" => __DIR__ . '/../src/Domain/Container/ServiceProviderInterface.php',
                 "Zef\\Framework\\Container\\ServiceRegistrar" => __DIR__ . '/../src/Application/Container/ServiceRegistrar.php',
+                "Zef\\Framework\\Container\\ServiceRegistrarInterface" => __DIR__ . '/../src/Domain/Container/ServiceRegistrarInterface.php',
                 "Zef\\Framework\\Container\\ServiceRegistry" => __DIR__ . '/../src/Application/Container/ServiceRegistry.php',
                 "Zef\\Framework\\Container\\ServiceRegistryView" => __DIR__ . '/../src/Application/Container/ServiceRegistryView.php',
                 "Zef\\Framework\\Container\\TaggedServiceLocator" => __DIR__ . '/../src/Application/Container/TaggedServiceLocator.php',

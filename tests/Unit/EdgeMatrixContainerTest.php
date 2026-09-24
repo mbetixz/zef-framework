@@ -28,6 +28,7 @@ use Zef\Framework\Container\InitializationGuard;
 use Zef\Framework\Container\ServiceDefinition;
 use Zef\Framework\Container\ServiceLifetime;
 use Zef\Framework\Container\ServiceProviderInterface;
+use Zef\Framework\Container\ServiceRegistrarInterface;
 use Zef\Framework\Container\ServiceRegistry;
 use Zef\Framework\Exception\InvalidConfigurationException;
 use Zef\Framework\Exception\ModuleDependencyViolationException;
@@ -1459,7 +1460,7 @@ final class Ct2bNullProvider implements ServiceProviderInterface
         return [];
     }
 
-    public function register(Container $container): void {}
+    public function register(ServiceRegistrarInterface $container): void {}
 }
 
 final class Ct2bEagerProvider implements ServiceProviderInterface, BootableProviderInterface
@@ -1473,12 +1474,12 @@ final class Ct2bEagerProvider implements ServiceProviderInterface, BootableProvi
         return ['ct2b.eager.provided'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         ++$this->registered;
     }
 
-    public function boot(Container $container): void
+    public function boot(ServiceRegistrarInterface $container): void
     {
         ++$this->booted;
     }
@@ -1495,13 +1496,13 @@ final class Ct2bLazyProvider implements DeferrableProviderInterface, BootablePro
         return ['ct2b.late.svc'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         ++$this->registered;
         $container->register('ct2b.late.svc', static fn (): \stdClass => new \stdClass());
     }
 
-    public function boot(Container $container): void
+    public function boot(ServiceRegistrarInterface $container): void
     {
         ++$this->booted;
     }
@@ -1517,7 +1518,7 @@ final class Ct2bDupProviderA implements DeferrableProviderInterface
         return ['ct2b.dup'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         ++$this->registered;
         $container->register('ct2b.dup', static fn (): \stdClass => new \stdClass());
@@ -1534,7 +1535,7 @@ final class Ct2bDupProviderB implements DeferrableProviderInterface
         return ['ct2b.dup'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         ++$this->registered;
     }
@@ -1548,7 +1549,7 @@ final class Ct2bNobodyProvider implements DeferrableProviderInterface
         return ['ct2b.nobody'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         $container->register('ct2b.nobody', static fn (): \stdClass => new \stdClass());
     }
@@ -1632,7 +1633,7 @@ final class Ct2bMultiIdProvider implements DeferrableProviderInterface
         return ['ct2b.dup.1', 'ct2b.dup.2'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         ++$this->registered;
         $container->register('ct2b.dup.1', static fn (): \stdClass => new \stdClass());
@@ -1650,7 +1651,7 @@ final class Ct2bSecondProvider implements DeferrableProviderInterface
         return ['ct2b.dup.2'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         ++$this->registered;
     }
@@ -1664,7 +1665,7 @@ final class Ct2bAliasDepProvider implements DeferrableProviderInterface
         return ['ct2b.dep.foralias'];
     }
 
-    public function register(Container $container): void
+    public function register(ServiceRegistrarInterface $container): void
     {
         $container->register('ct2b.dep.foralias', static fn (): \stdClass => new \stdClass());
     }

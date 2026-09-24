@@ -22,6 +22,7 @@ use Zef\Framework\Container\Container;
 use Zef\Framework\Container\DeferrableProviderInterface;
 use Zef\Framework\Container\ServiceLifetime;
 use Zef\Framework\Container\ServiceProviderInterface;
+use Zef\Framework\Container\ServiceRegistrarInterface;
 use Zef\Framework\Exception\ApiVersionUnsupportedException;
 use Zef\Framework\Exception\InvalidConfigurationException;
 use Zef\Framework\Exception\MethodNotAllowedException;
@@ -239,7 +240,7 @@ final class V2100EnterpriseSuite
             }
 
             #[\Override]
-            public function register(Container $container): void
+            public function register(ServiceRegistrarInterface $container): void
             {
                 ++$this->registers;
                 $container->register('eager.svc', static fn (): string => 'EAGER', []);
@@ -256,7 +257,7 @@ final class V2100EnterpriseSuite
             }
 
             #[\Override]
-            public function register(Container $container): void
+            public function register(ServiceRegistrarInterface $container): void
             {
                 ++$this->registers;
                 $container->register('lazy.svc', static fn (): string => 'LAZY', []);
@@ -274,14 +275,14 @@ final class V2100EnterpriseSuite
             }
 
             #[\Override]
-            public function register(Container $container): void
+            public function register(ServiceRegistrarInterface $container): void
             {
                 ++$this->registers;
                 $container->register('boot.svc', static fn (): string => 'BOOT', []);
             }
 
             #[\Override]
-            public function boot(Container $container): void
+            public function boot(ServiceRegistrarInterface $container): void
             {
                 ++$this->boots;
             }
