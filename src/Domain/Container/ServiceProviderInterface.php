@@ -21,26 +21,31 @@ namespace Zef\Framework\Container;
  *
  * Implementations MUST only compose definitions (no resolution inside
  * register()); runtime wiring belongs in BootableProviderInterface::boot().
+ * Since the issue #36 exit ramp the composition handle is the
+ * ServiceRegistrarInterface port, so that convention is now enforced at
+ * the type level: the container handle exposes register()/alias() only.
  */
 interface ServiceProviderInterface
 {
     /** @return list<string> service IDs this provider can register */
     public function provides(): array;
 
-    public function register(Container $container): void;
+    public function register(ServiceRegistrarInterface $container): void;
 }
 
 /**
  * Marker for deferred providers: register() is postponed until one of the
- * provides() IDs is actually requested via Container::get().
+ * provides() IDs is actually requested via the container's get().
  */
 interface DeferrableProviderInterface extends ServiceProviderInterface {}
 
 /**
- * Optional boot hook, invoked once via Container::bootProviders() after all
- * registrations are in place (typically after validateAndFreeze()).
+ * Optional boot hook, invoked once via the container's bootProviders()
+ * after all registrations are in place (typically after
+ * validateAndFreeze()). The handle is the same composition port, so boot()
+ * keeps composing rather than resolving.
  */
 interface BootableProviderInterface
 {
-    public function boot(Container $container): void;
+    public function boot(ServiceRegistrarInterface $container): void;
 }

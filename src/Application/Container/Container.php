@@ -18,7 +18,7 @@ use Zef\Framework\Policy\ArchitecturePolicy;
 use Zef\Framework\Policy\NamespaceScopePolicy;
 use Zef\Framework\Validation\DependencyGraphValidator;
 
-final class Container implements ContainerInterface
+final class Container implements ContainerInterface, ServiceRegistrarInterface
 {
     private readonly ServiceRegistry $registry;
     private readonly ServiceRegistrar $registrar;

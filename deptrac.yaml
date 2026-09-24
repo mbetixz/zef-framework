@@ -11,11 +11,18 @@
 #   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
 #   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
 #                    default exporter wired by the Telemetry facade.
-#   - ContainerImpl: Zef\Framework\Container\Container — the provider
-#                    contracts (ServiceProviderInterface & friends) expose
-#                    the concrete container in their signatures.
 #
 # Retired carve-outs (issue #36 exit ramp — history, kept honest):
+#   - ContainerImpl: Zef\Framework\Container\Container — the provider
+#                    contracts (ServiceProviderInterface & friends) exposed
+#                    the concrete container in their signatures. Retired via
+#                    the ServiceRegistrarInterface composition port in
+#                    src/Domain/Container: register()/boot() now type the
+#                    narrow registrar surface (register + alias) instead of
+#                    the concrete container, the concrete Container implements
+#                    that port 1:1 and resolves as an ordinary Application
+#                    class, and every ContainerImpl edge disappeared from the
+#                    ruleset (Domain now only depends on Compat).
 #   - TrustedProxy: Zef\Framework\Http\TrustedProxyMatcher — moved unchanged
 #                    to src/Domain/Http (pure static CIDR-matching helper; no
 #                    state, no I/O), so the Application client-address resolver
@@ -52,7 +59,7 @@ deptrac:
         -   name: Application
             collectors:
                 -   type: directory
-                    value: src/Application/(?!Container/Container\.php).*
+                    value: src/Application/.*
         -   name: Infrastructure
             collectors:
                 -   type: directory
@@ -83,29 +90,19 @@ deptrac:
             collectors:
                 -   type: directory
                     value: src/Infrastructure/Observability/OtlpHttpJsonExporter\.php
-        -   name: ContainerImpl
-            collectors:
-                -   type: directory
-                    value: src/Application/Container/Container\.php
     ruleset:
         Domain:
             - Compat
-            - ContainerImpl
         Compat: []
         OtlpExporter:
             - Domain
             - Application
             - Infrastructure
             - Compat
-        ContainerImpl:
-            - Domain
-            - Application
-            - Compat
         Application:
             - Domain
             - Compat
             - OtlpExporter
-            - ContainerImpl
         Infrastructure:
             - Domain
             - Application
@@ -115,14 +112,12 @@ deptrac:
             - Application
             - Infrastructure
             - Compat
-            - ContainerImpl
         App:
             - Domain
             - Application
             - Infrastructure
             - Adapters
             - Compat
-            - ContainerImpl
             - Module
             - Plugin
         Module:
@@ -131,11 +126,9 @@ deptrac:
             - Infrastructure
             - Adapters
             - Compat
-            - ContainerImpl
         Plugin:
             - Domain
             - Application
             - Infrastructure
             - Adapters
             - Compat
-            - ContainerImpl
