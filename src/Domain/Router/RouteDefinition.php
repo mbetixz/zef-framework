@@ -3,9 +3,17 @@
 declare(strict_types=1);
 
 /*
- * ZEF Framework v2.7.0 — Adapters layer (inbound adapters)
+ * ZEF Framework v2.7.0 — Domain layer (ports, contracts, value objects)
  * Extracted from monolith zef_framework_v2.7.0.php during the
  * hexagonal refactor (move-only, no behavioural changes).
+ *
+ * Issue #36 exit ramp: relocated Adapters -> Domain with the same FQN
+ * and namespace (classmap + PSR-4 multi-directory both resolve it), so
+ * every consumer — the Domain config aggregator (ModuleDefinition) and
+ * all route-registration call sites — is untouched. The class is a pure
+ * route spec value object: its only dependency is the Domain
+ * HttpMethodValidator, and it has no outbound coupling, so it satisfies
+ * the hexagonal rule the RouteDefSpec carve-out used to bypass.
  */
 
 namespace Zef\Framework\Router;

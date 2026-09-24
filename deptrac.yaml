@@ -9,14 +9,10 @@
 #
 # Exception layers (deliberate, documented deviations):
 #   - Compat:        PSR shim interfaces — pure contracts, allowed everywhere.
-#   - RouteDefSpec:  Zef\Framework\Router\RouteDefinition — route spec value
-#                    object consumed by the Domain config aggregator.
 #   - TrustedProxy:  Zef\Framework\Http\TrustedProxyMatcher — consumed by
 #                    the Application-layer client address resolver.
 #   - OtlpExporter:  Zef\Framework\Observability\OtlpHttpJsonExporter —
 #                    default exporter wired by the Telemetry facade.
-#   - OriginPolicySpec: Zef\Framework\Security\OriginPolicy — consumed by
-#                    the Domain security policy aggregator.
 #   - ContainerImpl: Zef\Framework\Container\Container — the provider
 #                    contracts (ServiceProviderInterface & friends) expose
 #                    the concrete container in their signatures.
@@ -31,6 +27,15 @@
 #                    SleeperInterface port + SystemSleeper default in
 #                    src/Domain/Runtime; BlockingSleeper itself stays in
 #                    Adapters as the untouched static public API.
+#   - RouteDefSpec: Zef\Framework\Router\RouteDefinition — moved unchanged
+#                    to src/Domain/Router (pure route spec value object; only
+#                    dependency is the Domain HttpMethodValidator), so the
+#                    Domain config aggregator now resolves it intra-Domain.
+#   - OriginPolicySpec: Zef\Framework\Security\OriginPolicy — moved
+#                    unchanged to src/Domain/Security (pure origin
+#                    normalisation helper; only dependency is the Domain
+#                    InvalidConfigurationException), so the Domain security
+#                    policy aggregator now resolves it intra-Domain.
 deptrac:
     paths:
         - ./src
@@ -44,7 +49,7 @@ deptrac:
         -   name: Application
             collectors:
                 -   type: directory
-                    value: src/Application/(?!Security/OriginPolicy\.php|Container/Container\.php).*
+                    value: src/Application/(?!Container/Container\.php).*
         -   name: Infrastructure
             collectors:
                 -   type: directory
@@ -52,7 +57,7 @@ deptrac:
         -   name: Adapters
             collectors:
                 -   type: directory
-                    value: src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php).*
+                    value: src/Adapters/(?!Http/TrustedProxyMatcher\.php).*
         -   name: Compat
             collectors:
                 -   type: directory
@@ -71,10 +76,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: plugins/.*
-        -   name: RouteDefSpec
-            collectors:
-                -   type: directory
-                    value: src/Adapters/Router/RouteDefinition\.php
         -   name: TrustedProxy
             collectors:
                 -   type: directory
@@ -83,10 +84,6 @@ deptrac:
             collectors:
                 -   type: directory
                     value: src/Infrastructure/Observability/OtlpHttpJsonExporter\.php
-        -   name: OriginPolicySpec
-            collectors:
-                -   type: directory
-                    value: src/Application/Security/OriginPolicy\.php
         -   name: ContainerImpl
             collectors:
                 -   type: directory
@@ -94,14 +91,9 @@ deptrac:
     ruleset:
         Domain:
             - Compat
-            - RouteDefSpec
             - TrustedProxy
-            - OriginPolicySpec
             - ContainerImpl
         Compat: []
-        RouteDefSpec:
-            - Domain
-            - Compat
         TrustedProxy:
             - Domain
             - Compat
@@ -109,10 +101,6 @@ deptrac:
             - Domain
             - Application
             - Infrastructure
-            - Compat
-        OriginPolicySpec:
-            - Domain
-            - Adapters
             - Compat
         ContainerImpl:
             - Domain
@@ -135,7 +123,6 @@ deptrac:
             - Compat
             - ContainerImpl
             - TrustedProxy
-            - OriginPolicySpec
         App:
             - Domain
             - Application
@@ -143,7 +130,6 @@ deptrac:
             - Adapters
             - Compat
             - ContainerImpl
-            - OriginPolicySpec
             - Module
             - Plugin
         Module:

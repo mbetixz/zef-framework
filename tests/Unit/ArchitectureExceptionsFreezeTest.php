@@ -6,11 +6,11 @@ declare(strict_types=1);
  * Guild Action Item 1 — audit deptrac exceptions (follow-up guard).
  *
  * deptrac.yaml documents deliberate exception layers (Compat + the
- * single-class carve-outs: RouteDefSpec, TrustedProxy, OtlpExporter,
- * OriginPolicySpec, ContainerImpl). The risk called out by the audit is
- * *silent* growth: every new exception widens the coupling the hexagonal
- * rules are supposed to prevent, and without a tripwire nothing fails
- * until the architecture has already drifted.
+ * single-class carve-outs: TrustedProxy, OtlpExporter, ContainerImpl).
+ * The risk called out by the audit is *silent* growth: every new
+ * exception widens the coupling the hexagonal rules are supposed to
+ * prevent, and without a tripwire nothing fails until the architecture
+ * has already drifted.
  *
  * This test freezes the entire exception graph — the layer set, every
  * collector path, the negative-lookahead carve-outs inside the base
@@ -22,11 +22,14 @@ declare(strict_types=1);
  *      extend the header documentation in deptrac.yaml.
  *   2. Prefer the exit ramp instead: replace the carve-out with a pure
  *      port/interface inside src/Domain, then DELETE the exception here —
- *      the way EnvConfig (Env relocated to Domain/Foundation) and
- *      KernelSleeper (SleeperInterface port + SystemSleeper default) were
- *      retired per issue #36. The remaining documented long-term plan is
- *      the ContainerImpl provider contracts (plus an optional future
- *      instance-based EnvInterface for composition-root injection).
+ *      the way EnvConfig (Env relocated to Domain/Foundation),
+ *      KernelSleeper (SleeperInterface port + SystemSleeper default),
+ *      RouteDefSpec (RouteDefinition relocated to Domain/Router), and
+ *      OriginPolicySpec (OriginPolicy relocated to Domain/Security)
+ *      were retired per issue #36. The remaining documented long-term
+ *      plan is the ContainerImpl provider contracts (plus an optional
+ *      future instance-based EnvInterface for composition-root
+ *      injection).
  */
 
 namespace Zef\Test\Unit;
@@ -51,10 +54,8 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
         'App',
         'Module',
         'Plugin',
-        'RouteDefSpec',
         'TrustedProxy',
         'OtlpExporter',
-        'OriginPolicySpec',
         'ContainerImpl',
     ];
 
@@ -65,17 +66,15 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      */
     private const array COLLECTORS = [
         'Domain' => ['src/Domain/.*'],
-        'Application' => ['src/Application/(?!Security/OriginPolicy\.php|Container/Container\.php).*'],
+        'Application' => ['src/Application/(?!Container/Container\.php).*'],
         'Infrastructure' => ['src/Infrastructure/(?!Observability/OtlpHttpJsonExporter\.php).*'],
-        'Adapters' => ['src/Adapters/(?!Router/RouteDefinition\.php|Http/TrustedProxyMatcher\.php).*'],
+        'Adapters' => ['src/Adapters/(?!Http/TrustedProxyMatcher\.php).*'],
         'Compat' => ['src/Compat/.*'],
         'App' => ['src/Bootstrap\.php', 'src/Middleware/.*'],
         'Module' => ['modules/.*'],
         'Plugin' => ['plugins/.*'],
-        'RouteDefSpec' => ['src/Adapters/Router/RouteDefinition\.php'],
         'TrustedProxy' => ['src/Adapters/Http/TrustedProxyMatcher\.php'],
         'OtlpExporter' => ['src/Infrastructure/Observability/OtlpHttpJsonExporter\.php'],
-        'OriginPolicySpec' => ['src/Application/Security/OriginPolicy\.php'],
         'ContainerImpl' => ['src/Application/Container/Container\.php'],
     ];
 
@@ -83,17 +82,15 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
      * Peta edge ruleset lengkap — layer => daftar layer yang boleh dipakai.
      */
     private const array RULESET = [
-        'Domain' => ['Compat', 'RouteDefSpec', 'TrustedProxy', 'OriginPolicySpec', 'ContainerImpl'],
+        'Domain' => ['Compat', 'TrustedProxy', 'ContainerImpl'],
         'Compat' => [],
-        'RouteDefSpec' => ['Domain', 'Compat'],
         'TrustedProxy' => ['Domain', 'Compat'],
         'OtlpExporter' => ['Domain', 'Application', 'Infrastructure', 'Compat'],
-        'OriginPolicySpec' => ['Domain', 'Adapters', 'Compat'],
         'ContainerImpl' => ['Domain', 'Application', 'Compat'],
         'Application' => ['Domain', 'Compat', 'TrustedProxy', 'OtlpExporter', 'ContainerImpl'],
         'Infrastructure' => ['Domain', 'Application', 'Compat'],
-        'Adapters' => ['Domain', 'Application', 'Infrastructure', 'Compat', 'ContainerImpl', 'TrustedProxy', 'OriginPolicySpec'],
-        'App' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl', 'OriginPolicySpec', 'Module', 'Plugin'],
+        'Adapters' => ['Domain', 'Application', 'Infrastructure', 'Compat', 'ContainerImpl', 'TrustedProxy'],
+        'App' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl', 'Module', 'Plugin'],
         'Module' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl'],
         'Plugin' => ['Domain', 'Application', 'Infrastructure', 'Adapters', 'Compat', 'ContainerImpl'],
     ];
@@ -137,8 +134,9 @@ final class ArchitectureExceptionsFreezeTest extends TestCase
     /**
      * ContainerImpl — carve-out tersisa yang masih disorot audit Guild —
      * tetap berupa kelas konkret tunggal; kontrak migrasi ke port Domain
-     * tercatat di header deptrac.yaml. EnvConfig sudah pensiun (Env
-     * pindah ke Domain/Foundation). Test ini menjaga ContainerImpl tidak
+     * tercatat di header deptrac.yaml. EnvConfig, KernelSleeper,
+     * RouteDefSpec, dan OriginPolicySpec sudah pensiun (relokasi FQN-
+     * preserving ke src/Domain). Test ini menjaga ContainerImpl tidak
      * meluas jadi multi-kelas.
      */
     public function testHighlightedCarveOutsRemainSingleClass(): void
