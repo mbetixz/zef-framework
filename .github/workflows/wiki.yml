@@ -1,0 +1,178 @@
+name: Wiki API index
+
+# OPTIONAL, manually triggered companion to pages.yml. It publishes a Markdown
+# *index* of the Doctum API reference into the repository's GitHub Wiki.
+#
+# Deliberately NOT triggered by push or pull_request:
+#   * it can never run during a pull request, so it cannot influence the
+#     required status check "Build API documentation" (docs-check.yml);
+#   * it never writes to a branch of this repository - its only write target is
+#     the separate <repo>.wiki.git repository, and only when explicitly asked.
+#
+# See docs/WIKI-INDEX.md for what can and cannot move into a Wiki.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Push the generated index to the GitHub Wiki (needs WIKI_TOKEN and an existing Wiki)"
+        type: boolean
+        default: false
+
+# Read-only by default. No job below needs write access to this repository:
+# the Wiki lives in a different repository and is reached with WIKI_TOKEN.
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki-index
+  cancel-in-progress: false
+
+jobs:
+  index:
+    name: Generate Wiki API index
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Generate API documentation (Doctum)
+        run: composer docs
+
+      # The Wiki cannot host HTML, CSS, JS or relative page links, so only the
+      # JSON search index is carried across; see docs/WIKI-INDEX.md.
+      - name: Build Markdown index from doctum-search.json
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/doctum_to_wiki.py \
+            build/api/doctum-search.json \
+            build/wiki-index \
+            "https://mbetixz.github.io/zef-framework/api"
+
+      - name: Verify index output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ ! -s build/wiki-index/_Sidebar.md ]; then
+            echo "::error::The Wiki index produced no _Sidebar.md - the generator is broken."
+            exit 1
+          fi
+
+          pages=$(find build/wiki-index -maxdepth 1 -name '*.md' | wc -l)
+          if [ "${pages}" -lt 2 ]; then
+            echo "::error::Expected one Markdown page per namespace, got ${pages} - refusing to publish an empty index."
+            exit 1
+          fi
+
+          if [ ! -s build/wiki-index/_generated.txt ]; then
+            echo "::error::The generator wrote no _generated.txt manifest - a publisher could not refresh safely."
+            exit 1
+          fi
+
+          echo "${pages} Markdown page(s) generated; manifest lists $(wc -l < build/wiki-index/_generated.txt)."
+          {
+            echo "### Wiki API index preview"
+            echo
+            echo '```'
+            head -20 build/wiki-index/_Sidebar.md
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Every gate below fails *closed and quiet*: when the Wiki cannot be
+      # written for an expected reason, the job reports a notice and stops
+      # instead of surfacing a confusing git error.
+      - name: Preflight Wiki publication
+        id: preflight
+        shell: bash
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+          WANT_PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          echo "skip=" >> "$GITHUB_OUTPUT"
+
+          if [ -z "${WIKI_TOKEN}" ]; then
+            echo "::notice::WIKI_TOKEN is not configured, so nothing is pushed. Add a repository secret named WIKI_TOKEN (Contents: read and write) to enable publication. See docs/WIKI-INDEX.md."
+            echo "skip=no-token" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${WANT_PUBLISH}" != "true" ]; then
+            echo "::notice::publish=false (the default). The index was generated and summarised above but not pushed; re-run with publish=true to publish it."
+            echo "skip=not-requested" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A Wiki repository does not exist until the first page is created:
+          # GitHub then answers "remote: Repository not found." with rc 128.
+          # That is an expected state, not a failure, so it is classified here.
+          set +e
+          probe=$(GIT_TERMINAL_PROMPT=0 git ls-remote "https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" 2>&1)
+          rc=$?
+          set -e
+
+          case "${rc}:${probe}" in
+            0:*)
+              echo "The Wiki repository is reachable."
+              ;;
+            *"Repository not found"*)
+              echo "::notice::This repository has no Wiki yet. GitHub creates .wiki.git only once a first page exists - open the Wiki tab, save any page (the default Welcome page is fine), then re-run this job."
+              echo "skip=no-wiki" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::warning::Could not reach the Wiki repository (git ls-remote exited ${rc}). Nothing was pushed; see docs/WIKI-INDEX.md for the required token scope."
+              echo "skip=unreachable" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Publish index to the Wiki
+        if: steps.preflight.outputs.skip == ''
+        shell: bash
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          GIT_TERMINAL_PROMPT=0 git clone --quiet \
+            "https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" \
+            "$work/wiki"
+          cd "$work/wiki"
+
+          # Remove only pages this generator produced previously, per its own
+          # manifest, so hand-written Wiki content is never deleted.
+          if [ -f _generated.txt ]; then
+            while IFS= read -r name; do
+              case "${name}" in
+                ''|*/*|*..*) continue ;;   # never follow a path out of the work tree
+              esac
+              rm -f -- "./${name}"
+            done < _generated.txt
+          fi
+
+          cp "${GITHUB_WORKSPACE}"/build/wiki-index/*.md .
+          cp "${GITHUB_WORKSPACE}"/build/wiki-index/_generated.txt .
+
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              add -A
+
+          if git diff --cached --quiet; then
+            echo "::notice::The Wiki API index is already up to date - nothing to push."
+            exit 0
+          fi
+
+          git commit --quiet -m "docs(wiki): refresh the API index from doctum-search.json"
+          GIT_TERMINAL_PROMPT=0 git push --quiet origin HEAD
+          echo "Published the refreshed Wiki API index."
