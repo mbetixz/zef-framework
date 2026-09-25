@@ -111,17 +111,19 @@ final class SpyLogger extends AbstractLogger
     public array $records = [];
 
     /**
-     * @param string|\Stringable  $level
-     * @param string              $message
+     * PSR-3 contract: $level is mixed (a string level like 'debug',
+     * 'info', etc., or an int-backed enum level). We cast to string for
+     * the recorded snapshot.
+     *
+     * @param mixed               $level
+     * @param string|\Stringable  $message
      * @param array<array-key, mixed> $context
      */
-    public function log($level, string|\Stringable $message, array $context = []): void
+    public function log(mixed $level, string|\Stringable $message, array $context = []): void
     {
-        $levelStr = is_string($level) ? $level : (string) $level;
-        $messageStr = is_string($message) ? $message : (string) $message;
         $this->records[] = [
-            'level' => $levelStr,
-            'message' => $messageStr,
+            'level' => is_string($level) ? $level : (string) $level,
+            'message' => is_string($message) ? $message : (string) $message,
             'context' => $context,
         ];
     }
