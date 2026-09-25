@@ -17,6 +17,7 @@ berarsitektur *Hexagonal (Ports & Adapters)* dengan worker RoadRunner.
 | [`TUTORIAL-CQRS-101.md`](TUTORIAL-CQRS-101.md) | **v2.29.0** — Zero-to-Hero: `make:app` → modul → command/query → wiring bus → HTTP/RoadRunner, plus troubleshooting | Developer baru |
 | [`PLUGINS.md`](PLUGINS.md) | **v2.29.0** — kontrak manifest plugin, registrasi composition root, kriteria registry index, distribusi | Author plugin, maintainer |
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | **v2.30.0** — peta port × adapter ekosistem (object storage S3/Local, transport pesan, job queue PDO), resep kontributor adapter broker, jembatan Cycle ORM, matriks kompatibilitas | Integrator, kontributor adapter |
+| [`EVENT-SOURCING.md`](EVENT-SOURCING.md) | **v2.19.0 / v2.23.0** — event store (optimistic concurrency), `AggregateRoot`/`AggregateRepository`, snapshot, projection + checkpoint, transactional outbox (backoff, dead letter, requeue), event upcasting, adapter in-memory vs PDO, catatan upgrade index unik v2.23 | Developer domain, arsitek |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Pemecahan monolith → layer hexagonal, aturan arah dependensi, peta namespace → layer, autoloading ganda | Arsitek, reviewer |
 | [`QUALITY.md`](QUALITY.md) | Seluruh gerbang kualitas: PHPUnit, coverage, **mutation testing (MSI per area)**, PHPStan, PHPCS, cs-fixer, Rector, Deptrac | Kontributor, release manager |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Pola produksi: RoadRunner (persistent worker), graceful shutdown, observabilitas, health probe, keamanan | SRE, DevOps |
@@ -49,6 +50,7 @@ docs/
 ├── CLI.md
 ├── TUTORIAL-CQRS-101.md
 ├── PLUGINS.md
+├── EVENT-SOURCING.md
 ├── ARCHITECTURE.md
 ├── QUALITY.md
 ├── DEPLOYMENT.md
