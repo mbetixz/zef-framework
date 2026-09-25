@@ -147,7 +147,7 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
      */
     private function makePdoException(string $message, string $sqlState): \PDOException
     {
-        return new class ($message, $sqlState) extends \PDOException {
+        return new class($message, $sqlState) extends \PDOException {
             public function __construct(string $message, string $sqlState)
             {
                 parent::__construct($message, 0);

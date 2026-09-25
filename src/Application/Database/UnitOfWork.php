@@ -123,7 +123,7 @@ final class UnitOfWork
      *   throwables propagate immediately.
      * - On exhaustion the last throwable propagates.
      *
-     * @return int Number of operations executed by the successful attempt.
+     * @return int number of operations executed by the successful attempt
      */
     public function flushRetrying(
         ConnectionInterface $connection,
@@ -142,6 +142,7 @@ final class UnitOfWork
             $attempt = 0;
             while (true) {
                 ++$attempt;
+
                 try {
                     $executed = 0;
                     foreach ($operations as $operation) {

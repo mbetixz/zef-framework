@@ -114,5 +114,3 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
         }
         $this->unitOfWork->flushRetrying($connection, $this->retryPolicy);
     }
-}
-

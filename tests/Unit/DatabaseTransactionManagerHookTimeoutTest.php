@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Zef\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 use Zef\Framework\Database\ConnectionConfig;
 use Zef\Framework\Database\ConnectionInterface;
 use Zef\Framework\Database\PdoConnection;
 use Zef\Framework\Database\SqlQuery;
 use Zef\Framework\Database\TransactionManager;
-use Psr\Log\AbstractLogger;
 
 /**
  * v2.22.1 — issue #65 item 3: cooperative slow-hook guard.
@@ -115,8 +115,6 @@ final class SpyLogger extends AbstractLogger
      * 'info', etc., or an int-backed enum level). We cast to string for
      * the recorded snapshot.
      *
-     * @param mixed               $level
-     * @param string|\Stringable  $message
      * @param array<array-key, mixed> $context
      */
     public function log(mixed $level, string|\Stringable $message, array $context = []): void

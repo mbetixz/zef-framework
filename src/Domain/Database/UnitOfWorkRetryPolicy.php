@@ -10,6 +10,8 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Database;
 
+use Zef\Framework\Job\RetryPolicy;
+
 /**
  * Opt-in retry policy for the {@see UnitOfWork} flush phase.
  *
@@ -133,7 +135,7 @@ final readonly class UnitOfWorkRetryPolicy
      * shaped by `$multiplier`, capped by `$maxDelayMs`, with optional
      * randomised jitter.
      *
-     * @param int $attempt 1-indexed: pass the attempt that just failed.
+     * @param int $attempt 1-indexed: pass the attempt that just failed
      */
     public function delayMs(int $attempt): int
     {

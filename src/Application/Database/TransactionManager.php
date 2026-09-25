@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Database;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * Default {@see TransactionManagerInterface} implementation over a single
  * {@see ConnectionInterface}.
@@ -55,14 +57,13 @@ final class TransactionManager implements TransactionManagerInterface
     public function __construct(
         private readonly ConnectionInterface $connection,
         private readonly ?int $hookDurationThresholdMs = null,
-        private readonly ?\Psr\Log\LoggerInterface $logger = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     /**
      * @template T
      *
      * @param callable(ConnectionInterface): T $fn
-     * @param null|IsolationLevel              $isolation
      *
      * @return T
      *
@@ -164,6 +165,7 @@ final class TransactionManager implements TransactionManagerInterface
             foreach ($pending as $hook) {
                 if ($this->hookDurationThresholdMs === null) {
                     $hook();
+
                     continue;
                 }
 
