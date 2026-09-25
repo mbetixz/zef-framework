@@ -272,9 +272,9 @@ final class RateLimitMiddlewareV25Test extends TestCase
         putenv('ZEF_SECURITY_RATE_LIMIT_TIERS');
         $config = new ConfigProvider()->getConfig();
         $services = $config['services'];
-        \assert(is_array($services));
+        assert(is_array($services));
         $stack = $config['stack'];
-        \assert(is_array($stack));
+        assert(is_array($stack));
         self::assertArrayHasKey('middleware.security.rate_limit', $services);
         self::assertNotContains('middleware.security.rate_limit', $stack);
     }
@@ -286,13 +286,13 @@ final class RateLimitMiddlewareV25Test extends TestCase
         ]));
         $config = new ConfigProvider()->getConfig();
         $stack = $config['stack'];
-        \assert(is_array($stack));
+        assert(is_array($stack));
         $index = array_search('middleware.security.rate_limit', $stack, true);
         self::assertIsInt($index);
         self::assertSame('middleware.security.runtime', $stack[$index - 1], 'joins right after the global runtime security middleware');
 
         $middleware = $this->tierFactory($config)();
-        \assert($middleware instanceof RateLimitMiddleware);
+        assert($middleware instanceof RateLimitMiddleware);
         $response = $middleware->process($this->request('/api'), $this->handler());
         self::assertSame('10', $response->getHeaderLine('RateLimit-Limit'));
     }
@@ -303,7 +303,7 @@ final class RateLimitMiddlewareV25Test extends TestCase
         putenv('ZEF_SECURITY_RATE_LIMIT_ALGORITHM=token');
         $config = new ConfigProvider()->getConfig();
         $middleware = $this->tierFactory($config)();
-        \assert($middleware instanceof RateLimitMiddleware);
+        assert($middleware instanceof RateLimitMiddleware);
         $first = $middleware->process($this->request('/api'), $this->handler());
         self::assertSame('5', $first->getHeaderLine('RateLimit-Limit'));
         // Token-bucket signature: a full bucket of 5 minus one hit leaves
@@ -412,11 +412,11 @@ final class RateLimitMiddlewareV25Test extends TestCase
     private function tierFactory(array $config): callable
     {
         $services = $config['services'];
-        \assert(is_array($services));
+        assert(is_array($services));
         $definition = $services['middleware.security.rate_limit'] ?? null;
-        \assert(is_array($definition));
+        assert(is_array($definition));
         $factory = $definition['factory'] ?? null;
-        \assert(is_callable($factory));
+        assert(is_callable($factory));
 
         return $factory;
     }
@@ -452,9 +452,9 @@ final class RateLimitMiddlewareV25Test extends TestCase
     private function errorField(ResponseInterface $response, string $field): string
     {
         $decoded = json_decode((string) $response->getBody(), true, 8, JSON_THROW_ON_ERROR);
-        \assert(is_array($decoded));
+        assert(is_array($decoded));
         $value = $decoded[$field] ?? null;
-        \assert(is_string($value));
+        assert(is_string($value));
 
         return $value;
     }
