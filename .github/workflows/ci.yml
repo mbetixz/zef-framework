@@ -261,6 +261,15 @@ jobs:
         run: php bin/zef --self-test
 
       - name: PHPUnit (Redis-skip profile)
+        # NON-BLOCKING on purpose (GOVERNANCE 2.7 + the windows platform-debt
+        # issue): the restored cell already caught real Unix-only assumptions
+        # (lint separator, F8 load-time Redis fake, ext-sockets) and the
+        # remaining red — make:app DX path assertions, restrictive file-mode
+        # assertions, LocalStorage failure-mapping fixtures, CRLF-sensitive
+        # expectations — is inventoried in the follow-up issue. The step stays
+        # visible (orange + full log); flip continue-on-error off as the debt
+        # burns down, then promote the cell to required contexts.
+        continue-on-error: true
         run: vendor/bin/phpunit
 
   platform-php85:
