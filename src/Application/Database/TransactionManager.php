@@ -27,6 +27,15 @@ namespace Zef\Framework\Database;
  *
  * Instances are stateful and NOT shareable across concurrent dispatches
  * (PHP request scope) — wire one per bus/worker.
+ *
+ * v2.22.1 (issue #65, item 3) — cooperative hook timeout guard:
+ * when `$hookDurationThresholdMs` is set, each hook is timed; a debug
+ * log entry is emitted via `$logger` (default `NullLogger`) when the
+ * threshold is exceeded. This is observability-only — PHP cannot safely
+ * interrupt a running closure.
+ *
+ * @see docs/TRANSACTION-HOOKS.md for the full hook error-semantics
+ *      documentation.
  */
 final class TransactionManager implements TransactionManagerInterface
 {
@@ -37,10 +46,32 @@ final class TransactionManager implements TransactionManagerInterface
 
     private bool $flushing = false;
 
+    /**
+     * @param int|null $hookDurationThresholdMs Soft threshold in milliseconds;
+     *        null disables the slow-hook debug log (default behaviour).
+     * @param \Psr\Log\LoggerInterface|null $logger Where to emit the debug
+     *        log; defaults to a silent NullLogger.
+     */
     public function __construct(
         private readonly ConnectionInterface $connection,
+        private readonly ?int $hookDurationThresholdMs = null,
+        private readonly ?\Psr\Log\LoggerInterface $logger = null,
     ) {}
 
+    /**
+     * @template T
+     *
+     * @param callable(ConnectionInterface): T $fn
+     * @param null|IsolationLevel              $isolation
+     *
+     * @return T
+     *
+     * @throws \Throwable The inner $fn threw, OR the underlying commit
+     *         primitive failed. The hook queue is discarded and the
+     *         connection rolled back. (Hook failures do NOT propagate
+     *         from here — they run only on a successful commit and throw
+     *         out of {@see drainHooks()}.)
+     */
     #[\Override]
     public function withTransaction(callable $fn, ?IsolationLevel $isolation = null): mixed
     {
@@ -66,6 +97,21 @@ final class TransactionManager implements TransactionManagerInterface
         return $result;
     }
 
+    /**
+     * Queue $hook to run after the current scope's OUTERMOST commit.
+     *
+     * Executes immediately when no managed scope is open (including
+     * during hook flushing). The hook receives no arguments; capture
+     * what it needs in the closure.
+     *
+     * @param callable(): void $hook
+     *
+     * @throws \Throwable When invoked OUTSIDE a managed scope the hook
+     *         runs immediately and any throw propagates. When invoked
+     *         INSIDE a managed scope the hook is queued and may throw
+     *         later — during {@see drainHooks()}, AFTER the commit has
+     *         been applied.
+     */
     #[\Override]
     public function afterCommit(callable $hook): void
     {
@@ -94,6 +140,16 @@ final class TransactionManager implements TransactionManagerInterface
      * The queue is cleared BEFORE draining so a hook failure can never
      * replay already-executed hooks on a later scope; `$flushing` makes
      * hooks registered during the drain run inline.
+     *
+     * v2.22.1 (issue #65, item 3) — cooperative slow-hook guard: when
+     * `$hookDurationThresholdMs` is set, each hook is timed and a debug
+     * log entry is emitted if it exceeds the threshold. This is
+     * observability-only; the hook is allowed to complete.
+     *
+     * @throws \Throwable A queued hook threw. The throw propagates to
+     *         withTransaction()'s caller AFTER the commit has
+     *         succeeded. The remaining hooks in the queue are NOT
+     *         executed (the queue was cleared before draining started).
      */
     private function drainHooks(): void
     {
@@ -106,7 +162,24 @@ final class TransactionManager implements TransactionManagerInterface
 
         try {
             foreach ($pending as $hook) {
+                if ($this->hookDurationThresholdMs === null) {
+                    $hook();
+                    continue;
+                }
+
+                $start = hrtime(true);
                 $hook();
+                $elapsedNs = hrtime(true) - $start;
+                $elapsedMs = (int) ($elapsedNs / 1_000_000);
+                if ($elapsedMs > $this->hookDurationThresholdMs) {
+                    $this->logger?->debug(
+                        'afterCommit hook exceeded slow-hook threshold',
+                        [
+                            'elapsed_ms' => $elapsedMs,
+                            'threshold_ms' => $this->hookDurationThresholdMs,
+                        ],
+                    );
+                }
             }
         } finally {
             $this->flushing = false;
