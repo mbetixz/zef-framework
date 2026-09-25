@@ -30,9 +30,14 @@ use Zef\Framework\Cache\LockStoreInterface;
  *   observes "handled elsewhere" and can report a no-op success.
  * - After a successful run the lease is deliberately kept until the TTL
  *   lapses: duplicate deliveries inside the window short-circuit to null.
- * - When the producer throws, the lease is released best-effort and the
- *   exception propagates, so the worker's retry policy can legitimately
- *   re-run the job instead of every retry collapsing to null.
+ * - When the producer throws, the exception propagates (the worker's
+ *   retry policy must see it), and the lease is released best-effort so
+ *   retries may legitimately re-run the job. When that release itself
+ *   fails (store outage), the failure is reported via error_log() instead
+ *   of being swallowed silently: the lease then stays held for the rest
+ *   of the window — degraded but observable, and self-healing once the
+ *   TTL lapses. The producer's exception is never masked by a store
+ *   error, and the store error is never masked either.
  *
  * The lease TTL doubles as the idempotency window (default 3600s). Lock
  * TTLs are bounded 1..86400s by the port, so windows above one day are
@@ -42,6 +47,11 @@ final readonly class LockingJobIdempotencyStore implements JobIdempotencyStoreIn
 {
     private const string KEY_PREFIX = 'zef:jobidem:';
 
+    /**
+     * Matches InMemoryJobIdempotencyStore's 191-byte key bound (itself the
+     * classic MySQL utf8mb4-friendly index limit) so both adapters of the
+     * port accept exactly the same key space.
+     */
     private const int MAX_KEY_LENGTH = 191;
 
     public function __construct(private LockStoreInterface $store) {}
@@ -69,11 +79,20 @@ final readonly class LockingJobIdempotencyStore implements JobIdempotencyStoreIn
             return $producer();
         } catch (\Throwable $e) {
             // Release the lease so retries may run; a lapsed lease simply
-            // returns false, which is harmless here.
+            // returns false, which is harmless here. A release that itself
+            // throws (store outage) must stay observable: the lease would
+            // remain held until the TTL lapses, blocking retries for this
+            // key — so report it rather than swallowing it silently. The
+            // producer's failure still propagates untouched.
             try {
                 $this->store->release($leaseKey, $owner);
-            } catch (\Throwable) {
-                // Never mask the producer's failure with a store error.
+            } catch (\Throwable $releaseFailure) {
+                error_log(sprintf(
+                    '[ZEF][job] idempotency lease release failed for key "%s" (window %ds): %s — lease remains held until TTL lapse; retries for this key are blocked until then.',
+                    $key,
+                    $ttlSeconds,
+                    $releaseFailure->getMessage(),
+                ));
             }
 
             throw $e;

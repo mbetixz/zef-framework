@@ -14,6 +14,7 @@ namespace Zef\Test\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Zef\Framework\Cache\InMemoryLockStore;
+use Zef\Framework\Cache\LockStoreInterface;
 use Zef\Framework\Job\LockingJobIdempotencyStore;
 
 /**
@@ -198,6 +199,57 @@ final class LockingJobIdempotencyStoreTest extends TestCase
         self::assertSame('report-42', $first);
         self::assertNull($duplicate);
         self::assertSame(1, $runs);
+    }
+
+    public function testReleaseFailureIsReportedAndProducerFailureStillPropagates(): void
+    {
+        $logFile = tempnam(sys_get_temp_dir(), 'zef-idem-err-');
+        self::assertNotFalse($logFile);
+        $previousLog = ini_set('error_log', $logFile);
+
+        try {
+            $store = new class implements LockStoreInterface {
+                #[\Override]
+                public function acquire(string $key, string $owner, int $ttlSeconds): bool
+                {
+                    return true;
+                }
+
+                #[\Override]
+                public function release(string $key, string $owner): bool
+                {
+                    throw new \RuntimeException('store outage');
+                }
+
+                #[\Override]
+                public function refresh(string $key, string $owner, int $ttlSeconds): bool
+                {
+                    return false;
+                }
+
+                #[\Override]
+                public function holder(string $key): ?string
+                {
+                    return null;
+                }
+            };
+            $idempotency = new LockingJobIdempotencyStore($store);
+
+            try {
+                $idempotency->remember('job|abc', static fn (): never => throw new \RuntimeException('producer-boom'), 60);
+                self::fail('The producer failure must propagate.');
+            } catch (\RuntimeException $e) {
+                self::assertSame('producer-boom', $e->getMessage());
+            }
+
+            $logged = (string) file_get_contents($logFile);
+            self::assertStringContainsString('lease release failed', $logged);
+            self::assertStringContainsString('job|abc', $logged);
+            self::assertStringContainsString('store outage', $logged);
+        } finally {
+            ini_set('error_log', (string) $previousLog);
+            @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
+        }
     }
 
     private function clock(): int

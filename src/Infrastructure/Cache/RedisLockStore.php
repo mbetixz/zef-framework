@@ -18,15 +18,21 @@ namespace Zef\Framework\Cache;
  *
  * - Acquisition is `SET key owner PX ttl NX` executed inside a Lua script,
  *   so the existence check and the write are one atomic server-side step.
+ * - Re-acquiring while still holding the lock EXTENDS the lease and
+ *   returns true — deliberate lease-renewal semantics: the sticky cluster
+ *   scheduler and leader election depend on a holder's repeated acquire()
+ *   calls keeping the lease alive. This intentionally diverges from
+ *   InMemoryLockStore, whose re-entrant acquire() merely returns true
+ *   without extending the expiry; the difference is pinned by
+ *   testReacquireBySameOwnerRefreshesLease(). Use refresh() when the
+ *   extension should be explicit rather than a side effect of acquiring.
  * - Release and refresh are compare-and-act Lua scripts: the lock is only
  *   deleted/extended when its current value equals the caller's owner
  *   token. A node may therefore never release or extend a lease that has
  *   already expired and been re-acquired by somebody else.
  * - TTL is enforced by the Redis server itself — no local clock takes part
  *   in the critical path, so multi-node deployments stay drift-free.
- * - Re-acquiring while still holding the lock refreshes the lease and
- *   returns true (same semantics as InMemoryLockStore); acquiring while
- *   another owner holds it returns false.
+ * - Acquiring while another owner holds the lock returns false.
  *
  * Keys are namespaced under `zef:lock:` and hashed (sha256) the same way
  * RedisSharedRateLimitStore namespaces its buckets, so raw user-supplied

@@ -82,6 +82,15 @@ final readonly class LeaderElector
 
     /**
      * Whether this instance is the current leader, per the lock store.
+     *
+     * Advisory only, and subject to TOCTOU: between this check and the
+     * caller's next action the lease can expire or be taken over (for
+     * example when this instance stops renewing within the TTL). Treat
+     * "isLeader() == true" as "allowed to act now", not a guarantee that
+     * nobody else will act concurrently; leadership lapses are bounded by
+     * the TTL, and consumers that need strict single-execution should
+     * guard the action itself with a lock-store lease (see
+     * LockingJobIdempotencyStore) instead of relying on this check.
      */
     public function isLeader(): bool
     {

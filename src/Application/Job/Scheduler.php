@@ -32,8 +32,16 @@ use Zef\Framework\Validation\Identifier;
  * tick: as long as the acting node keeps ticking within the TTL its lease
  * is refreshed, and when it stops (crash, pause) the lease lapses after
  * clusterTtlSeconds and another node takes over — standard leader-election
- * behaviour with no operator action. TTL must exceed the worst-case tick
- * duration; use relinquishClusterLeadership() for graceful handover.
+ * behaviour with no operator action.
+ *
+ * TTL budgeting is the caller's responsibility and cannot be enforced by
+ * the scheduler itself, because tick duration is a runtime property:
+ * size clusterTtlSeconds to comfortably exceed the WORST-CASE tick duration
+ * (registrations x enqueue cost, including catch-up bursts after downtime).
+ * A TTL shorter than a tick can let the lease lapse mid-tick and admit a
+ * duplicate enqueue window; a TTL sized with headroom trades a slightly
+ * slower takeover for exactly-once ticks. Use
+ * relinquishClusterLeadership() for graceful handover.
  */
 final class Scheduler
 {
@@ -47,6 +55,8 @@ final class Scheduler
     private readonly string $clusterOwner;
 
     private readonly string $clusterLockKey;
+
+    private readonly string $clusterName;
 
     public function __construct(
         private readonly JobQueueInterface $queue,
@@ -65,6 +75,7 @@ final class Scheduler
         if ($this->clusterTtlSeconds < 1 || $this->clusterTtlSeconds > 86400) {
             throw new \InvalidArgumentException('Scheduler cluster lease TTL must be 1..86400 seconds.');
         }
+        $this->clusterName = $clusterName;
         $this->clusterLockKey = self::CLUSTER_KEY_PREFIX . $clusterName;
         $this->clusterOwner = 'sched-' . bin2hex(random_bytes(8));
     }
@@ -198,6 +209,14 @@ final class Scheduler
     public function clusterOwner(): string
     {
         return $this->clusterOwner;
+    }
+
+    /**
+     * Cluster name this scheduler competes under (observability).
+     */
+    public function clusterName(): string
+    {
+        return $this->clusterName;
     }
 
     private function newJobId(): string
