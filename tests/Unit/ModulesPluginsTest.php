@@ -273,7 +273,10 @@ final class ModulesPluginsTest extends TestCase
         $config = $provider->getConfig();
         $services = $config['services'];
         self::assertIsArray($services);
-        self::assertSame(5, count($services));
+        // 5 core middleware services + middleware.security.rate_limit (v2.25.0),
+        // which is always REGISTERED but only joins the stack when tiers are set.
+        self::assertSame(6, count($services));
+        self::assertArrayHasKey('middleware.security.rate_limit', $services);
         $stack = $config['stack'];
         self::assertIsArray($stack);
         self::assertSame('middleware.error', $stack[0]);

@@ -15,15 +15,29 @@ use Psr\Log\LoggerInterface;
 use Zef\Framework\Config\ConfigProviderInterface;
 use Zef\Framework\Foundation\Env;
 use Zef\Framework\Security\ApcuRateLimiter;
+use Zef\Framework\Security\HrTimeClock;
 use Zef\Framework\Security\InMemoryRateLimiter;
+use Zef\Framework\Security\RateLimitAlgorithm;
 use Zef\Framework\Security\RateLimiterInterface;
+use Zef\Framework\Security\RateLimitMiddleware;
+use Zef\Framework\Security\RateLimitRule;
 use Zef\Framework\Security\RedisRateLimiter;
 use Zef\Framework\Security\RedisSharedRateLimitStore;
 use Zef\Framework\Security\SecurityPolicy;
 use Zef\Framework\Security\SecurityRuntimeMiddleware;
+use Zef\Framework\Security\SlidingWindowRateLimiter;
+use Zef\Framework\Security\TieredRateLimiter;
+use Zef\Framework\Security\TokenBucketRateLimiter;
 
 final readonly class ConfigProvider implements ConfigProviderInterface
 {
+    /**
+     * Tiers are flat JSON objects; the depth cap is generous headroom against
+     * pathological nesting (a deeply nested payload fails the JSON parse
+     * with a clear boot error instead of behaving unexpectedly).
+     */
+    private const int MAX_TIER_JSON_DEPTH = 16;
+
     public function __construct(private bool $devMode = false) {}
 
     #[\Override]
@@ -76,15 +90,92 @@ final readonly class ConfigProvider implements ConfigProviderInterface
                     },
                     'deps' => [LoggerInterface::class],
                 ],
+                'middleware.security.rate_limit' => [
+                    'factory' => static function (): RateLimitMiddleware {
+                        $rules = self::parseRateLimitTiers(Env::string('ZEF_SECURITY_RATE_LIMIT_TIERS'));
+                        $algorithm = RateLimitAlgorithm::fromString(
+                            Env::string('ZEF_SECURITY_RATE_LIMIT_ALGORITHM', 'sliding'),
+                        );
+                        $limiter = $algorithm === RateLimitAlgorithm::TokenBucket
+                            ? new TokenBucketRateLimiter(new HrTimeClock())
+                            : new SlidingWindowRateLimiter(new HrTimeClock());
+
+                        return new RateLimitMiddleware(
+                            new TieredRateLimiter($limiter),
+                            $rules,
+                            failOpen: Env::bool('ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN'),
+                        );
+                    },
+                    'deps' => [],
+                ],
             ],
-            'stack' => [
-                'middleware.error',
-                'middleware.security.runtime',
-                'middleware.security',
-                'middleware.timing',
-                'middleware.cors',
-            ],
+            'stack' => $this->buildStack(),
         ];
+    }
+
+    /**
+     * The tiered rate-limit middleware joins the stack (right after the
+     * global security runtime middleware) ONLY when tiers are configured —
+     * an unconfigured tier middleware would be inert, and registering it
+     * anyway would suggest protection that is not there.
+     *
+     * @return list<string>
+     */
+    private function buildStack(): array
+    {
+        $stack = [
+            'middleware.error',
+            'middleware.security.runtime',
+            'middleware.security',
+            'middleware.timing',
+            'middleware.cors',
+        ];
+        if (trim(Env::string('ZEF_SECURITY_RATE_LIMIT_TIERS')) !== '') {
+            array_splice($stack, 2, 0, ['middleware.security.rate_limit']);
+        }
+
+        return $stack;
+    }
+
+    /**
+     * Parses ZEF_SECURITY_RATE_LIMIT_TIERS (a JSON list of tier objects)
+     * fail-fast: malformed JSON, a non-list root, a non-object entry or an
+     * invalid tier are BOOT errors — silently dropping a configured quota
+     * would be a security hole.
+     *
+     * @return list<RateLimitRule>
+     */
+    private static function parseRateLimitTiers(string $json): array
+    {
+        if (trim($json) === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($json, true, self::MAX_TIER_JSON_DEPTH, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new \RuntimeException('ZEF_SECURITY_RATE_LIMIT_TIERS is not valid JSON: ' . $e->getMessage(), $e->getCode(), $e);
+        }
+        if (!is_array($decoded) || array_values($decoded) !== $decoded) {
+            throw new \RuntimeException('ZEF_SECURITY_RATE_LIMIT_TIERS must be a JSON list of tier objects.');
+        }
+        $rules = [];
+        foreach ($decoded as $index => $entry) {
+            if (!is_array($entry)) {
+                throw new \RuntimeException(sprintf('ZEF_SECURITY_RATE_LIMIT_TIERS entry %u must be an object.', $index));
+            }
+
+            /** @var array<string, mixed> $object */
+            $object = $entry;
+
+            try {
+                $rules[] = RateLimitRule::fromArray($object);
+            } catch (\InvalidArgumentException $e) {
+                throw new \RuntimeException(sprintf('ZEF_SECURITY_RATE_LIMIT_TIERS entry %u invalid: %s', $index, $e->getMessage()), $e->getCode(), $e);
+            }
+        }
+
+        return $rules;
     }
 
     /**
