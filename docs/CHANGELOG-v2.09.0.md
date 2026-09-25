@@ -1,6 +1,6 @@
-# ZEF Framework — Changelog v2.9.0 (Advanced Autowiring Engine)
+# ZEF Framework — Changelog v2.09.0 (Advanced Autowiring Engine)
 
-> Ekstensi Container v2.7.0 dengan **Autowiring Engine** penuh: resolusi via PHP 8
+> Ekstensi Container v2.07.0 dengan **Autowiring Engine** penuh: resolusi via PHP 8
 > Attributes (`#[Inject]`, `#[Value]`, `#[Target]`), interface binding, koleksi
 > variadic, integrasi `DependencyGraphValidator`, dan kompilasi AOT (ahead-of-time)
 > menjadi Closure murni tanpa Reflection pada runtime.
@@ -8,7 +8,7 @@
 > Seluruh perubahan bersifat **aditif**: `Container`, `ServiceDefinition`,
 > `DependencyGraphValidator`, `ContainerCompiler`, `ArchitecturePolicy`, dan semantik
 > `frozen` **tidak diubah sama sekali**. Konstanta `ZefVersion::VERSION` tetap `2.7.0`
-> demi kompatibilitas wire (mengikuti keputusan rilis v2.8.0).
+> demi kompatibilitas wire (mengikuti keputusan rilis v2.08.0).
 
 ## Klaim Fitur
 
@@ -103,8 +103,8 @@ $cold->validateAndFreeze();
 | Pemeriksaan | Hasil |
 |---|---|
 | `php -l` seluruh file (`scripts/lint.php`) | **299 file, 0 gagal** |
-| Suite baru `v2.9.0 autowiring suite` (`--self-test=v290`) | **59/59 PASSED** (11 sub-suite) |
-| Baseline lengkap (`bin/zef --self-test`) | **307 PASSED / 0 FAILED** (145 monolith + 103 v2.8.0 + 59 v2.9.0) |
+| Suite baru `v2.09.0 autowiring suite` (`--self-test=v290`) | **59/59 PASSED** (11 sub-suite) |
+| Baseline lengkap (`bin/zef --self-test`) | **307 PASSED / 0 FAILED** (145 monolith + 103 v2.08.0 + 59 v2.09.0) |
 | HTTP compare vs monolith (status + body) | **11/11 byte-identik** (permukaan demo tak tersentuh) |
 | Bukti zero-reflection pada kode generasi | setiap factory code & berkas AOT tervalidasi bebas string `Reflection` (assertion suite) |
 | Cold-start AOT dari berkas tanpa refleksi | container baru dibangun via `bootContainer()` murni `include` + `registerDefinition` — extractor tidak pernah dijalankan |
