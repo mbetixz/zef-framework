@@ -15,11 +15,11 @@ use Zef\Framework\Container\ServiceDefinition;
 use Zef\Framework\Exception\InvalidConfigurationException;
 use Zef\Framework\Router\Router;
 
-final class ModuleBootstrapper implements Config\ModuleRegistrar
+final readonly class ModuleBootstrapper implements Config\ModuleRegistrar
 {
     public function __construct(
-        private readonly Container $container,
-        private readonly Router $router,
+        private Container $container,
+        private Router $router,
     ) {}
 
     /** @param array<string,mixed>|Config\ModuleDefinition $config */
