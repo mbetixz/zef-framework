@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/infection/infection/0.30.0/resources/schema.json",
+  "source": {
+    "directories": [
+      "src/Domain/Rules",
+      "src/Application/Rules"
+    ]
+  },
+  "timeout": 30,
+  "logs": {
+    "text": "build/infection-rules.log",
+    "summary": "build/infection-summary-rules.json"
+  },
+  "mutators": {
+    "@default": true
+  }
+}

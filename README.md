@@ -119,7 +119,7 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
   </tr>
   <tr>
     <td><b>Runtime</b></td>
-    <td>Worker persisten RoadRunner v4.1 · async runtime fiber-native (<code>FiberScheduler</code>, channel, semaphore, wait group, cancellation + timeout, v2.26.0) · <code>.rr.yaml</code> siap pakai · CLI <code>bin/zef</code> dengan 10 generator · REPL <code>tinker</code></td>
+    <td>Worker persisten RoadRunner v4.1 · async runtime fiber-native (<code>FiberScheduler</code>, channel, semaphore, wait group, cancellation + timeout, v2.26.0) · async rules engine konkuren (<code>AsyncRuleEngine</code>: batas konkurensi, deadline kooperatif per rule, fail-fast graceful, v2.27.0) · <code>.rr.yaml</code> siap pakai · CLI <code>bin/zef</code> dengan 10 generator · REPL <code>tinker</code></td>
   </tr>
 </table>
 
@@ -149,8 +149,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.23.0** | **Event Sourcing Hardening**: guard stream-continuity (versi wajib +1), snapshot no-regress (CAS), dead-letter `requeue()` + `requeueDeadLetters()`, backstop schema `UNIQUE(event_id)`/`UNIQUE(global_sequence)`, upcasting `UpcasterInterface` + `EventUpcaster` (rename chain + identity guard) |
 | **v2.25.0** | **Rate Limiting**: sliding window counter + token bucket (refill kontinu, cost-aware), tiering `RateLimitRule` + `TieredRateLimiter` (most restrictive wins), header `RateLimit-*` draft IETF + legacy `X-RateLimit-*`, rantai identitas identity > API key > IP, middleware PSR-15 + wiring env fail-fast |
 | **v2.26.0** | **Async Runtime**: scheduler fiber-native (`FiberScheduler::run()/spawn()/await()/awaitAll()/suspend()/sleep()/timeout()`), `FiberChannel` bounded FIFO, `Semaphore` pembatas konkurensi, `WaitGroup`, `CoroutineLocal`, `CancellationToken(Source)`, deteksi deadlock, surfacing unobserved failure, timer monotonic + clock/sleeper port (deterministik di test) |
+| **v2.27.0** | **Async Rules**: engine evaluasi rule konkuren di atas fiber scheduler (`AsyncRuleEngine` + port `AsyncRuleEngineInterface`), verdict total per rule (`RuleVerdict` pass/fail/skip + throwable), `RuleReport` urutan input, `RuleEngineOptions` (batas konkurensi, deadline kooperatif per rule, fail-fast graceful via pembatalan kooperatif), zona mutasi `app-rules` MSI 96.40% |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.26.0.md`](docs/CHANGELOG-v2.26.0.md), [`v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh berkas lainnya di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.27.0.md`](docs/CHANGELOG-v2.27.0.md), [`v2.26.0.md`](docs/CHANGELOG-v2.26.0.md), [`v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh berkas lainnya di [`docs/`](docs/README.md).
 
 </details>
 

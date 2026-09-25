@@ -203,7 +203,7 @@
 - [x] Header validation → `HeaderValidator` · URI validation → `Identifier` · Route constraints → `RouteConstraintValidator`
 - [x] HTTP status/method validators · Trusted host → `TrustedHostValidator` · Port range
 - [x] Container/config dependency validation → `DependencyGraphValidator`
-- [x] Rules engine field-based (v2.8.0: `Validator` + `FieldRules` + `ValidationResult` + `ValidationError`, ReDoS-guarded) · [x] Form request objects terintegrasi HTTP (v2.10.0: `FormRequest::fromServerRequest()`) · [ ] Async rules
+- [x] Rules engine field-based (v2.8.0: `Validator` + `FieldRules` + `ValidationResult` + `ValidationError`, ReDoS-guarded) · [x] Form request objects terintegrasi HTTP (v2.10.0: `FormRequest::fromServerRequest()`) · [x] Async rules (v2.27.0: `AsyncRuleEngine` konkuren di atas fiber scheduler — semaphore cap, deadline kooperatif per rule, fail-fast graceful; `RuleVerdict`/`RuleReport`/`RuleEngineOptions` — zona mutasi `app-rules` MSI 96.40%)
 - [x] Localized error messages (v2.10.0: `MessageCatalog` + `ValidationTranslator`) · [ ] HTML purifier · Sanitization filters
 
 ---
