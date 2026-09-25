@@ -139,7 +139,12 @@ jobs:
         run: composer stan:ratchet
 
       - name: Architecture rules (deptrac)
-        run: vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress
+        # Parity with `composer deptrac` (the documented local gate): the
+        # --fail-on-uncovered flag must match on both sides. Without it the
+        # workflow stayed green while the local gate went red — exactly how
+        # the first uncovered vendor edge (v2.29.0 Doctor -> Spiral PSR7Worker)
+        # reached main unnoticed (issue #94 follow-up).
+        run: vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress --fail-on-uncovered
 
       - name: "Code style (php-cs-fixer: PER-CS2.0 + Symfony + PhpCsFixer + PHP84)"
         run: vendor/bin/php-cs-fixer check --diff --using-cache=no
