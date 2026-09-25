@@ -354,7 +354,11 @@ final class Application
             throw $e;
         } finally {
             $span->end();
-            if (Foundation\Env::bool('ZEF_OTEL_FLUSH_PER_REQUEST')) {
+            // Issue #55 step 3: the flush-per-request knob reads through the
+            // container-bound EnvInterface port (singleton — the per-request
+            // get() is a plan lookup, not a construction).
+            $envPort = $this->container->get(Foundation\EnvInterface::class);
+            if ($envPort instanceof Foundation\EnvInterface && $envPort->readBool('ZEF_OTEL_FLUSH_PER_REQUEST')) {
                 $telemetry->flush();
             }
             $scope->close();

@@ -14,6 +14,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Zef\Framework\Config\ConfigProviderInterface;
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 use Zef\Framework\Security\ApcuRateLimiter;
 use Zef\Framework\Security\HrTimeClock;
 use Zef\Framework\Security\InMemoryRateLimiter;
@@ -38,7 +39,10 @@ final readonly class ConfigProvider implements ConfigProviderInterface
      */
     private const int MAX_TIER_JSON_DEPTH = 16;
 
-    public function __construct(private bool $devMode = false) {}
+    public function __construct(
+        private bool $devMode = false,
+        private EnvInterface $env = new Env(),
+    ) {}
 
     #[\Override]
     public function getModuleName(): string
@@ -50,6 +54,7 @@ final readonly class ConfigProvider implements ConfigProviderInterface
     public function getConfig(): array
     {
         $devMode = $this->devMode;
+        $env = $this->env;
 
         return [
             'services' => [
@@ -70,31 +75,31 @@ final readonly class ConfigProvider implements ConfigProviderInterface
                 ],
                 'middleware.security' => [
                     'factory' => static fn (): SecurityHeadersMiddleware => new SecurityHeadersMiddleware([
-                        'hsts' => Env::bool('ZEF_SECURITY_HSTS'),
-                        'csp' => Env::bool('ZEF_SECURITY_CSP'),
+                        'hsts' => $env->readBool('ZEF_SECURITY_HSTS'),
+                        'csp' => $env->readBool('ZEF_SECURITY_CSP'),
                     ]),
                     'deps' => [],
                 ],
                 'middleware.security.runtime' => [
-                    'factory' => static function (ContainerInterface $c): SecurityRuntimeMiddleware {
+                    'factory' => static function (ContainerInterface $c) use ($env): SecurityRuntimeMiddleware {
                         $logger = null;
 
                         try {
                             $logger = $c->get(LoggerInterface::class);
                         } catch (\Throwable) {
                         }
-                        $policy = SecurityPolicy::fromEnvironment($logger);
-                        $rateLimiter = self::buildRateLimiter($policy, $logger);
+                        $policy = SecurityPolicy::fromEnvironment($logger, $env);
+                        $rateLimiter = self::buildRateLimiter($policy, $logger, $env);
 
                         return new SecurityRuntimeMiddleware($policy, $rateLimiter);
                     },
                     'deps' => [LoggerInterface::class],
                 ],
                 'middleware.security.rate_limit' => [
-                    'factory' => static function (): RateLimitMiddleware {
-                        $rules = self::parseRateLimitTiers(Env::string('ZEF_SECURITY_RATE_LIMIT_TIERS'));
+                    'factory' => static function () use ($env): RateLimitMiddleware {
+                        $rules = self::parseRateLimitTiers($env->readString('ZEF_SECURITY_RATE_LIMIT_TIERS'));
                         $algorithm = RateLimitAlgorithm::fromString(
-                            Env::string('ZEF_SECURITY_RATE_LIMIT_ALGORITHM', 'sliding'),
+                            $env->readString('ZEF_SECURITY_RATE_LIMIT_ALGORITHM', 'sliding'),
                         );
                         $limiter = $algorithm === RateLimitAlgorithm::TokenBucket
                             ? new TokenBucketRateLimiter(new HrTimeClock())
@@ -103,7 +108,7 @@ final readonly class ConfigProvider implements ConfigProviderInterface
                         return new RateLimitMiddleware(
                             new TieredRateLimiter($limiter),
                             $rules,
-                            failOpen: Env::bool('ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN'),
+                            failOpen: $env->readBool('ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN'),
                         );
                     },
                     'deps' => [],
@@ -130,7 +135,7 @@ final readonly class ConfigProvider implements ConfigProviderInterface
             'middleware.timing',
             'middleware.cors',
         ];
-        if (trim(Env::string('ZEF_SECURITY_RATE_LIMIT_TIERS')) !== '') {
+        if (trim($this->env->readString('ZEF_SECURITY_RATE_LIMIT_TIERS')) !== '') {
             array_splice($stack, 2, 0, ['middleware.security.rate_limit']);
         }
 
@@ -190,14 +195,16 @@ final readonly class ConfigProvider implements ConfigProviderInterface
     private static function buildRateLimiter(
         SecurityPolicy $policy,
         ?LoggerInterface $logger = null,
+        ?EnvInterface $env = null,
     ): RateLimiterInterface {
-        $store = strtolower(trim(Env::string('ZEF_RATE_LIMIT_STORE', 'memory')));
+        $env ??= new Env();
+        $store = strtolower(trim($env->readString('ZEF_RATE_LIMIT_STORE', 'memory')));
 
         try {
             return match ($store) {
                 'apcu' => new ApcuRateLimiter($policy->rateLimitMaxKeys),
                 'redis' => new RedisRateLimiter(
-                    new RedisSharedRateLimitStore(self::connectRedis()),
+                    new RedisSharedRateLimitStore(self::connectRedis($env)),
                     $policy->rateLimitMaxKeys,
                 ),
                 default => new InMemoryRateLimiter($policy->rateLimitMaxKeys),
@@ -219,12 +226,13 @@ final readonly class ConfigProvider implements ConfigProviderInterface
      * (redis://[:password@]host[:port][/db]). Throws on failure so the
      * caller can fall back at boot instead of failing every request.
      */
-    private static function connectRedis(): \Redis
+    private static function connectRedis(?EnvInterface $env = null): \Redis
     {
+        $env ??= new Env();
         if (!class_exists(\Redis::class)) {
             throw new \RuntimeException('The phpredis extension is not installed.');
         }
-        $dsn = trim(Env::string('ZEF_REDIS_URL', ''));
+        $dsn = trim($env->readString('ZEF_REDIS_URL', ''));
         if ($dsn === '') {
             throw new \RuntimeException('ZEF_REDIS_URL is required when ZEF_RATE_LIMIT_STORE=redis.');
         }
@@ -233,7 +241,7 @@ final readonly class ConfigProvider implements ConfigProviderInterface
             throw new \RuntimeException('Invalid ZEF_REDIS_URL DSN.');
         }
         $redis = new \Redis();
-        $timeout = (float) (Env::int('ZEF_REDIS_TIMEOUT_MS', 2000, 100, 10000) / 1000);
+        $timeout = (float) ($env->readInt('ZEF_REDIS_TIMEOUT_MS', 2000, 100, 10000) / 1000);
         if (!$redis->pconnect((string) $parts['host'], (int) ($parts['port'] ?? 6379), $timeout)) {
             throw new \RuntimeException('Unable to connect to Redis.');
         }
@@ -264,10 +272,10 @@ final readonly class ConfigProvider implements ConfigProviderInterface
 
     private function buildCors(): CorsMiddleware
     {
-        if (Env::bool('ZEF_CORS_ORIGIN_ANY')) {
+        if ($this->env->readBool('ZEF_CORS_ORIGIN_ANY')) {
             return new CorsMiddleware(['*']);
         }
-        $origins = Env::csv('ZEF_CORS_ORIGIN');
+        $origins = $this->env->readCsv('ZEF_CORS_ORIGIN');
 
         return new CorsMiddleware($origins);
     }

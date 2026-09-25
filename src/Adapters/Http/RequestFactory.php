@@ -15,6 +15,7 @@ use Psr\Http\Message\UploadedFileInterface;
 use Psr\Http\Message\UriInterface;
 use Zef\Framework\Exception\PayloadTooLargeException;
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 use Zef\Framework\Validation\HeaderValidator;
 
 final class RequestFactory
@@ -230,15 +231,17 @@ final class RequestFactory
     }
 
     /** @return array<string,list<string>> */
-    private static function extractHeaders(array $server): array
+    private static function extractHeaders(array $server, ?EnvInterface $env = null): array
     {
+        $env ??= new Env();
         $validator = new HeaderValidator();
         // Inbound header caps (resource-exhaustion backstop). CGI/FPM
         // bound these at the web server; worker / injected-server paths
         // previously had NO limit while the body policy capped at 2 MiB.
-        $maxCount = Env::int('ZEF_MAX_HEADER_COUNT', 128, 8, 4096);
-        $maxValueBytes = Env::int('ZEF_MAX_HEADER_VALUE_BYTES', 16384, 256, 1048576);
-        $maxTotalBytes = Env::int('ZEF_MAX_HEADERS_TOTAL_BYTES', 65536, 1024, 1048576);
+        // Issue #55 step 3: the caps flow through the EnvInterface port.
+        $maxCount = $env->readInt('ZEF_MAX_HEADER_COUNT', 128, 8, 4096);
+        $maxValueBytes = $env->readInt('ZEF_MAX_HEADER_VALUE_BYTES', 16384, 256, 1048576);
+        $maxTotalBytes = $env->readInt('ZEF_MAX_HEADERS_TOTAL_BYTES', 65536, 1024, 1048576);
         $headers = [];
         $count = 0;
         $totalBytes = 0;
