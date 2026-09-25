@@ -132,7 +132,7 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 
 | Rilis | Fokus |
 |:------|:------|
-| **v2.08.0** | Tagged services · URL generator · ETag/304 · ProblemDetails · pagination · Prometheus · health aggregator · cache bertag · scheduler · AES-GCM · TOTP · validator |
+| **v2.8.0** | Tagged services · URL generator · ETag/304 · ProblemDetails · pagination · Prometheus · health aggregator · cache bertag · scheduler · AES-GCM · TOTP · validator |
 | **v2.9.0** | Advanced Autowiring Engine: atribut, interface binding berlapis, variadic koleksi, graf dependensi, AOT compiler |
 | **v2.10.0** | Enterprise Feature Pack: contextual binding, decoration, route cache, API versioning, sort/filter whitelist, key ring, i18n, form request, tinker, manifest K8s |
 | **v2.11.0** | RadixTree Namespace Container |
