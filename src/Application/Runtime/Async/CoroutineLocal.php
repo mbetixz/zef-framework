@@ -51,7 +51,6 @@ final readonly class CoroutineLocal
         }
 
         $scope = $this->store[$fiber] ?? [];
-        assert(is_array($scope));
         $scope[$key] = $value;
         // @phpstan-ignore offsetAssign.dimType, assign.propertyType
         $this->store[$fiber] = $scope;

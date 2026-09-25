@@ -216,7 +216,7 @@ final class AsyncPrimitivesV26Test extends TestCase
             $scheduler->await($sender);
 
             $drained = $channel->receive();
-            assert(is_string($drained));
+            self::assertIsString($drained);
             $outcome[] = 'drain: ' . $drained;
 
             try {
@@ -773,7 +773,7 @@ final class AsyncPrimitivesV26Test extends TestCase
 
             $read = static function (CoroutineLocal $scope): string {
                 $value = $scope->get('k');
-                assert(is_string($value));
+                self::assertIsString($value);
 
                 return $value;
             };
@@ -837,7 +837,7 @@ final class AsyncPrimitivesV26Test extends TestCase
             self::assertTrue($parked->state() === TaskState::Running);
 
             $first = $channel->receive();
-            assert(is_string($first));
+            self::assertIsString($first);
             $scheduler->await($parked);
 
             return $first;
@@ -858,7 +858,7 @@ final class AsyncPrimitivesV26Test extends TestCase
             self::assertSame(0, $channel->count(), 'a direct handoff must not leave a buffered copy');
 
             $value = $scheduler->await($receiver);
-            assert(is_string($value));
+            self::assertIsString($value);
 
             return $value;
         });
@@ -876,11 +876,11 @@ final class AsyncPrimitivesV26Test extends TestCase
             $scheduler->suspend();
 
             $first = $channel->receive();
-            assert(is_string($first));
+            self::assertIsString($first);
             self::assertSame(1, $channel->count(), 'the parked sender value must move into the buffer');
             $scheduler->await($sender);
             $second = $channel->receive();
-            assert(is_string($second));
+            self::assertIsString($second);
 
             return $first . $second;
         });
@@ -927,7 +927,7 @@ final class AsyncPrimitivesV26Test extends TestCase
             $handle->deliver('first');
             $handle->deliver('second');
             $value = $scheduler->awaitSuspension($handle);
-            assert(is_string($value));
+            self::assertIsString($value);
 
             return $value;
         });
@@ -983,10 +983,10 @@ final class AsyncPrimitivesV26Test extends TestCase
             $handle->deliver('first');
             $handle->deliver('second');
             $first = $scheduler->awaitSuspension($handle);
-            assert(is_string($first));
+            self::assertIsString($first);
 
             $shared = $scheduler->await($slow);
-            assert(is_string($shared));
+            self::assertIsString($shared);
 
             return $shared;
         });
@@ -1002,10 +1002,10 @@ final class AsyncPrimitivesV26Test extends TestCase
             $handle->deliver('first');
             $handle->fail(new TaskCancelledException('late failure'));
             $first = $scheduler->awaitSuspension($handle);
-            assert(is_string($first));
+            self::assertIsString($first);
 
             $shared = $scheduler->await($slow);
-            assert(is_string($shared));
+            self::assertIsString($shared);
 
             return $shared;
         });
@@ -1028,7 +1028,7 @@ final class AsyncPrimitivesV26Test extends TestCase
             $handle->deliver('late');
 
             $shared = $scheduler->await($slow);
-            assert(is_string($shared));
+            self::assertIsString($shared);
 
             return $shared;
         });

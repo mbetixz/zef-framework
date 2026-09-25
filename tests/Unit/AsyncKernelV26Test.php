@@ -573,7 +573,7 @@ final class AsyncKernelV26Test extends TestCase
             }, 'target');
             $victim = $scheduler->spawn(function () use ($scheduler, $target): string {
                 $value = $scheduler->await($target);
-                assert(is_string($value));
+                self::assertIsString($value);
 
                 return $value;
             }, 'victim');
@@ -975,7 +975,6 @@ final class AsyncKernelV26Test extends TestCase
 
                     return 'slow';
                 });
-                assert(is_string($result) || $result === null);
 
                 return is_string($result) ? $result : '';
             }, 'guarded');
@@ -1016,7 +1015,7 @@ final class AsyncKernelV26Test extends TestCase
 
             $results = $scheduler->awaitAll([$first, $second, $third]);
 
-            assert($results === ['a', 'b', 'c'], 'awaitAll returns results in input order');
+            self::assertSame(['a', 'b', 'c'], $results, 'awaitAll returns results in input order');
 
             return 'ordered';
         });

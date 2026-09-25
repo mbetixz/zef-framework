@@ -299,7 +299,11 @@ final class FiberScheduler
             throw new TaskCancelledException(sprintf('%s was cancelled while suspended', $owner->name()));
         }
 
-        \assert($payload instanceof SuspendValue);
+        if (!$payload instanceof SuspendValue) {
+            // Defensive: enqueueResume() only delivers SuspendValue|SuspendFail
+            // and the SuspendFail arm throws above, so this is unreachable.
+            throw new \LogicException('unexpected suspension payload');
+        }
 
         return $payload->value;
     }
