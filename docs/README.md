@@ -13,7 +13,8 @@ berarsitektur *Hexagonal (Ports & Adapters)* dengan worker RoadRunner.
 | Dokumen | Isi | Untuk siapa |
 |---------|-----|-------------|
 | [`INSTALLATION.md`](INSTALLATION.md) | Persyaratan, instalasi (Composer & zero-composer), RoadRunner, Docker, Kubernetes, variabel lingkungan | Operator, developer baru |
-| [`CLI.md`](CLI.md) | Referensi lengkap `bin/zef` — self-test, serve, route list, inspector, 11 generator `make:*`, `rr:init`/`doctor`, tinker | Developer sehari-hari |
+| [`CLI.md`](CLI.md) | Referensi lengkap `bin/zef` — self-test, serve, route list, inspector, 11 generator `make:*`, `rr:init`/`doctor`, `openapi:generate`, tinker | Developer sehari-hari |
+| [`OPENAPI.md`](OPENAPI.md) | **v2.20.0** — spesifikasi OpenAPI 3.1 otomatis dari route table, 11 PHP Attributes, serving `/openapi.json` (ETag/304) + Swagger UI, export Postman, validator | Developer API, integrator |
 | [`TUTORIAL-CQRS-101.md`](TUTORIAL-CQRS-101.md) | **v2.29.0** — Zero-to-Hero: `make:app` → modul → command/query → wiring bus → HTTP/RoadRunner, plus troubleshooting | Developer baru |
 | [`PLUGINS.md`](PLUGINS.md) | **v2.29.0** — kontrak manifest plugin, registrasi composition root, kriteria registry index, distribusi | Author plugin, maintainer |
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | **v2.30.0** — peta port × adapter ekosistem (object storage S3/Local, transport pesan, job queue PDO), resep kontributor adapter broker, jembatan Cycle ORM, matriks kompatibilitas | Integrator, kontributor adapter |
@@ -47,6 +48,7 @@ docs/
 ├── README.md            ← Anda di sini (indeks)
 ├── INSTALLATION.md
 ├── CLI.md
+├── OPENAPI.md
 ├── TUTORIAL-CQRS-101.md
 ├── PLUGINS.md
 ├── ARCHITECTURE.md

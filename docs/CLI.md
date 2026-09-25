@@ -183,12 +183,38 @@ REPL mengeksekusi kode arbitrer; `--force` adalah *override* eksplisit.
 
 ---
 
-## 6. Keluar-kode
+## 6. OpenAPI — `bin/zef openapi:generate` — v2.20.0
+
+Mem-boot aplikasi, membaca seluruh route table, lalu menulis dokumen
+**OpenAPI 3.1**. Attribute pada kelas handler digabungkan bila container dapat
+me-resolve service id-nya. Panduan lengkap modul: [`OPENAPI.md`](OPENAPI.md).
+
+```bash
+php bin/zef openapi:generate                                   # openapi.json (pretty)
+php bin/zef openapi:generate --format=yaml                     # openapi.yaml
+php bin/zef openapi:generate --output=build/api.json --pretty=false
+php bin/zef openapi:generate --base-url=https://api.example.com --postman=build/zef.postman.json
+```
+
+| Opsi | Efek | Default |
+|------|------|---------|
+| `--format=json\|yaml` | format keluaran | `json` |
+| `--output=<path>` | berkas tujuan | `openapi.<format>` |
+| `--pretty` / `--pretty=false` | pretty-print JSON (tidak berlaku untuk YAML) | aktif |
+| `--postman=<path>` | tulis juga koleksi Postman v2.1 (JSON) | — |
+| `--base-url=<url>` | tambahkan entri pertama `servers` | — |
+
+**Exit 1** dengan pesan stderr (tanpa stacktrace) bila `--format` tidak dikenal,
+direktori keluaran tidak ada, atau berkas tidak dapat ditulis.
+
+---
+
+## 7. Keluar-kode
 
 | Kode | Arti |
 |------|------|
 | `0` | sukses |
-| `1` | command tak dikenal, nama/filter invalid, tabrakan scaffold, key config tidak ada, atau suite self-test tidak menemukan kecocokan |
+| `1` | command tak dikenal, nama/filter invalid, tabrakan scaffold, kegagalan `openapi:generate`, key config tidak ada, atau suite self-test tidak menemukan kecocokan |
 
 Kontrak ini membuat `bin/zef` aman dipakai di pipeline CI: kegagalan tidak pernah
 dilaporkan sebagai sukses.
