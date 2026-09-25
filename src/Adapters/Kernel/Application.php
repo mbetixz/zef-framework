@@ -104,7 +104,7 @@ final class Application
         // Issue #55: the environment read surface is an ordinary container
         // service, next to ServiceRegistrarInterface and
         // OtlpExporterFactoryInterface. New production code depends on the
-        // port; the historic static facade (Env::__callStatic) keeps
+        // port; the historic static facade (Env::int/bool/string/csv) keeps
         // delegating underneath during the opportunistic migration.
         $this->container->register(
             Foundation\EnvInterface::class,
