@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Zef\Framework\Application;
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 use Zef\Framework\Http\Response;
 use Zef\Framework\Observability\Telemetry;
 
@@ -58,6 +59,7 @@ final class RoadRunnerRuntime implements RuntimeInterface
         private readonly int $maxJobs = 0,
         private readonly int $memoryLimitBytes = 0,
         private readonly bool $installSignalHandlers = true,
+        private readonly ?EnvInterface $env = null,
     ) {
         if ($maxJobs < 0) {
             throw new \InvalidArgumentException('maxJobs must be >= 0.');
@@ -186,9 +188,10 @@ final class RoadRunnerRuntime implements RuntimeInterface
     /** @return array<string,bool|float|int|string> */
     private function loadRuntimeConfig(): array
     {
-        $capacity = Env::int('ZEF_RUNTIME_RESOURCE_CAPACITY', 1, 1, 1024);
-        $saturation = Env::int('ZEF_RUNTIME_SATURATION_PERCENT', 90, 50, 99);
-        $controlRaw = strtolower(trim(Env::string('ZEF_RUNTIME_CONTROL_PLANE', 'off')));
+        $env = $this->env ?? new Env();
+        $capacity = $env->readInt('ZEF_RUNTIME_RESOURCE_CAPACITY', 1, 1, 1024);
+        $saturation = $env->readInt('ZEF_RUNTIME_SATURATION_PERCENT', 90, 50, 99);
+        $controlRaw = strtolower(trim($env->readString('ZEF_RUNTIME_CONTROL_PLANE', 'off')));
         if (!in_array($controlRaw, ['on', 'off'], true)) {
             throw new \InvalidArgumentException('Invalid ZEF_RUNTIME_CONTROL_PLANE.');
         }
