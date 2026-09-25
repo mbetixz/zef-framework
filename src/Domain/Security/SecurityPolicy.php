@@ -12,6 +12,7 @@ namespace Zef\Framework\Security;
 
 use Psr\Log\LoggerInterface;
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 
 final readonly class SecurityPolicy
 {
@@ -76,19 +77,24 @@ final readonly class SecurityPolicy
 
     /**
      * Bug fix #17: error_log routed through LoggerInterface where reachable.
+     *
+     * Issue #55 step 3 (Domain module): every env read flows through the
+     * EnvInterface port — the static facade is gone from this file. The
+     * parameter is optional and defaults to the concrete Env, so existing
+     * callers keep working unchanged.
      */
     public static function fromEnvironment(
         ?LoggerInterface $logger = null,
+        ?EnvInterface $env = null,
     ): self {
+        $env ??= new Env();
         $csrfDefault = true;
-        $csrfEnv = getenv('ZEF_SECURITY_CSRF');
-        if ($csrfEnv !== false && trim((string) $csrfEnv) === '') {
-            $csrfEnv = false;
-        }
+        $csrfRaw = $env->readString('ZEF_SECURITY_CSRF');
+        $csrfEnv = trim($csrfRaw) === '' ? false : $csrfRaw;
         $csrfEnabled = $csrfEnv === false
             ? $csrfDefault
             : filter_var($csrfEnv, FILTER_VALIDATE_BOOL);
-        $csrfSecret = Env::string('ZEF_SECURITY_CSRF_SECRET');
+        $csrfSecret = $env->readString('ZEF_SECURITY_CSRF_SECRET');
         if ($csrfEnabled && $csrfSecret === '' && $csrfEnv !== false && filter_var($csrfEnv, FILTER_VALIDATE_BOOL)) {
             throw new \RuntimeException('ZEF_SECURITY_CSRF=1 requires ZEF_SECURITY_CSRF_SECRET (>= 32 bytes).');
         }
@@ -103,20 +109,20 @@ final readonly class SecurityPolicy
         }
 
         return new self(
-            rateLimitEnabled: Env::bool('ZEF_SECURITY_RATE_LIMIT'),
-            rateLimitMaxRequests: self::envPositiveInt('ZEF_SECURITY_RATE_LIMIT_MAX', 100),
-            rateLimitWindowSeconds: self::envPositiveInt('ZEF_SECURITY_RATE_LIMIT_WINDOW', 60),
-            rateLimitMaxKeys: self::envPositiveInt('ZEF_SECURITY_RATE_LIMIT_MAX_KEYS', 10000),
+            rateLimitEnabled: $env->readBool('ZEF_SECURITY_RATE_LIMIT'),
+            rateLimitMaxRequests: self::envPositiveInt('ZEF_SECURITY_RATE_LIMIT_MAX', 100, $env),
+            rateLimitWindowSeconds: self::envPositiveInt('ZEF_SECURITY_RATE_LIMIT_WINDOW', 60, $env),
+            rateLimitMaxKeys: self::envPositiveInt('ZEF_SECURITY_RATE_LIMIT_MAX_KEYS', 10000, $env),
             csrfEnabled: $csrfEnabled,
             csrfSecret: $csrfSecret,
-            csrfCookieName: trim(Env::string('ZEF_SECURITY_CSRF_COOKIE', 'ZEF-XSRF-TOKEN')),
-            csrfHeaderName: trim(Env::string('ZEF_SECURITY_CSRF_HEADER', 'X-CSRF-Token')),
-            csrfSecureCookie: Env::bool('ZEF_SECURITY_CSRF_SECURE', true),
-            csrfHttpOnlyCookie: Env::bool('ZEF_SECURITY_CSRF_HTTP_ONLY', true),
-            csrfSameSite: trim(Env::string('ZEF_SECURITY_CSRF_SAMESITE', 'Strict')),
-            allowedOrigins: Env::csv('ZEF_SECURITY_ALLOWED_ORIGINS'),
-            originEnabled: Env::bool('ZEF_SECURITY_ORIGIN_POLICY'),
-            csrfTokenBytes: max(16, self::envPositiveInt('ZEF_SECURITY_CSRF_TOKEN_BYTES', 32)),
+            csrfCookieName: trim($env->readString('ZEF_SECURITY_CSRF_COOKIE', 'ZEF-XSRF-TOKEN')),
+            csrfHeaderName: trim($env->readString('ZEF_SECURITY_CSRF_HEADER', 'X-CSRF-Token')),
+            csrfSecureCookie: $env->readBool('ZEF_SECURITY_CSRF_SECURE', true),
+            csrfHttpOnlyCookie: $env->readBool('ZEF_SECURITY_CSRF_HTTP_ONLY', true),
+            csrfSameSite: trim($env->readString('ZEF_SECURITY_CSRF_SAMESITE', 'Strict')),
+            allowedOrigins: $env->readCsv('ZEF_SECURITY_ALLOWED_ORIGINS'),
+            originEnabled: $env->readBool('ZEF_SECURITY_ORIGIN_POLICY'),
+            csrfTokenBytes: max(16, self::envPositiveInt('ZEF_SECURITY_CSRF_TOKEN_BYTES', 32, $env)),
         );
     }
 
@@ -125,10 +131,10 @@ final readonly class SecurityPolicy
      * ZEF_SECURITY_RATE_LIMIT_MAX=1OO silently became 1 request/window
      * (not the documented default). Fall back to the default instead.
      */
-    private static function envPositiveInt(string $name, int $default): int
+    private static function envPositiveInt(string $name, int $default, EnvInterface $env): int
     {
-        $raw = getenv($name);
-        if ($raw === false || trim((string) $raw) === '' || !ctype_digit(trim((string) $raw))) {
+        $raw = $env->readString($name);
+        if (trim($raw) === '' || !ctype_digit(trim($raw))) {
             return $default;
         }
 
