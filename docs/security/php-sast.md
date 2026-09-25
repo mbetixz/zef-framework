@@ -327,21 +327,24 @@ pinned ruleset and the engine image.
 
 ## 7. Suppression policy
 
-**Registered suppressions: 65**, counted from the markers themselves rather than by
+**Registered suppressions: 69**, counted from the markers themselves rather than by
 arithmetic. Breakdown by the rule id named on the marker, as measured with
 `grep -rhoE 'nosemgrep: *[^ ]+' --include=*.php .`:
 
 | Rule id on the marker | Count |
 |---|---|
-| `php.lang.security.unlink-use` | 49 |
+| `php.lang.security.unlink-use` | 53 |
 | `php.lang.security.unserialize-use` | 1 |
 | `exec-use` | 6 |
 | `unlink-use` (ZEF-local scope) | 4 |
 | `php.lang.security.eval-use` | 3 |
 | `eval-use` | 2 |
-| **Total** | **65** |
+| **Total** | **69** |
 
-That is **53 `unlink` + 6 `exec` + 5 `eval` + 1 `unserialize`**. The count is of
+That is **57 `unlink` + 6 `exec` + 5 `eval` + 1 `unserialize`**. The four newest
+`unlink-use` markers live in `tests/Unit/MiddlewareMutationDebtTest.php` (issue
+#90 round 1): each unlinks a `tempnam()` fixture the test itself created for
+asserting on `error_log` output — no request input reaches the path. The count is of
 marker directives on call lines: an explanatory comment that merely *mentions* a
 marker, such as the prose line above `TinkerSession.php:70`, is not one. One earlier
 accounting in this document reached 47 by adding four to a 43 that was itself

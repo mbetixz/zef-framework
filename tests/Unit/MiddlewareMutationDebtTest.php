@@ -232,7 +232,9 @@ final class MiddlewareMutationDebtTest extends TestCase
             $raw,
             'Without a logger the store-fallback warning must reach error_log with the full ordered message.',
         );
-        @unlink($logFile);
+        // The path is a tempnam() fixture created by this test itself; no request
+        // input reaches it. Registered as an accepted suppression: docs/security/php-sast.md §7.
+        @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
     }
 
     // ------------------------------------------------------------------
@@ -428,7 +430,9 @@ final class MiddlewareMutationDebtTest extends TestCase
         $timestamp = $decoded['timestamp'] ?? null;
         self::assertIsString($timestamp);
         self::assertNotSame('', $timestamp);
-        @unlink($logFile);
+        // The path is a tempnam() fixture created by this test itself; no request
+        // input reaches it. Registered as an accepted suppression: docs/security/php-sast.md §7.
+        @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testMessageFlagCarriesUnescapedUnicodeAndSlashes(): void
@@ -451,7 +455,9 @@ final class MiddlewareMutationDebtTest extends TestCase
         self::assertStringContainsString('/api/v1', $raw, 'JSON_UNESCAPED_SLASHES must keep slashes literal.');
         self::assertStringNotContainsString('\/api', $raw, 'Escaped slashes would mean the BitwiseOr mutant survived.');
         self::assertStringContainsString('café failed at /api/v1', $raw);
-        @unlink($logFile);
+        // The path is a tempnam() fixture created by this test itself; no request
+        // input reaches it. Registered as an accepted suppression: docs/security/php-sast.md §7.
+        @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
     }
 
     // ------------------------------------------------------------------
@@ -550,7 +556,9 @@ final class MiddlewareMutationDebtTest extends TestCase
         );
         self::assertStringContainsString('ZEF logging failure: ', $raw);
         self::assertStringContainsString('RuntimeException', $raw, 'The failure CLASS must be part of the error_log line.');
-        @unlink($logFile);
+        // The path is a tempnam() fixture created by this test itself; no request
+        // input reaches it. Registered as an accepted suppression: docs/security/php-sast.md §7.
+        @unlink($logFile); // nosemgrep: php.lang.security.unlink-use
     }
 
     public function testFactoryFailureDegradesToPlain500WithTheCorrelationHeader(): void
