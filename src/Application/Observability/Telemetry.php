@@ -13,6 +13,7 @@ namespace Zef\Framework\Observability;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 
 final class Telemetry
 {
@@ -39,6 +40,7 @@ final class Telemetry
         private readonly ?MetricExporterInterface $metricExporter = null,
         private readonly ?LogExporterInterface $logExporter = null,
         private readonly bool $enabled = true,
+        private readonly ?EnvInterface $env = null,
     ) {}
 
     /**
@@ -48,13 +50,21 @@ final class Telemetry
      * OtlpExporterFactoryInterface port; the kernel composition root wires the
      * default factory via container config. Endpoint validation and every env
      * knob stay here — only the concrete exporter construction is delegated.
+     *
+     * Issue #55 step 3 (observability module): every env knob is read through
+     * the injected EnvInterface port — the static facade is gone from this
+     * file. The parameter is optional and defaults to the concrete Env, so
+     * existing callers keep working unchanged; the kernel composition root
+     * passes the container-bound port.
      */
     public static function fromEnvironment(
         ?LoggerInterface $logger = null,
         bool $registerShutdownHook = true,
         ?OtlpExporterFactoryInterface $exporterFactory = null,
+        ?EnvInterface $env = null,
     ): self {
-        $enabled = Env::bool('ZEF_OTEL_ENABLED', false);
+        $env ??= new Env();
+        $enabled = $env->readBool('ZEF_OTEL_ENABLED', false);
         $logger ??= new NullLogger();
         if (!$enabled) {
             return new self(
@@ -64,21 +74,22 @@ final class Telemetry
                 null,
                 null,
                 false,
+                $env,
             );
         }
-        $endpoint = trim(Env::string('ZEF_OTEL_EXPORTER_OTLP_ENDPOINT'));
+        $endpoint = trim($env->readString('ZEF_OTEL_EXPORTER_OTLP_ENDPOINT'));
         if ($endpoint !== '') {
             self::validateEndpoint($endpoint);
         }
-        $timeout = Env::int('ZEF_OTEL_EXPORT_TIMEOUT_MS', 500, 1, 10000, true);
-        $queue = Env::int('ZEF_OTEL_MAX_QUEUE', 1024, 1, 8192, true);
-        $batch = Env::int('ZEF_OTEL_BATCH_SIZE', 128, 1, $queue, true);
-        Env::int('ZEF_OTEL_RETRY_ATTEMPTS', 2, 0, 10, true);
-        Env::int('ZEF_OTEL_RETRY_DELAY_MS', 100, 0, 10000, true);
-        Env::int('ZEF_OTEL_RETRY_DELAY_CAP_MS', 1000, 0, 60000, true);
-        Env::int('ZEF_OTEL_SHUTDOWN_DRAIN_MS', 2000, 0, 60000, true);
+        $timeout = $env->readInt('ZEF_OTEL_EXPORT_TIMEOUT_MS', 500, 1, 10000, true);
+        $queue = $env->readInt('ZEF_OTEL_MAX_QUEUE', 1024, 1, 8192, true);
+        $batch = $env->readInt('ZEF_OTEL_BATCH_SIZE', 128, 1, $queue, true);
+        $env->readInt('ZEF_OTEL_RETRY_ATTEMPTS', 2, 0, 10, true);
+        $env->readInt('ZEF_OTEL_RETRY_DELAY_MS', 100, 0, 10000, true);
+        $env->readInt('ZEF_OTEL_RETRY_DELAY_CAP_MS', 1000, 0, 60000, true);
+        $env->readInt('ZEF_OTEL_SHUTDOWN_DRAIN_MS', 2000, 0, 60000, true);
         $resource = [
-            'service.name' => Env::string('ZEF_OTEL_SERVICE_NAME', 'zef-application'),
+            'service.name' => $env->readString('ZEF_OTEL_SERVICE_NAME', 'zef-application'),
             'telemetry.sdk.name' => 'zef-observability',
             'telemetry.sdk.language' => 'php',
         ];
@@ -87,7 +98,7 @@ final class Telemetry
             : null;
         $spanExporter = $exporter ?? new InMemorySpanExporter();
         $processor = new BatchSpanProcessor($spanExporter, $queue, $batch);
-        $t = new self(new Tracer($processor), new CounterMeter(), $processor, $exporter, $exporter, true);
+        $t = new self(new Tracer($processor), new CounterMeter(), $processor, $exporter, $exporter, true, $env);
         if ($registerShutdownHook) {
             register_shutdown_function($t->shutdown(...));
         }
@@ -158,7 +169,8 @@ final class Telemetry
         } catch (\Throwable) {
         }
         $this->enqueueDelivery();
-        $deadline = microtime(true) + Env::int('ZEF_OTEL_SHUTDOWN_DRAIN_MS', 2000, 0, 60000) / 1000;
+        $env = $this->env ?? new Env();
+        $deadline = microtime(true) + $env->readInt('ZEF_OTEL_SHUTDOWN_DRAIN_MS', 2000, 0, 60000) / 1000;
         while (
             ($this->metricDeliveryQueue !== [] || $this->logDeliveryQueue !== [])
             && microtime(true) < $deadline
