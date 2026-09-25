@@ -266,7 +266,7 @@ jobs:
         # (lint separator, F8 load-time Redis fake, ext-sockets) and the
         # remaining red — make:app DX path assertions, restrictive file-mode
         # assertions, LocalStorage failure-mapping fixtures, CRLF-sensitive
-        # expectations — is inventoried in the follow-up issue. The step stays
+        # expectations — is inventoried in issue #110. The step stays
         # visible (orange + full log); flip continue-on-error off as the debt
         # burns down, then promote the cell to required contexts.
         continue-on-error: true

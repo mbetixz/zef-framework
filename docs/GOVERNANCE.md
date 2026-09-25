@@ -179,6 +179,12 @@ takes the graceful skip profile, while the 8.5 cell runs the full Redis wire
 profile like the canonical cell. `composer why-not php 8.5.0` was verified
 empty before the 8.5 cell landed (no locked package constrains it).
 
+The Windows cell landed with its phpunit step deliberately non-blocking: the
+first runs measured 26 platform-debt failures in recently-landed features
+(make:app DX paths, restrictive file modes, LocalStorage failure-mapping
+fixtures, CRLF-sensitive expectations), inventoried and tracked in issue #110.
+Flip `continue-on-error` off as that debt burns down, then promote the cell.
+
 **On the Kilo review bot**: it has repeatedly failed with output-limit errors
 on large PRs (observed twice during #83 and once during #84). It is not a
 required context and never blocked a merge — a red Kilo check with an
