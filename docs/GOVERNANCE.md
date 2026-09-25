@@ -190,7 +190,6 @@ on large PRs (observed twice during #83 and once during #84). It is not a
 required context and never blocked a merge — a red Kilo check with an
 infra-flake signature (output truncation, timeout, runner-side error) is not
 a code verdict. Do not "fix" a phantom: check the log signature first.
->>>>>>> fb1c98f (ci(platform): restore platform smoke cells — windows-latest + PHP 8.5 (issue #92))
 
 ## 3. Credential policy
 
