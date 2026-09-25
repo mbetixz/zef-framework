@@ -131,3 +131,41 @@ fails on drift. Closing a zone from `DEBT` to `OK` is done by writing tests and
 re-measuring, then updating the row — the gate will refuse a silent edit that lowers a
 recorded `OK` below the floor, and will refuse a `DEBT`→`OK` promotion while the
 measured number is still short.
+
+## The initial suite must write zero bytes to STDERR (issue #94)
+
+`composer mutation:ci` boots Infection, and Infection runs the **initial**
+(unmutated) test suite through its own process wrapper before generating a
+single mutant. That wrapper has a hard policy:
+
+> `InitialTestsRunner` calls `$process->stop()` — SIGTERM, reported by PHPUnit
+> as **exit code 143** — on the **first byte** the initial suite writes to
+> STDERR. The failure surfaces as "Project tests must be in a passing state
+> before running Infection", typically with the progress bar frozen mid-suite.
+
+PHPUnit itself tolerates stderr output from a test, which is why the same suite
+is green under `ci.yml` and the leak goes unnoticed there. The trap is easy to
+spring from CLI command tests: `ConsoleIO` defaults its streams to the real
+STDOUT/STDERR, so a bare `new ConsoleIO()` hands the command the phpunit
+process's own stderr, and `$io->err(...)` becomes fatal — *only* under
+Infection.
+
+The invariant for any test that exercises a CLI command (or anything else
+holding a stream-writing port):
+
+- construct the IO through **`HermeticConsoleIo::create()`**
+  (`tests/Unit/HermeticConsoleIo.php`) — `php://memory` streams; assertions
+  still go through `outLog()`/`errLog()`, which record in memory regardless of
+  the streams;
+- if a test must observe raw stream behaviour, capture the stream explicitly
+  (`php://temp`) — never let a byte reach the real STDERR.
+
+A one-line local check before pushing anything that touches CLI tests:
+
+```bash
+vendor/bin/phpunit 2>/tmp/stderr.log >/dev/null; test ! -s /tmp/stderr.log
+```
+
+(`tests/Unit/EdgeMatrixMakerTest.php` still writes "Created …" lines to real
+STDOUT via its one bare `ConsoleIO` — harmless to the gate, since Infection
+only stops on ERR, and kept for log-noise parity with the self-test suites.)

@@ -13,7 +13,6 @@ declare(strict_types=1);
 namespace Zef\Test\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Zef\Framework\Console\ConsoleIO;
 use Zef\Framework\Http\ServerRequest;
 use Zef\Framework\Http\Uri;
 use Zef\Framework\OpenApi\Attribute\Deprecated as DeprecatedAttr;
@@ -899,7 +898,7 @@ final class OpenApiInfectionSweepTest extends TestCase
 
     public function testGenerateAcceptsUppercaseFormat(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $base = sys_get_temp_dir() . '/zef-openapi-sweep-' . uniqid('', true);
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
@@ -918,7 +917,7 @@ final class OpenApiInfectionSweepTest extends TestCase
         chdir($work);
 
         try {
-            $io = new ConsoleIO();
+            $io = HermeticConsoleIo::create();
             $command = new GenerateSpecCommand();
             $exit = $command->run($io, [
                 ['method' => 'GET', 'pattern' => '/x', 'handler' => 'h', 'name' => null, 'segments' => []],
@@ -926,7 +925,7 @@ final class OpenApiInfectionSweepTest extends TestCase
             self::assertSame(0, $exit);
             self::assertFileExists($work . '/openapi.json');
 
-            $io2 = new ConsoleIO();
+            $io2 = HermeticConsoleIo::create();
             $command2 = new GenerateSpecCommand();
             $exit2 = $command2->run($io2, [
                 ['method' => 'GET', 'pattern' => '/x', 'handler' => 'h', 'name' => null, 'segments' => []],
@@ -946,7 +945,7 @@ final class OpenApiInfectionSweepTest extends TestCase
 
     public function testGeneratePrettyIsTheDefault(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $base = sys_get_temp_dir() . '/zef-openapi-sweep-' . uniqid('', true);
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
@@ -960,7 +959,7 @@ final class OpenApiInfectionSweepTest extends TestCase
 
     public function testGenerateReportsWrittenFileMessage(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $base = sys_get_temp_dir() . '/zef-openapi-sweep-' . uniqid('', true);
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
@@ -976,7 +975,7 @@ final class OpenApiInfectionSweepTest extends TestCase
 
     public function testGeneratePostmanMessageAndPrettyCollection(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $base = sys_get_temp_dir() . '/zef-openapi-sweep-' . uniqid('', true);
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
@@ -1366,7 +1365,7 @@ final class OpenApiInfectionSweepTest extends TestCase
 
     public function testGenerateErrorMessagesArePrefixed(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
             ['method' => 'GET', 'pattern' => '/dup', 'handler' => 'h', 'name' => 'one', 'segments' => []],
@@ -1378,7 +1377,7 @@ final class OpenApiInfectionSweepTest extends TestCase
 
     public function testGenerateWriteFailureMessagesAreExact(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
             ['method' => 'GET', 'pattern' => '/x', 'handler' => 'h', 'name' => null, 'segments' => []],

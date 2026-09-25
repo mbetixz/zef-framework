@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Zef\Test\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Zef\Framework\Console\ConsoleIO;
 use Zef\Framework\Http\ServerRequest;
 use Zef\Framework\Http\Uri;
 use Zef\Framework\OpenApi\Console\GenerateSpecCommand;
@@ -74,7 +73,7 @@ final class OpenApiAdaptersTest extends TestCase
 
     public function testGenerateSpecCommandWritesJson(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $out = sys_get_temp_dir() . '/zef-openapi-test-' . uniqid('', true);
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
@@ -89,7 +88,7 @@ final class OpenApiAdaptersTest extends TestCase
 
     public function testGenerateSpecCommandWritesYamlAndPostman(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $base = sys_get_temp_dir() . '/zef-openapi-test-' . uniqid('', true);
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
@@ -113,7 +112,7 @@ final class OpenApiAdaptersTest extends TestCase
 
     public function testGenerateSpecCommandRejectsUnknownFormat(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [], null, ['format' => 'xml']);
         self::assertSame(1, $exit);
@@ -122,7 +121,7 @@ final class OpenApiAdaptersTest extends TestCase
 
     public function testGenerateSpecCommandRejectsUnwritableTarget(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
             ['method' => 'GET', 'pattern' => '/x', 'handler' => 'h', 'name' => null, 'segments' => []],
@@ -133,7 +132,7 @@ final class OpenApiAdaptersTest extends TestCase
 
     public function testGenerateSpecCommandReportsExtractorErrors(): void
     {
-        $io = new ConsoleIO();
+        $io = HermeticConsoleIo::create();
         $command = new GenerateSpecCommand();
         $exit = $command->run($io, [
             ['method' => 'GET', 'pattern' => '/dup', 'handler' => 'h', 'name' => 'one', 'segments' => []],
