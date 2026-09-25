@@ -55,9 +55,9 @@ final readonly class UnitOfWorkRetryPolicy
      * - 2006 (CR_SERVER_GONE / CR_SERVER_LOST) — connection lost
      *
      * Duplicated inline as the constructor default for
-     * {@see $retryableSqlStates} to avoid `self::CONSTANT` as a default
-     * value for a promoted property (parser edge case — kept simple
-     * so Doctum's nikic/php-parser stays happy).
+     * `retryableSqlStates` to avoid `self::CONSTANT` as a default value
+     * for a promoted property (parser edge case — kept simple so
+     * Doctum's nikic/php-parser stays happy).
      */
     public const array DEFAULT_RETRYABLE_SQL_STATES = [
         '40001',
@@ -85,8 +85,8 @@ final readonly class UnitOfWorkRetryPolicy
      *        any listed class. Default: PDOException (parent for the
      *        framework's PDO adapter).
      * @param list<string>         $retryableSqlStates    SQLSTATE codes
-     *        matched against {@see \PDOException::getCode()} and
-     *        {@see \PDOException::errorInfo}[0]. Empty list = match on
+     *        matched against PDOException::getCode() and the
+     *        PDOException::errorInfo[0] slot. Empty list = match on
      *        class names only.
      */
     public function __construct(

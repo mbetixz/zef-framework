@@ -43,8 +43,7 @@ use Zef\Framework\Database\UnitOfWorkRetryPolicy;
  * serialization-failure). Only the flush retries — never the handler
  * body. Default `null` preserves the v2.22.0 no-retry behaviour.
  *
- * @see docs/TRANSACTION-HOOKS.md §"UoW retry strategy" for the full
- *      contract and rationale.
+ * Full contract and rationale live in docs/TRANSACTION-HOOKS.md.
  */
 final readonly class TransactionalCommandBus implements CommandBusInterface
 {
@@ -94,7 +93,7 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
     /**
      * Flush the UoW queue, optionally retrying on transient failures.
      *
-     * Contract (see docs/TRANSACTION-HOOKS.md §"UoW retry strategy"):
+     * Contract (see docs/TRANSACTION-HOOKS.md):
      * - When no {@see UnitOfWork} or no {@see UnitOfWorkRetryPolicy} is
      *   configured, this is a direct call to flush() — preserving the
      *   v2.22.0 single-shot behaviour (queue cleared before execution).

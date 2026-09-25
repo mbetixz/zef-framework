@@ -34,8 +34,8 @@ namespace Zef\Framework\Database;
  * threshold is exceeded. This is observability-only — PHP cannot safely
  * interrupt a running closure.
  *
- * @see docs/TRANSACTION-HOOKS.md for the full hook error-semantics
- *      documentation.
+ * Full hook error-semantics documentation lives in
+ * docs/TRANSACTION-HOOKS.md.
  */
 final class TransactionManager implements TransactionManagerInterface
 {
