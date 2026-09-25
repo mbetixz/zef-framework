@@ -99,6 +99,35 @@ final class ZefCliDispatchTest extends TestCase
         self::assertStringContainsString('Unknown command', $output);
     }
 
+    /** `bin/zef doctor` — preflight harus exit 0 pada checkout sehat. */
+    public function testDoctorRunsThroughTheDispatcher(): void
+    {
+        [$exitCode, $output] = $this->runCli('doctor');
+
+        self::assertSame(0, $exitCode, "doctor must exit 0 on a healthy checkout:\n{$output}");
+        self::assertStringContainsString('ZEF doctor — environment preflight', $output);
+        self::assertStringContainsString('[OK] app boot', $output, 'boot probe wajib ter-inject dari composition root');
+    }
+
+    /** `bin/zef rr:init` — collision-safe: menolak menimpa .rr.yaml tanpa --force. */
+    public function testRrInitRefusesCollisionThroughTheDispatcher(): void
+    {
+        [$exitCode, $output] = $this->runCli('rr:init');
+
+        self::assertNotSame(0, $exitCode, 'rr:init tanpa --force harus menolak .rr.yaml eksisting');
+        self::assertStringContainsString('Use --force to regenerate', $output);
+    }
+
+    /** `bin/zef make:app` — dispatcher harus meneruskan ke generator (usage error, bukan unknown command). */
+    public function testMakeAppReachesTheGeneratorThroughTheDispatcher(): void
+    {
+        [$exitCode, $output] = $this->runCli('make:app');
+
+        self::assertSame(1, $exitCode);
+        self::assertStringContainsString('Usage: bin/zef make:app', $output, 'tanpa path harus usage error dari generator');
+        self::assertStringNotContainsString('Unknown command', $output);
+    }
+
     /**
      * Run `bin/zef` as a real subprocess.
      *

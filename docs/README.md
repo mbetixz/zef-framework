@@ -13,7 +13,9 @@ berarsitektur *Hexagonal (Ports & Adapters)* dengan worker RoadRunner.
 | Dokumen | Isi | Untuk siapa |
 |---------|-----|-------------|
 | [`INSTALLATION.md`](INSTALLATION.md) | Persyaratan, instalasi (Composer & zero-composer), RoadRunner, Docker, Kubernetes, variabel lingkungan | Operator, developer baru |
-| [`CLI.md`](CLI.md) | Referensi lengkap `bin/zef` — self-test, serve, route list, inspector, 10 generator `make:*`, tinker | Developer sehari-hari |
+| [`CLI.md`](CLI.md) | Referensi lengkap `bin/zef` — self-test, serve, route list, inspector, 11 generator `make:*`, `rr:init`/`doctor`, tinker | Developer sehari-hari |
+| [`TUTORIAL-CQRS-101.md`](TUTORIAL-CQRS-101.md) | **v2.29.0** — Zero-to-Hero: `make:app` → modul → command/query → wiring bus → HTTP/RoadRunner, plus troubleshooting | Developer baru |
+| [`PLUGINS.md`](PLUGINS.md) | **v2.29.0** — kontrak manifest plugin, registrasi composition root, kriteria registry index, distribusi | Author plugin, maintainer |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Pemecahan monolith → layer hexagonal, aturan arah dependensi, peta namespace → layer, autoloading ganda | Arsitek, reviewer |
 | [`QUALITY.md`](QUALITY.md) | Seluruh gerbang kualitas: PHPUnit, coverage, **mutation testing (MSI per area)**, PHPStan, PHPCS, cs-fixer, Rector, Deptrac | Kontributor, release manager |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Pola produksi: RoadRunner (persistent worker), graceful shutdown, observabilitas, health probe, keamanan | SRE, DevOps |
@@ -44,6 +46,8 @@ docs/
 ├── README.md            ← Anda di sini (indeks)
 ├── INSTALLATION.md
 ├── CLI.md
+├── TUTORIAL-CQRS-101.md
+├── PLUGINS.md
 ├── ARCHITECTURE.md
 ├── QUALITY.md
 ├── DEPLOYMENT.md

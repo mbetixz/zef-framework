@@ -103,6 +103,9 @@ final readonly class QueryGenerator implements GeneratorInterface
 
             Next steps — wire it into modules/{$modulePascal}/ConfigProvider.php and the bus:
 
+              // the handler lives in the Query\\ sub-namespace — import it:
+              use Zef\\Module\\{$modulePascal}\\Query\\{$name}QueryHandler;
+
               'services' => [
                   ...
                   '{$module}.query.{$snake}' => [
@@ -111,8 +114,10 @@ final readonly class QueryGenerator implements GeneratorInterface
                   ],
               ],
 
-              // during boot (e.g. a module's register()):
-              \$bus->register({$name}Query::class, '{$module}.query.{$snake}');
+              // during boot, resolving the handler from the container
+              // (the bus stays mutable until freeze()) — best from a Module
+              // register() hook, see docs/TUTORIAL-CQRS-101.md:
+              \$bus->register({$name}Query::class, \$container->get('{$module}.query.{$snake}'));
 
               // read anywhere:
               \$result = \$app->getQueryBus()->ask(new {$name}Query('id-1'));

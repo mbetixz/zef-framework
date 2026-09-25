@@ -21,6 +21,26 @@ final readonly class ScaffoldWriter
     }
 
     /**
+     * Force-write a single file, bypassing the collision batch check. Only
+     * for explicit regeneration flows (`bin/zef rr:init --force`) where the
+     * user has already consented to overwriting; every other scaffold keeps
+     * the all-or-nothing `writeFiles()` contract.
+     */
+    public function overwriteFile(string $path, string $contents): void
+    {
+        $existed = is_file($path);
+        $dir = dirname($path);
+        // Race-safe mkdir guard; mirrors writeFiles(). @infection-ignore-all
+        if (!is_dir($dir) && !@mkdir($dir, 0o777, true) && !is_dir($dir)) {
+            throw new ScaffoldWriteException("Cannot create directory: {$dir}");
+        }
+        if (@file_put_contents($path, $contents) === false) {
+            throw new ScaffoldWriteException("Cannot write file: {$path}");
+        }
+        $this->io->out($existed ? "Overwrote {$path}" : "Created {$path}");
+    }
+
+    /**
      * Write every file atomically: collision-check all targets first, then
      * create directories and write. Any collision or IO failure aborts the
      * whole batch before/at the first offending path.

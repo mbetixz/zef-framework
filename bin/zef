@@ -53,6 +53,18 @@
  *                                  --output=<path>, --pretty/--no-pretty,
  *                                  --postman=<path> for a Postman v2.1 export,
  *                                  --base-url=<url> to add a server entry).
+ *
+ * v2.29.0 DX release — standalone apps + RoadRunner transparency:
+ *   bin/zef make:app <path>        Scaffold a standalone ZEF application at
+ *                                  <path> (composer.json + composition root
+ *                                  + Home module + .rr.yaml + entrypoints).
+ *                                  [--name=<project>] [--address=host:port]
+ *   bin/zef rr:init                Generate .rr.yaml from ZEF_* env knobs
+ *                                  and flags (--address=, --workers=,
+ *                                  --max-jobs=, --memory=; --force refreshes).
+ *   bin/zef doctor                 Read-only environment preflight (PHP,
+ *                                  extensions, autoloader, RR binary/bridge,
+ *                                  app-boot smoke). Exit 1 only on FAIL.
  */
 
 declare(strict_types=1);
@@ -135,6 +147,32 @@ if ($command === 'tinker') {
 
 if ($command === 'openapi:generate') {
     exit(zef_openapi_generate($args));
+}
+
+if ($command === 'rr:init') {
+    $writer = new \Zef\Framework\Console\ScaffoldWriter($io);
+    exit((new \Zef\Framework\Console\Generator\RoadRunnerConfigGenerator($root, $io, $writer))->generate(null, array_slice($args, 2)));
+}
+
+if ($command === 'doctor') {
+    // The RR-bridge probe asks class_exists() about composer packages; load
+    // the composer autoloader when present so an installed checkout does not
+    // get a false "missing" warning. The zero-composer autoloader stays the
+    // base (class_exists guards make double registration a no-op).
+    if (is_file(__DIR__ . '/../vendor/autoload.php')) {
+        require_once __DIR__ . '/../vendor/autoload.php';
+    }
+
+    // Boot probe injected by the composition root: Infrastructure (Doctor)
+    // must not depend on the App layer (Deptrac), so the boot closure is
+    // wired here where the App dependency is legal.
+    $bootSmoke = static function (): string {
+        $app = \Zef\App\Bootstrap::createApp(false);
+        $app->boot();
+
+        return 'Application booted (ZEF v' . \Zef\Framework\Foundation\ZefVersion::VERSION . ')';
+    };
+    exit((new \Zef\Framework\Console\Inspector\Doctor($root, $io, $bootSmoke))->run());
 }
 
 if ($command === 'list' || ($command !== null && str_starts_with((string) $command, 'make:'))) {
