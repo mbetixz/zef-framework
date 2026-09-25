@@ -19,13 +19,19 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Console\Inspector;
 
-use Spiral\RoadRunner\Http\PSR7Worker;
 use Zef\Framework\Console\ConsoleIO;
 
 final readonly class Doctor
 {
     /** Boot smoke check only runs when one of these exists under $root. */
     private const array AUTOLOAD_CANDIDATES = ['vendor/autoload.php', 'autoload/zef_autoload.php'];
+
+    /**
+     * RoadRunner bridge class, probed by name: a string constant keeps the
+     * vendor package out of the source-level dependency graph (see the
+     * roadRunnerChecks() note).
+     */
+    private const string RR_WORKER_CLASS = 'Spiral\RoadRunner\Http\PSR7Worker';
 
     /**
      * Boot probe injected by the bin/zef composition root; returns a detail
@@ -120,7 +126,12 @@ final readonly class Doctor
     {
         $checks = [];
 
-        $checks[] = class_exists(PSR7Worker::class)
+        // Vendor presence probe — deliberately a string, not a class token:
+        // every other Spiral reference in the tree lives inside scaffold
+        // templates (strings), so this must not become the first real
+        // vendor import in src/ either; deptrac keeps the source tree at
+        // zero uncovered vendor edges (composer deptrac fails on them).
+        $checks[] = class_exists(self::RR_WORKER_CLASS)
             ? ['OK', 'RR bridge', 'spiral/roadrunner-http installed']
             : ['WARN', 'RR bridge', 'missing — composer require spiral/roadrunner-http nyholm/psr7'];
 

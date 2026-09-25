@@ -50,6 +50,14 @@ return RectorConfig::configure()
         \Rector\DeadCode\Rector\ClassMethod\RemoveEmptyClassMethodRector::class => [
             __DIR__ . '/src/Adapters/Kernel/Application.php',
         ],
+        // Doctor probes the RoadRunner bridge BY NAME: the string constant
+        // is deliberate — converting it to ::class (StringClassNameToClass-
+        // ConstantRector) would re-create the only real vendor class token
+        // in src/, which deptrac --fail-on-uncovered rejects (issue #94
+        // follow-up, v2.29.0). Two gates disagree by design; the string wins.
+        \Rector\Php55\Rector\String_\StringClassNameToClassConstantRector::class => [
+            __DIR__ . '/src/Infrastructure/Console/Inspector/Doctor.php',
+        ],
         // withHeader() helpers in legacy test suites keep the
         // assert($result instanceof ServerRequest) narrowing because the PSR
         // interface return type alone fails PHPStan; collapsing the temp
