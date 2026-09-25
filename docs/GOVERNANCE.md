@@ -126,6 +126,37 @@ push and holding the required check `PHP lint, audit, static analysis and style`
 open for roughly an hour per merge. The trade is explicit and reversible: one
 workflow file and one line in `release.yml`.
 
+### 2.6 Release cadence — the tag ships with the bump, the changelog ships with the tag
+
+Eleven minors (v2.18.0 → v2.27.0) shipped as `docs/CHANGELOG-v*.md` files with
+no tag and no GitHub release (audit issue #88), while the Release-Drafter
+computed patch-only drafts from file-matching labels that never fired. A
+release that exists only as a changelog file cannot be installed, attested or
+diffed — the tag is the release record, and every "documented release"
+reference in README/SECURITY keyed off it drifted three to nine minors behind
+`ZefVersion`. The policy going forward:
+
+- **A PR that bumps `ZefVersion::VERSION` cuts the tag in the same merge.**
+  The changelog file lands first (or in the same PR); the tag `v{VERSION}` is
+  pushed as part of landing the bump. A tag-only release without assets is
+  still better than a silent minor — the full `release.yml` artifact pipeline
+  (tarball, checksum, provenance attestation) stays reserved for milestone
+  releases and can be dispatched against any tag afterwards.
+- **The gate is `scripts/ci/assert-release-cadence.php`** and runs in `ci.yml`
+  on every push, PR and schedule. Fail-closed: every `vX.Y.Z` tag with major
+  ≥ 2 must carry `docs/CHANGELOG-vX.Y.Z.md`, and the newest tag may never run
+  ahead of `ZefVersion::VERSION`. One-directional on purpose: a changelog
+  without a tag is a legitimate pre-release state (the bump PR is in flight).
+  Both failure modes were proven against negative controls before the gate
+  was trusted (see the script header).
+- **The drafter computes MINOR by default.** `.github/release-drafter.yml`
+  resolves `patch` only when the `patch` label is applied explicitly (hotfix)
+  and `major` on the `breaking` label — conventional-commit titles
+  (`feat:`, `fix:`, `docs:`, `chore:`, and `!:` / `BREAKING CHANGE`) feed the
+  autolabeler so the category sections and the resolver have a signal. The
+  draft remains advisory: publishing goes through `release.yml`, never
+  through the draft's publish button.
+
 ## 3. Credential policy
 
 ### 3.1 Declared by name only
