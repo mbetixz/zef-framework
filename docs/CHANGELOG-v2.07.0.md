@@ -1,7 +1,7 @@
-# ZEF Framework v2.7.0 — Changelog Audit (asli dari monolith)
+# ZEF Framework v2.07.0 — Changelog Audit (asli dari monolith)
 
 /*
- * ZEF FRAMEWORK v2.7.0 — EDGE-CASE AUDIT ROUND 2 (re-audit release)
+ * ZEF FRAMEWORK v2.07.0 — EDGE-CASE AUDIT ROUND 2 (re-audit release)
  * ---------------------------------------------------------
  * Single-file / zero-composer fallback bundle.
  * Implements PSR-11, PSR-7, PSR-15 and PSR-17 contracts.
@@ -12,7 +12,7 @@
  * official PSR packages are already loaded, ZEF reuses them rather than
  * redeclaring the interfaces.
  *
- * CHANGELOG v2.7.0 (second full edge-case audit over v2.6.0; every fix
+ * CHANGELOG v2.07.0 (second full edge-case audit over v2.6.0; every fix
  * verified by a runtime probe before it was applied)
  *
  * === HTTP / request target / URI ===
@@ -108,12 +108,12 @@
  * 27. Redis DSN db-index rejection message says WHY ("must be a non-negative
  *     integer") — signed forms like "/-1" were rejected with a misleading
  *     "numeric" complaint.
- * 28. Self-test suite "v2.7.0 edge-case regression" (36 assertions, one per
+ * 28. Self-test suite "v2.07.0 edge-case regression" (36 assertions, one per
  *     fix above, public-API only) is registered in CliRunner; full suite is
  *     145 assertions. All 48 audit probes (2a–2g) green against this build.
  *
  * === Tests ===
- *  - New self-test suite "v2.7.0 edge-case regression" (36 assertions)
+ *  - New self-test suite "v2.07.0 edge-case regression" (36 assertions)
  *    covering every fix above through public APIs; full suite now 145.
  *
  * ----------------------------------------------------------------
