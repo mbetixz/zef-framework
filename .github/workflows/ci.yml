@@ -247,7 +247,7 @@ jobs:
           # mode diagnosed during PR #82/#22). Not loading ext-redis at all
           # gives the graceful profile: RedisStoreTest self-skips, the
           # rate-limiter wire tests drop out, nothing fails.
-          extensions: mbstring, dom, xml, xmlwriter, curl, pdo_sqlite, apcu
+          extensions: mbstring, dom, xml, xmlwriter, curl, pdo_sqlite, apcu, sockets
           ini-values: apc.enable_cli=1
           tools: composer:2.10.3
 
