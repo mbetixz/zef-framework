@@ -83,7 +83,7 @@ final class EdgeMatrixDxToolsTest extends TestCase
 
         // Skeleton wajib PHP-valid — bukti "boots, serves and passes PHPStan".
         foreach (['app/Bootstrap.php', 'modules/Demo/ConfigProvider.php', 'modules/Demo/HomeHandler.php', 'public/index.php', 'bin/worker.php', 'bin/zef'] as $file) {
-            exec('php -l ' . escapeshellarg("{$target}/{$file}") . ' 2>&1', $out, $code);
+            exec('php -l ' . escapeshellarg("{$target}/{$file}") . ' 2>&1', $out, $code); // nosemgrep: exec-use
             self::assertSame(0, $code, "{$file} harus lolos php -l: " . implode("\n", $out));
         }
     }
