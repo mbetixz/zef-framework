@@ -63,7 +63,7 @@ final class Scheduler
         private readonly int $maxRegistrations = 256,
         private readonly int $maxCatchUpPerTick = 8,
         private readonly ?LockStoreInterface $clusterLockStore = null,
-        string $clusterName = 'default',
+        private readonly string $clusterName = 'default',
         private readonly int $clusterTtlSeconds = 30,
     ) {
         if ($this->maxRegistrations < 1 || $this->maxCatchUpPerTick < 1) {
