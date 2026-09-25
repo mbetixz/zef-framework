@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Job;
 
+use Zef\Framework\Cache\LockStoreInterface;
 use Zef\Framework\Validation\Identifier;
 
 /**
@@ -22,22 +23,50 @@ use Zef\Framework\Validation\Identifier;
  *
  * The worker that drains the queue provides retries; the scheduler only
  * guarantees "due jobs become visible".
+ *
+ * v2.24.0 (issue #68): optional cluster safety. When constructed with a
+ * LockStoreInterface (e.g. RedisLockStore in production, InMemoryLockStore
+ * in tests), each tick first acquires a named lease on the store; a node
+ * that does not hold the lease skips the tick entirely (returns 0) instead
+ * of double-enqueueing. The lease is sticky and never released after a
+ * tick: as long as the acting node keeps ticking within the TTL its lease
+ * is refreshed, and when it stops (crash, pause) the lease lapses after
+ * clusterTtlSeconds and another node takes over — standard leader-election
+ * behaviour with no operator action. TTL must exceed the worst-case tick
+ * duration; use relinquishClusterLeadership() for graceful handover.
  */
 final class Scheduler
 {
+    private const string CLUSTER_KEY_PREFIX = 'zef:scheduler:';
+
     /**
      * @var array<string,array{schedule:ScheduleInterface,payload:mixed,correlationId:?string,nextRunUnixNano:null|int}>
      */
     private array $registrations = [];
 
+    private readonly string $clusterOwner;
+
+    private readonly string $clusterLockKey;
+
     public function __construct(
         private readonly JobQueueInterface $queue,
         private readonly int $maxRegistrations = 256,
         private readonly int $maxCatchUpPerTick = 8,
+        private readonly ?LockStoreInterface $clusterLockStore = null,
+        string $clusterName = 'default',
+        private readonly int $clusterTtlSeconds = 30,
     ) {
         if ($this->maxRegistrations < 1 || $this->maxCatchUpPerTick < 1) {
             throw new \InvalidArgumentException('Scheduler budgets must be positive.');
         }
+        if ($clusterName === '' || strlen($clusterName) > 128) {
+            throw new \InvalidArgumentException('Scheduler cluster name must be 1..128 bytes.');
+        }
+        if ($this->clusterTtlSeconds < 1 || $this->clusterTtlSeconds > 86400) {
+            throw new \InvalidArgumentException('Scheduler cluster lease TTL must be 1..86400 seconds.');
+        }
+        $this->clusterLockKey = self::CLUSTER_KEY_PREFIX . $clusterName;
+        $this->clusterOwner = 'sched-' . bin2hex(random_bytes(8));
     }
 
     /**
@@ -97,11 +126,21 @@ final class Scheduler
      * enqueued. Per registration at most $maxCatchUpPerTick envelopes are
      * produced per tick (protects against huge catch-up bursts after
      * downtime); the cursor still advances past the due horizon.
+     *
+     * Cluster mode: when another node currently holds the acting-scheduler
+     * lease, this tick is skipped and 0 is returned — due jobs stay due and
+     * the lease holder's own tick enqueues them exactly once.
      */
     public function tick(int $nowUnixNano): int
     {
         if ($nowUnixNano < 0) {
             throw new \InvalidArgumentException('Scheduler tick time must be non-negative.');
+        }
+        if (
+            $this->clusterLockStore instanceof LockStoreInterface
+            && !$this->clusterLockStore->acquire($this->clusterLockKey, $this->clusterOwner, $this->clusterTtlSeconds)
+        ) {
+            return 0;
         }
         $enqueued = 0;
         foreach ($this->registrations as $jobType => $state) {
@@ -124,6 +163,41 @@ final class Scheduler
         }
 
         return $enqueued;
+    }
+
+    /**
+     * Whether this instance is the acting cluster scheduler (lease holder).
+     * Always true in single-node mode (no lock store configured).
+     */
+    public function isClusterLeader(): bool
+    {
+        if (!$this->clusterLockStore instanceof LockStoreInterface) {
+            return true;
+        }
+
+        return $this->clusterLockStore->holder($this->clusterLockKey) === $this->clusterOwner;
+    }
+
+    /**
+     * Gracefully hand over cluster leadership (rolling restarts). Returns
+     * false when this instance was not the acting scheduler. Always true
+     * (no-op) in single-node mode.
+     */
+    public function relinquishClusterLeadership(): bool
+    {
+        if (!$this->clusterLockStore instanceof LockStoreInterface) {
+            return true;
+        }
+
+        return $this->clusterLockStore->release($this->clusterLockKey, $this->clusterOwner);
+    }
+
+    /**
+     * Owner token this scheduler competes for the cluster lease with.
+     */
+    public function clusterOwner(): string
+    {
+        return $this->clusterOwner;
     }
 
     private function newJobId(): string
