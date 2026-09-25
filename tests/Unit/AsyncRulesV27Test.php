@@ -443,7 +443,7 @@ final class AsyncRulesV27Test extends TestCase
         self::assertTrue($verdicts[0]->isFailed());
         self::assertSame('RuntimeException: boom', $verdicts[0]->message());
         self::assertInstanceOf(\RuntimeException::class, $verdicts[0]->throwable());
-        self::assertSame('boom', $verdicts[0]->throwable()?->getMessage());
+        self::assertSame('boom', $verdicts[0]->throwable()->getMessage());
         self::assertTrue($verdicts[1]->isSkipped(), 'a thrown exception is a failure, so fail-fast interrupts in-flight rules');
         self::assertTrue($verdicts[2]->isSkipped(), 'fail-fast also skips rules waiting for a permit');
     }
