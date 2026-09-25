@@ -148,7 +148,7 @@
 - [x] Cache tags (v2.8.0: `TaggableCache`, indeks tag + reverse index, `invalidateTag()`)
 - [x] Multi-tier L1/L2 (v2.8.0: `TieredCache` write-through + promosi read)
 - [x] Lock primitive (v2.8.0: port `LockStoreInterface` + `InMemoryLockStore` berbasis lease TTL — fondasi stampede prevention & distributed lock Redis)
-- [ ] Redis cluster · Memcached · Stampede prevention penuh (fondasi lock ✔) · Distributed lock Redis (port ✔)
+- [ ] Redis cluster · Memcached · Stampede prevention penuh (fondasi lock ✔) · [x] Distributed lock Redis (v2.24.0 issue #68: adapter `RedisLockStore` — SET NX PX + owner token di dalam satu Lua atomik, release/refresh compare-and-act Lua, TTL dipaksakan server Redis; `LeaderElector` leader election time-bounded; scheduler cluster-safe via lease sticky `zef:scheduler:*`; `LockingJobIdempotencyStore` claim exactly-once per window TTL)
 
 ### Database Management (Target — belum ada di monolith)
 - [ ] Multi-connection · Read/write splitting · Pooling · Sharding · [x] `Query builder` (v2.18.0: `QueryBuilder` fluent, identifier-grammar ketat, subquery) · ORM
@@ -161,9 +161,9 @@
 
 - [x] In-process job worker → `InProcessJobWorker` · Envelope metadata → `JobEnvelope`
 - [x] Job middleware · Retry policies (exponential backoff) → `RetryPolicy`
-- [x] Dead letter queue · Idempotency store · Cancellation & timeout · Drain mode
+- [x] Dead letter queue · Idempotency store · Cancellation & timeout · Drain mode · [x] Claim idempotent lintas node (v2.24.0: `LockingJobIdempotencyStore` — exactly-once per key dalam window TTL, kegagalan me-release lease agar retry sah)
 - [x] Delayed jobs & priorities (konten queue: `availableAtUnixNano`, `priority`)
-- [x] Scheduled/recurring (v2.8.0: `Scheduler` + `FixedIntervalSchedule` + `CronExpression` 5-field UTC)
+- [x] Scheduled/recurring (v2.8.0: `Scheduler` + `FixedIntervalSchedule` + `CronExpression` 5-field UTC) · [x] Cluster-safe scheduler (v2.24.0: lease `LockStoreInterface` opsional — follower skip tick alih-alih dobel-enqueue, leader lapse diambil alih otomatis setelah TTL)
 - [ ] Multi-driver (Redis, Database, Beanstalk, SQS) · Chaining/batching
 - [ ] Job rate limiting · Monitoring dashboard
 
