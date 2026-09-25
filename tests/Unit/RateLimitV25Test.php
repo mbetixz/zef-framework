@@ -160,10 +160,13 @@ final class RateLimitV25Test extends TestCase
 
         $root = new RateLimitRule('all', 10, 60);
         self::assertTrue($root->matchesPath('/anything/here'));
+        self::assertTrue($root->matchesPath('/'));
 
         $trailing = new RateLimitRule('t', 10, 60, pathPrefix: '/api/');
+        self::assertSame('/api', $trailing->pathPrefix, 'trailing slashes are normalised at construction');
         self::assertTrue($trailing->matchesPath('/api/users'));
-        self::assertFalse($trailing->matchesPath('/api'));
+        self::assertTrue($trailing->matchesPath('/api'), 'normalised prefix matches the bare prefix too');
+        self::assertFalse($trailing->matchesPath('/apiv2'));
     }
 
     public function testRuleMatchesMethodSemantics(): void

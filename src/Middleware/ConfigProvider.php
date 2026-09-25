@@ -31,6 +31,13 @@ use Zef\Framework\Security\TokenBucketRateLimiter;
 
 final readonly class ConfigProvider implements ConfigProviderInterface
 {
+    /**
+     * Tiers are flat JSON objects; the depth cap is generous headroom against
+     * pathological nesting (a deeply nested payload fails the JSON parse
+     * with a clear boot error instead of behaving unexpectedly).
+     */
+    private const int MAX_TIER_JSON_DEPTH = 16;
+
     public function __construct(private bool $devMode = false) {}
 
     #[\Override]
@@ -145,7 +152,7 @@ final readonly class ConfigProvider implements ConfigProviderInterface
         }
 
         try {
-            $decoded = json_decode($json, true, 16, JSON_THROW_ON_ERROR);
+            $decoded = json_decode($json, true, self::MAX_TIER_JSON_DEPTH, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
             throw new \RuntimeException('ZEF_SECURITY_RATE_LIMIT_TIERS is not valid JSON: ' . $e->getMessage(), $e->getCode(), $e);
         }

@@ -78,9 +78,11 @@ final readonly class RateLimitMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $identity = $this->resolveIdentity($request, $trustedProxies);
-
         try {
+            // Identity resolution sits INSIDE the policy envelope: a resolver
+            // failure must follow the same fail-open/fail-closed decision as
+            // a storage failure, never surface as an unhandled 500.
+            $identity = $this->resolveIdentity($request, $trustedProxies);
             $verdict = $this->tiered->evaluateAll($matched, $identity);
         } catch (\Throwable) {
             if ($this->failOpen) {

@@ -36,6 +36,12 @@ namespace Zef\Framework\Security;
 final readonly class RateLimitRule
 {
     /**
+     * Trailing-slash normalised at construction ("/api/" becomes "/api";
+     * the bare root "/" is its own normal form).
+     */
+    public string $pathPrefix;
+
+    /**
      * @param null|list<string> $methods
      */
     public function __construct(
@@ -43,7 +49,7 @@ final readonly class RateLimitRule
         public int $limit,
         public int $windowSeconds,
         public int $cost = 1,
-        public string $pathPrefix = '/',
+        string $pathPrefix = '/',
         public ?array $methods = null,
     ) {
         if ($name === '') {
@@ -70,6 +76,14 @@ final readonly class RateLimitRule
         if ($pathPrefix === '' || !str_starts_with($pathPrefix, '/')) {
             throw new \InvalidArgumentException('Rate limit rule pathPrefix must start with "/".');
         }
+        // Normalise away trailing slashes so "/api/" and "/api" behave
+        // identically — a config typo must not change the matched set. The
+        // bare root "/" is its own normal form.
+        $pathPrefix = rtrim($pathPrefix, '/');
+        if ($pathPrefix === '') {
+            $pathPrefix = '/';
+        }
+        $this->pathPrefix = $pathPrefix;
         if ($methods !== null) {
             if ($methods === []) {
                 throw new \InvalidArgumentException('Rate limit rule methods must be null (all) or a non-empty list.');
@@ -144,16 +158,17 @@ final readonly class RateLimitRule
     /**
      * True when the request path falls into this rule's bucket: the path is
      * equal to the prefix, or extends it at a segment boundary ("/api"
-     * matches "/api" and "/api/users", but NOT "/apiv2").
+     * matches "/api" and "/api/users", but NOT "/apiv2"). The prefix is
+     * already trailing-slash-normalised at construction, so no trimming
+     * happens here; the bare root "/" matches everything.
      */
     public function matchesPath(string $path): bool
     {
-        if ($path === $this->pathPrefix) {
+        if ($this->pathPrefix === '/') {
             return true;
         }
-        $prefix = rtrim($this->pathPrefix, '/');
 
-        return $prefix === '' || str_starts_with($path, $prefix . '/');
+        return $path === $this->pathPrefix || str_starts_with($path, $this->pathPrefix . '/');
     }
 
     /**

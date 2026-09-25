@@ -108,13 +108,14 @@ Semua additive terhadap API v2.23.0; `ZefVersion::VERSION = '2.25.0'`.
 ## Mutasi
 
 Zona baru `app-rate-limit` (10 file: 5 Domain + 4 Application + 1 Adapter)
-terdaftar pada ratchet `docs/mutation/` dengan **MSI 95.64%** (373/390
-mutan, coverage 100%, status OK di atas floor 95). Sembilan belas mutan
-lolos yang tersisa adalah kelas ekuivalen yang terdokumentasi: urutan
-prefix pada kunci penyimpanan opaque (`identity:`/`apikey:`/`ip:`),
-penskalaan konstanta nanodetik ±1 (self-consistent, tak teramati melalui
-`ceil`), perbedaan PHP int/float yang tak berdampak, dan inisialisasi
-agregator yang terserap `max()`.
+terdaftar pada ratchet `docs/mutation/` dengan **MSI 95.42%** (375/393
+mutan, coverage 100%, status OK di atas floor 95). Enam belas mutan lolos
+yang tersisa adalah kelas ekuivalen yang terdokumentasi: urutan prefix
+pada kunci penyimpanan opaque (`identity:`/`apikey:`/`ip:`), penskalaan
+konstanta nanodetik ±1 (self-consistent, tak teramati melalui `ceil`),
+perbedaan PHP int/float yang tak berdampak, dan inisialisasi agregator
+yang terserap `max()`; dua entri not-covered adalah guard tipe defensif
+`withHeader` yang tak terjangkau oleh kontrak PSR-7.
 
 Analisis mutasi juga memicu dua penyederhanaan desain (mutant-killing via
 penghapusan kode mati): sweep token bucket kini memakai kriteria idle
