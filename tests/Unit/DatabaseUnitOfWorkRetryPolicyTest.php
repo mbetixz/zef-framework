@@ -123,7 +123,10 @@ final class DatabaseUnitOfWorkRetryPolicyTest extends TestCase
 
     public function testCustomRetryableClassNames(): void
     {
-        $p = new UnitOfWorkRetryPolicy(retryableClassNames: [\RuntimeException::class]);
+        $p = new UnitOfWorkRetryPolicy(
+            retryableClassNames: [\RuntimeException::class],
+            retryableSqlStates: [],
+        );
         self::assertTrue($p->isRetryable(new \RuntimeException('retry me')));
         self::assertFalse($p->isRetryable(new \LogicException('not me')));
     }
