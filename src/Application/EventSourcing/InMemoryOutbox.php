@@ -18,16 +18,22 @@ final class InMemoryOutbox implements OutboxStoreInterface
     /** @var array<string, OutboxEntry> keyed by entry id, insertion-ordered */
     private array $entries = [];
 
+    /** @var (\Closure(): int) */
+    private readonly \Closure $clock;
+
     /**
-     * @param null|(\Closure(): int) $clock createdAt source (default: realtime nanoseconds)
+     * @param null|(\Closure(): int) $clock now source — injected or the realtime default,
+     *                                      resolved once per instance (not per call)
      */
-    public function __construct(private readonly ?\Closure $clock = null) {}
+    public function __construct(?\Closure $clock = null)
+    {
+        $this->clock = $clock ?? static fn (): int => (int) (microtime(true) * 1_000_000_000);
+    }
 
     #[\Override]
     public function enqueue(string $messageType, array $payload, array $metadata = []): OutboxEntry
     {
-        $clock = $this->clock ?? static fn (): int => (int) (microtime(true) * 1_000_000_000);
-        $now = $clock();
+        $now = ($this->clock)();
         $entry = new OutboxEntry(
             id: bin2hex(random_bytes(16)),
             messageType: $messageType,
@@ -50,7 +56,7 @@ final class InMemoryOutbox implements OutboxStoreInterface
         if ($limit < 1) {
             throw new EventSourcingException("due() limit must be >= 1 (got {$limit}).");
         }
-        $now = $nowUnixNano ?? ($this->clock ?? static fn (): int => (int) (microtime(true) * 1_000_000_000))();
+        $now = $nowUnixNano ?? ($this->clock)();
         $eligible = [];
         foreach ($this->entries as $entry) {
             if ($entry->isPending() && $entry->nextAttemptAtUnixNano <= $now) {
@@ -139,6 +145,31 @@ final class InMemoryOutbox implements OutboxStoreInterface
         }
 
         return $pending;
+    }
+
+    #[\Override]
+    public function requeue(string $id, ?int $nextAttemptAtUnixNano = null): OutboxEntry
+    {
+        $now = $nextAttemptAtUnixNano ?? ($this->clock)();
+        EventGrammar::assertUnixNano($now, 'nextAttemptAtUnixNano');
+        $updated = $this->mutate($id, static fn (OutboxEntry $entry): OutboxEntry => $entry->isFailed()
+            ? new OutboxEntry(
+                id: $entry->id,
+                messageType: $entry->messageType,
+                payload: $entry->payload,
+                metadata: $entry->metadata,
+                attempts: 0,
+                status: OutboxEntry::STATUS_PENDING,
+                nextAttemptAtUnixNano: $now,
+                lastError: $entry->lastError,
+                createdAtUnixNano: $entry->createdAtUnixNano,
+            )
+            : throw new EventSourcingException(
+                "Only failed entries can be requeued (entry '{$entry->id}' is '{$entry->status}').",
+            ));
+        $this->entries[$id] = $updated;
+
+        return $updated;
     }
 
     /**

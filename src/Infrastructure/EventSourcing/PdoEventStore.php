@@ -33,6 +33,16 @@ use Zef\Framework\Database\SqlQuery;
  *
  * `createSchema()` issues portable DDL (TEXT columns, no driver-specific
  * index syntax); production tuning belongs in user migrations.
+ *
+ * v2.23.0 hardening: the schema carries two store-wide backstops —
+ * UNIQUE(event_id) and UNIQUE(global_sequence). The in-transaction
+ * `MAX(global_sequence) + 1` computation can race under a database's
+ * repeatable-read snapshot; without the unique index the loser would
+ * silently double-assign the projection currency, breaking checkpointed
+ * consumers. With it, the loser fails loudly and the caller retries.
+ * Deployments created before v2.23.0 should add both indexes manually
+ * (see CHANGELOG-v2.23.0.md) — CREATE TABLE IF NOT EXISTS does not alter
+ * existing tables.
  */
 final readonly class PdoEventStore implements EventStoreInterface
 {
@@ -72,7 +82,9 @@ final readonly class PdoEventStore implements EventStoreInterface
             . '"payload" TEXT NOT NULL, '
             . '"metadata" TEXT NOT NULL, '
             . '"recorded_at" BIGINT NOT NULL, '
-            . 'CONSTRAINT "uq_' . $this->table . '_stream" UNIQUE ("aggregate_type", "aggregate_id", "version"))',
+            . 'CONSTRAINT "uq_' . $this->table . '_stream" UNIQUE ("aggregate_type", "aggregate_id", "version"), '
+            . 'CONSTRAINT "uq_' . $this->table . '_event_id" UNIQUE ("event_id"), '
+            . 'CONSTRAINT "uq_' . $this->table . '_global" UNIQUE ("global_sequence"))',
         ));
     }
 

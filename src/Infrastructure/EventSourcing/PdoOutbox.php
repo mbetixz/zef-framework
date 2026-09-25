@@ -184,6 +184,38 @@ final readonly class PdoOutbox implements OutboxStoreInterface
         return RowCast::int($value);
     }
 
+    #[\Override]
+    public function requeue(string $id, ?int $nextAttemptAtUnixNano = null): OutboxEntry
+    {
+        $now = $nextAttemptAtUnixNano ?? ($this->clock)();
+        EventGrammar::assertUnixNano($now, 'nextAttemptAtUnixNano');
+        $row = $this->connection->fetchOne(
+            $this->selectQb()->where('id', '=', $id)->build(),
+        );
+        if ($row === null) {
+            throw new EventSourcingException("Unknown outbox entry '{$id}'.");
+        }
+        $status = RowCast::string($row['status'] ?? null);
+        if ($status !== OutboxEntry::STATUS_FAILED) {
+            throw new EventSourcingException(
+                "Only failed entries can be requeued (entry '{$id}' is '{$status}').",
+            );
+        }
+        $this->updateById($id, [
+            'status' => OutboxEntry::STATUS_PENDING,
+            'attempts' => 0,
+            'next_attempt_at' => $now,
+        ]);
+        $updated = $this->connection->fetchOne(
+            $this->selectQb()->where('id', '=', $id)->build(),
+        );
+        if ($updated === null) {
+            throw new EventSourcingException("Outbox entry '{$id}' vanished during requeue.");
+        }
+
+        return $this->hydrate($updated);
+    }
+
     /**
      * @param array<string, mixed> $pairs
      */

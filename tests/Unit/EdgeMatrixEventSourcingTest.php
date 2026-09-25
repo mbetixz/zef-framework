@@ -312,7 +312,7 @@ final class EdgeMatrixEventSourcingTest extends TestCase
             $aggregate->applyStored($event(2));
             self::fail('replayed version must strictly increase');
         } catch (EventSourcingException $e) {
-            self::assertStringContainsString('version 2 does not exceed', $e->getMessage());
+            self::assertStringContainsString('Corrupt stream', $e->getMessage());
         }
     }
 

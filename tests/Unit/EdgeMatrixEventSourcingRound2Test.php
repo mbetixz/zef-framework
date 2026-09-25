@@ -350,6 +350,11 @@ final class EdgeMatrixEventSourcingRound2Test extends TestCase
             {
                 return 0;
             }
+
+            public function requeue(string $id, ?int $nextAttemptAtUnixNano = null): OutboxEntry
+            {
+                throw new \LogicException('not used by this probe');
+            }
         };
         $recorder = new OutboxRecorder($probe, $conn);
         $events = [
@@ -400,6 +405,11 @@ final class EdgeMatrixEventSourcingRound2Test extends TestCase
             public function countPending(): int
             {
                 return 0;
+            }
+
+            public function requeue(string $id, ?int $nextAttemptAtUnixNano = null): OutboxEntry
+            {
+                throw new \LogicException('not used by this probe');
             }
         };
         $repo = new AggregateRepository(
@@ -848,7 +858,7 @@ final class EdgeMatrixEventSourcingRound2Test extends TestCase
         $indexes = $conn->fetchAll(SqlQuery::raw('PRAGMA index_list("zef_events")'));
         self::assertNotEmpty($indexes, 'the UNIQUE stream constraint must produce an index');
         $uniqueCount = count(array_filter($indexes, static fn (array $i): bool => RowCast::int($i['unique']) === 1));
-        self::assertSame(1, $uniqueCount, 'exactly one unique index (the stream identity)');
+        self::assertSame(3, $uniqueCount, 'exactly three unique indexes: stream identity + event id + global sequence (v2.23.0 backstops)');
     }
 
     public function testOutboxAndSnapshotTableDdlShape(): void

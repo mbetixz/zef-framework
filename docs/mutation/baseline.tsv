@@ -26,3 +26,4 @@ app-obs-a|82.58|87.50|356|DEBT|docs/mutation/evidence/infection-summary-app-obs-
 app-obs-b|96.05|96.05|177|OK|docs/mutation/evidence/infection-summary-app-obs-b.json|
 app-obs-c|76.56|77.17|128|DEBT|docs/mutation/evidence/infection-summary-app-obs-c.json|measured MSI 76.56 below the 95 target
 app-db-tx|95.92|95.92|49|OK|docs/mutation/evidence/infection-summary-app-db-tx.json|
+es-hardening|97.18|97.36|532|OK|docs/mutation/evidence/infection-summary-es-hardening.json|

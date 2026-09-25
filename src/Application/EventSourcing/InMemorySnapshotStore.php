@@ -13,6 +13,9 @@ namespace Zef\Framework\EventSourcing;
 /**
  * In-memory {@see SnapshotStoreInterface} — latest snapshot wins per
  * (aggregateType, aggregateId).
+ *
+ * v2.23.0 hardening: {@see save()} refuses to regress — a snapshot older
+ * than the stored one is discarded (the port's concurrency contract).
  */
 final class InMemorySnapshotStore implements SnapshotStoreInterface
 {
@@ -22,6 +25,10 @@ final class InMemorySnapshotStore implements SnapshotStoreInterface
     #[\Override]
     public function save(Snapshot $snapshot): void
     {
+        $existing = $this->snapshots[$snapshot->aggregateType][$snapshot->aggregateId] ?? null;
+        if ($existing instanceof Snapshot && $existing->version > $snapshot->version) {
+            return; // a concurrent writer already saved a newer snapshot
+        }
         $this->snapshots[$snapshot->aggregateType][$snapshot->aggregateId] = $snapshot;
     }
 

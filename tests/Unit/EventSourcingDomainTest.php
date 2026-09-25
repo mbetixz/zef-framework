@@ -387,17 +387,14 @@ final class EventSourcingDomainTest extends TestCase
             $aggregate->applyStored($this->stored('account.deposited', 2, 3, ['amount' => 7]));
             self::fail('equal version must fail');
         } catch (EventSourcingException $e) {
-            self::assertSame(
-                'Stored event version 2 does not exceed the current aggregate version 2.',
-                $e->getMessage(),
-            );
+            self::assertStringContainsString('expected stored version 3, got 2', $e->getMessage());
         }
 
         try {
             $aggregate->applyStored($this->stored('account.deposited', 1, 3, ['amount' => 7]));
             self::fail('regressed version must fail');
         } catch (EventSourcingException $e) {
-            self::assertStringContainsString('does not exceed', $e->getMessage());
+            self::assertStringContainsString('Corrupt stream', $e->getMessage());
         }
     }
 

@@ -25,6 +25,10 @@ use Zef\Framework\Database\ConnectionInterface;
  * Concurrency: {@see persist()} uses the aggregate's `pendingVersion()` as
  * the expected version; a concurrent writer surfaces as
  * {@see ConcurrencyException} and the caller should reload and retry.
+ *
+ * Upcasting: when an {@see EventUpcaster} registry is provided, stored
+ * events are transformed to their current schema shape during reconstitution
+ * (v2.23.0) — old streams replay against current code without a rewrite.
  */
 class AggregateRepository
 {
@@ -40,6 +44,7 @@ class AggregateRepository
      * @param null|OutboxRecorder         $outbox     transactional outbox recorder (optional)
      * @param null|ConnectionInterface    $connection shared connection used to wrap persist in one transaction
      * @param null|(\Closure(): int)      $clock      snapshot timestamp source (default: realtime nanoseconds)
+     * @param null|EventUpcaster          $upcasters  event schema-evolution registry applied during replay (optional)
      */
     public function __construct(
         private readonly EventStoreInterface $store,
@@ -48,6 +53,7 @@ class AggregateRepository
         private readonly ?OutboxRecorder $outbox = null,
         private readonly ?ConnectionInterface $connection = null,
         ?\Closure $clock = null,
+        private readonly ?EventUpcaster $upcasters = null,
     ) {
         if ($policy instanceof SnapshotPolicy && !$this->snapshots instanceof SnapshotStoreInterface) {
             throw new EventSourcingException('SnapshotPolicy provided without a SnapshotStore.');
@@ -75,7 +81,11 @@ class AggregateRepository
      * Load an aggregate by replaying its stream (optionally seeded from a
      * snapshot). Returns null when neither snapshot nor events exist.
      *
-     * @param class-string<AggregateRoot> $aggregateClass
+     * @template T of AggregateRoot
+     *
+     * @param class-string<T> $aggregateClass
+     *
+     * @return null|T
      */
     public function find(string $aggregateClass, string $aggregateId): ?AggregateRoot
     {
@@ -99,7 +109,7 @@ class AggregateRepository
         }
         $aggregate = $aggregateClass::createEmpty($aggregateId);
         foreach ($events as $event) {
-            $aggregate->applyStored($event);
+            $aggregate->applyStored($this->upcast($event));
         }
 
         return $aggregate;
@@ -109,7 +119,11 @@ class AggregateRepository
      * {@see find()} but raising {@see AggregateNotFoundException} instead
      * of returning null.
      *
-     * @param class-string<AggregateRoot> $aggregateClass
+     * @template T of AggregateRoot
+     *
+     * @param class-string<T> $aggregateClass
+     *
+     * @return T
      */
     public function findOrFail(string $aggregateClass, string $aggregateId): AggregateRoot
     {
@@ -157,7 +171,19 @@ class AggregateRepository
             if ($event->version <= $afterVersion) {
                 continue;
             }
-            $aggregate->applyStored($event);
+            $aggregate->applyStored($this->upcast($event));
         }
+    }
+
+    /**
+     * Stored events are replayed in their CURRENT schema shape: events
+     * without registered upcasters pass through untouched, legacy ones walk
+     * the upcaster chain (v2.23.0).
+     */
+    private function upcast(StoredEvent $event): StoredEvent
+    {
+        return $this->upcasters instanceof EventUpcaster
+            ? $this->upcasters->transform($event)
+            : $event;
     }
 }

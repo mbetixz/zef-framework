@@ -13,9 +13,12 @@ namespace Zef\Framework\EventSourcing;
 /**
  * Outbound port for aggregate snapshot storage.
  *
- * Snapshots are keyed by (aggregateType, aggregateId); a save always
- * replaces any previously stored snapshot for the same identity — the
- * latest snapshot wins.
+ * Snapshots are keyed by (aggregateType, aggregateId). Save semantics
+ * (v2.23.0): a snapshot may never move BACKWARDS — implementations MUST
+ * reject (no-op) a save whose version is strictly older than the stored
+ * one, because a concurrent writer may have already persisted a newer
+ * snapshot between this aggregate's load and save. Saving the same version
+ * again is allowed (idempotent refresh with a fresher state payload).
  */
 interface SnapshotStoreInterface
 {
