@@ -198,5 +198,17 @@ jobs:
         # See docs/mutation/README.md for the format and the campaign tooling.
         run: composer mutation:zones
 
+      - name: Release cadence ratchet (tag ↔ changelog)
+        # Issue #88: eleven minors (v2.18.0 → v2.27.0) shipped as changelog
+        # files with no tag and no GitHub release, so the "documented release"
+        # references drifted three to nine minors behind ZefVersion. This gate
+        # asserts (fail-closed) that every v2+ tag carries its
+        # docs/CHANGELOG-v{tag}.md and that the newest tag never runs ahead of
+        # ZefVersion::VERSION. One-directional on purpose: a changelog file
+        # without a tag is a legitimate pre-release state — the version-bump
+        # PR lands the changelog first and the tag ships with the same merge
+        # (see docs/GOVERNANCE.md 2.6).
+        run: php scripts/ci/assert-release-cadence.php
+
       - name: Rector (dry-run)
         run: vendor/bin/rector process --dry-run --no-progress-bar

@@ -3,8 +3,20 @@
 # "Configuration file .github/release-drafter.yml is not found".
 # File ini WAJIB berada di default branch.
 
-name-template: "v$NEXT_PATCH_VERSION"
-tag-template: "v$NEXT_PATCH_VERSION"
+# Issue #88: template lama "v$NEXT_PATCH_VERSION" tanpa version-resolver
+# hanya bisa menghitung patch bump — draft otomatis v2.17.1 salah label
+# untuk konten tiga rilis fitur. Default kini MINOR (kadensi rilis repo:
+# setiap minor = batch fitur aditif); PATCH hanya lewat label eksplisit
+# `patch` (hotfix), MAJOR lewat label `breaking`.
+name-template: "v$NEXT_MINOR_VERSION"
+tag-template: "v$NEXT_MINOR_VERSION"
+
+version-resolver:
+  major:
+    labels: ["breaking"]
+  patch:
+    labels: ["patch"]
+  default: minor
 
 categories:
   - title: "Features"
@@ -28,9 +40,23 @@ template: |
 
   $CHANGES
 
-  **Perubahan penuh**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$NEXT_PATCH_VERSION
+  **Perubahan penuh**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$NEXT_MINOR_VERSION
 
 autolabeler:
+  # Issue #88: aturan lama berbasis FILE saja tidak pernah menyentuh merge
+  # commit berjudul conventional ("feat: ...", "fix: ..."), sehingga kategori
+  # Features / Bug Fixes selalu kosong dan resolver tidak punya sinyal.
+  # Aturan TITLE berikut mengisi kategori + memberi resolver sinyal versi.
+  - label: "breaking"
+    title: '^([a-z]+(\([^)]*\))?)?!:|BREAKING CHANGE'
+  - label: "feature"
+    title: '^feat(\([^)]*\))?:'
+  - label: "fix"
+    title: '^fix(\([^)]*\))?:'
+  - label: "documentation"
+    title: '^docs(\([^)]*\))?:'
+  - label: "chore"
+    title: '^chore(\([^)]*\))?:'
   - label: "documentation"
     files: ["*.md", "docs/**"]
   - label: "dependencies"
