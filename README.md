@@ -2,7 +2,7 @@
   <img src="assets/readme-banner.svg" alt="ZEF Framework — Hexagonal · PSR-15 · RoadRunner · PHP 8.4+" width="100%">
 </div>
 
-<br>
+## <br>
 
 <div align="center">
 
@@ -20,7 +20,7 @@
 
 </div>
 
-<br>
+## <br>
 
 <div align="center">
 
@@ -28,8 +28,7 @@
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/php-sast.yml/badge.svg" alt="PHP SAST"></a>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL"></a>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
-  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml/badge.svg" alt="Dependency Review"></a>
-  <br>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/dependency-review.yml/badge.svg" alt="Dependency Review"></a>  <br>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/docs-check.yml/badge.svg" alt="API Documentation"></a>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/phpbench.yml/badge.svg" alt="PHPBench"></a>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml/badge.svg" alt="Mutation"></a>
@@ -133,8 +132,8 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 
 | Rilis | Fokus |
 |:------|:------|
-| **v2.8.0** | Tagged services · URL generator · ETag/304 · ProblemDetails · pagination · Prometheus · health aggregator · cache bertag · scheduler · AES-GCM · TOTP · validator |
-| **v2.9.0** | Advanced Autowiring Engine: atribut, interface binding berlapis, variadic koleksi, graf dependensi, AOT compiler |
+| **v2.08.0** | Tagged services · URL generator · ETag/304 · ProblemDetails · pagination · Prometheus · health aggregator · cache bertag · scheduler · AES-GCM · TOTP · validator |
+| **v2.09.0** | Advanced Autowiring Engine: atribut, interface binding berlapis, variadic koleksi, graf dependensi, AOT compiler |
 | **v2.10.0** | Enterprise Feature Pack: contextual binding, decoration, route cache, API versioning, sort/filter whitelist, key ring, i18n, form request, tinker, manifest K8s |
 | **v2.11.0** | RadixTree Namespace Container |
 | **v2.12.0–v2.13.1** | Penyelarasan toolchain Composer, hardening (PHPStan level *max* + strict-rules, PHPCS + Slevomat, Rector, Deptrac fail-on-uncovered), migrasi suite ke PHPUnit native |
@@ -151,7 +150,7 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.25.0** | **Rate Limiting**: sliding window counter + token bucket (refill kontinu, cost-aware), tiering `RateLimitRule` + `TieredRateLimiter` (most restrictive wins), header `RateLimit-*` draft IETF + legacy `X-RateLimit-*`, rantai identitas identity > API key > IP, middleware PSR-15 + wiring env fail-fast |
 | **v2.26.0** | **Async Runtime**: scheduler fiber-native (`FiberScheduler::run()/spawn()/await()/awaitAll()/suspend()/sleep()/timeout()`), `FiberChannel` bounded FIFO, `Semaphore` pembatas konkurensi, `WaitGroup`, `CoroutineLocal`, `CancellationToken(Source)`, deteksi deadlock, surfacing unobserved failure, timer monotonic + clock/sleeper port (deterministik di test) |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.26.0.md`](docs/CHANGELOG-v2.26.0.md), [`docs/CHANGELOG-v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`docs/CHANGELOG-v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`docs/CHANGELOG-v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`docs/CHANGELOG-v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`docs/CHANGELOG-v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 31 berkas di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.26.0.md`](docs/CHANGELOG-v2.26.0.md), [`v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh berkas lainnya di [`docs/`](docs/README.md).
 
 </details>
 
