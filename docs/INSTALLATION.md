@@ -116,7 +116,7 @@ docker compose up --build          # lihat deploy/docker-compose.yml
 
 ## 6. Variabel lingkungan
 
-Seluruh variabel dibaca melalui pembungkus `Env` dan dilaporkan hanya sebagai nilai
+Seluruh variabel dibaca melalui port `EnvInterface` (lihat [6.1](#61-membaca-variabel-lingkungan-dari-kode-envinterface)) dan dilaporkan hanya sebagai nilai
 konfigurasi — **tidak ada rahasia yang boleh ditulis ke berkas, log, atau laporan**.
 
 | Variabel | Default | Dampak |
@@ -132,6 +132,112 @@ konfigurasi — **tidak ada rahasia yang boleh ditulis ke berkas, log, atau lapo
 
 Pemeriksaan keberadaan variabel (untuk skrip operasional) harus *masked* — hanya
 melaporkan `PRESENT`/`ABSENT`, tidak pernah mencetak nilainya.
+
+### 6.1 Membaca variabel lingkungan dari kode: `EnvInterface`
+
+Kode aplikasi membaca variabel lingkungan melalui port
+`Zef\Framework\Foundation\EnvInterface`. Port ini hanya berisi API baca bertipe,
+tanpa efek samping:
+
+| Metode | Kegunaan |
+|--------|----------|
+| `readInt(string $name, int $default, int $min, int $max, bool $strict = false): int` | Integer yang di-*clamp* ke `[$min, $max]`. Dengan `$strict = true`, melempar exception bila variabel diisi tetapi tidak valid. |
+| `readBool(string $name, bool $default = false): bool` | Nilai boolean. |
+| `readString(string $name, string $default = ''): string` | Nilai string. |
+| `readCsv(string $name): array` | Daftar string (`list<string>`) hasil pemisahan koma. Tiap elemen dipangkas dan elemen kosong dibuang. Variabel kosong atau tidak ada menghasilkan `[]`. |
+
+Kernel mendaftarkan `EnvInterface` di composition root sebagai service
+`SINGLETON` dengan implementasi `Env`. Injeksikan port lewat constructor, atau
+ambil dari container:
+
+```php
+use Zef\Framework\Foundation\EnvInterface;
+
+final class WorkerSettings
+{
+    public function __construct(private readonly EnvInterface $env) {}
+
+    public function maxJobs(): int
+    {
+        return $this->env->readInt('ZEF_WORKER_MAX_JOBS', 0, 0, PHP_INT_MAX);
+    }
+
+    public function trustedHosts(): array
+    {
+        return $this->env->readCsv('ZEF_TRUSTED_HOSTS');
+    }
+}
+
+// Di composition root:
+$env = $container->get(EnvInterface::class);
+```
+
+Karena port bisa diinjeksi, test dan runtime alternatif dapat mengganti sumber
+nilai dengan implementasi `EnvInterface` sendiri. Kode produksi baru bergantung
+pada port, bukan pada kelas konkret `Env`.
+
+### 6.2 Catatan upgrade v2.28: facade statis `Env` deprecated
+
+Sejak **v2.28.0**, metode statis `Env::int()`, `Env::bool()`, `Env::string()`, dan
+`Env::csv()` berstatus deprecated dan **dihapus di v3.0**. Pada v3.0, `Env` menjadi
+kelas instance murni yang mengimplementasikan `EnvInterface`.
+
+Perilaku di v2.28.x:
+
+- Setiap metode statis membawa tag `@deprecated`, sehingga IDE dan PHPStan
+  (dengan `phpstan-deprecation-rules`) menandai pemanggilannya.
+- Setiap pemanggilan statis memancarkan `E_USER_DEPRECATED` yang di-*suppress*
+  dengan `@`. Log dan output test tetap hening secara default. Error handler
+  kustom tetap menerima notice ini, contohnya
+  `Env::int() is deprecated since v2.28.0 and will be removed in v3.0. Inject EnvInterface and call readInt() instead.`
+- Tanda tangan dan hasil tidak berubah. Metode `readX()` mendelegasikan ke
+  implementasi yang sama dan tidak memancarkan deprecasi.
+
+Migrasi bersifat satu-ke-satu dengan parameter identik:
+
+| Facade statis (deprecated) | Pengganti via `EnvInterface` |
+|----------------------------|------------------------------|
+| `Env::int($name, $default, $min, $max, $strict)` | `$env->readInt($name, $default, $min, $max, $strict)` |
+| `Env::bool($name, $default)` | `$env->readBool($name, $default)` |
+| `Env::string($name, $default)` | `$env->readString($name, $default)` |
+| `Env::csv($name)` | `$env->readCsv($name)` |
+
+Untuk kelas yang dibangun sendiri di luar container, gunakan parameter port
+opsional agar tetap kompatibel selama masa migrasi:
+
+```php
+use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
+
+final class RateLimitConfig
+{
+    private readonly EnvInterface $env;
+
+    public function __construct(?EnvInterface $env = null)
+    {
+        $this->env = $env ?? new Env();
+    }
+
+    public function debug(): bool
+    {
+        // Sebelumnya: Env::bool('ZEF_DEBUG')
+        return $this->env->readBool('ZEF_DEBUG');
+    }
+}
+```
+
+Untuk memantau sisa pemanggilan statis sebelum upgrade ke v3.0, pasang error
+handler untuk `E_USER_DEPRECATED` di lingkungan pengembangan atau CI:
+
+```php
+set_error_handler(
+    static function (int $errno, string $message): bool {
+        error_log('[deprecated] ' . $message);
+        return true;
+    },
+    E_USER_DEPRECATED,
+);
+```
 
 ## 7. Verifikasi pasca-instalasi
 
