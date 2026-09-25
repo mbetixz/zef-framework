@@ -105,19 +105,23 @@ final class DatabaseTransactionManagerHookTimeoutTest extends TestCase
  */
 final class SpyLogger extends AbstractLogger
 {
-    /** @var list<array{level:string, message:string, context:array}> */
+    /**
+     * @var list<array{level:string, message:string, context:array<array-key, mixed>}>
+     */
     public array $records = [];
 
     /**
-     * @param mixed  $level
-     * @param string $message
-     * @param array  $context
+     * @param string|\Stringable  $level
+     * @param string              $message
+     * @param array<array-key, mixed> $context
      */
-    public function log($level, $message, array $context = []): void
+    public function log($level, string|\Stringable $message, array $context = []): void
     {
+        $levelStr = is_string($level) ? $level : (string) $level;
+        $messageStr = is_string($message) ? $message : (string) $message;
         $this->records[] = [
-            'level' => is_string($level) ? $level : (string) $level,
-            'message' => $message,
+            'level' => $levelStr,
+            'message' => $messageStr,
             'context' => $context,
         ];
     }
