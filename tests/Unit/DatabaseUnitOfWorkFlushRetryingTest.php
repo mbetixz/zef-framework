@@ -66,7 +66,7 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
             $calls[] = 'op-1';
             ++$attempt;
             if ($attempt < 2) {
-                throw new \PDOException('deadlock', '40P01');
+                throw $this->makePdoException('deadlock', '40P01');
             }
         });
 
@@ -93,8 +93,8 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
     public function testFlushRetryingExhaustsAttemptsAndPropagatesLast(): void
     {
         $uow = new UnitOfWork();
-        $uow->record(static function (ConnectionInterface $c): void {
-            throw new \PDOException('deadlock', '40P01');
+        $uow->record(function (ConnectionInterface $c): void {
+            throw $this->makePdoException('deadlock', '40P01');
         });
 
         $policy = new UnitOfWorkRetryPolicy(maxAttempts: 2, initialDelayMs: 0);
@@ -127,7 +127,7 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
         $uow->record(function (ConnectionInterface $c) use (&$attempt): void {
             ++$attempt;
             if ($attempt < 3) {
-                throw new \PDOException('deadlock', '40P01');
+                throw $this->makePdoException('deadlock', '40P01');
             }
         });
 
@@ -137,5 +137,22 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
         self::assertSame(1, $executed);
         self::assertSame(3, $attempt, 'tried 3 times before success');
         self::assertSame(0, $uow->pending(), 'queue cleared on success');
+    }
+
+    /**
+     * Build a testable PDOException with a SQLSTATE string. Real
+     * PDOExceptions are populated by PHP internals at runtime; the public
+     * constructor only accepts an int $code, so we extend the class and
+     * populate errorInfo directly.
+     */
+    private function makePdoException(string $message, string $sqlState): \PDOException
+    {
+        return new class ($message, $sqlState) extends \PDOException {
+            public function __construct(string $message, string $sqlState)
+            {
+                parent::__construct($message, 0);
+                $this->errorInfo = [$sqlState, 0, $message];
+            }
+        };
     }
 }

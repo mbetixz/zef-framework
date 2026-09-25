@@ -96,14 +96,14 @@ final class DatabaseUnitOfWorkRetryPolicyTest extends TestCase
     public function testIsRetryableMatchesClassAndSqlState(): void
     {
         $p = new UnitOfWorkRetryPolicy();
-        $retryable = new \PDOException('deadlock', '40P01');
+        $retryable = $this->makePdoException('deadlock', '40P01');
         self::assertTrue($p->isRetryable($retryable));
     }
 
     public function testIsRetryableRejectsNonRetryableSqlState(): void
     {
         $p = new UnitOfWorkRetryPolicy();
-        $syntaxError = new \PDOException('syntax error', '42601');
+        $syntaxError = $this->makePdoException('syntax error', '42601');
         self::assertFalse($p->isRetryable($syntaxError));
     }
 
@@ -117,7 +117,7 @@ final class DatabaseUnitOfWorkRetryPolicyTest extends TestCase
     public function testIsRetryableWhenSqlStatesListEmptyMatchesClassOnly(): void
     {
         $p = new UnitOfWorkRetryPolicy(retryableSqlStates: []);
-        $any = new \PDOException('whatever', 'XX999');
+        $any = $this->makePdoException('whatever', 'XX999');
         self::assertTrue($p->isRetryable($any));
     }
 
@@ -126,5 +126,22 @@ final class DatabaseUnitOfWorkRetryPolicyTest extends TestCase
         $p = new UnitOfWorkRetryPolicy(retryableClassNames: [\RuntimeException::class]);
         self::assertTrue($p->isRetryable(new \RuntimeException('retry me')));
         self::assertFalse($p->isRetryable(new \LogicException('not me')));
+    }
+
+    /**
+     * Build a testable PDOException with a SQLSTATE string. Real
+     * PDOExceptions are populated by PHP internals at runtime; the public
+     * constructor only accepts an int $code, so we extend the class and
+     * populate errorInfo directly.
+     */
+    private function makePdoException(string $message, string $sqlState): \PDOException
+    {
+        return new class ($message, $sqlState) extends \PDOException {
+            public function __construct(string $message, string $sqlState)
+            {
+                parent::__construct($message, 0);
+                $this->errorInfo = [$sqlState, 0, $message];
+            }
+        };
     }
 }
