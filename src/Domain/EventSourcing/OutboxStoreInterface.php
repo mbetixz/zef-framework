@@ -71,5 +71,23 @@ interface OutboxStoreInterface
      */
     public function failed(int $limit): array;
 
+    /**
+     * Give a dead letter a fresh retry budget (v2.23.0): status returns to
+     * `pending`, attempts reset to 0 and the entry becomes eligible again
+     * at $nextAttemptAtUnixNano (the adapter's clock when null). The last
+     * error stays on the entry for post-mortem reading until the next
+     * relay overwrites it.
+     *
+     * Call this after fixing the root cause that dead-lettered the entry;
+     * requeueing an entry that is not dead is a caller bug.
+     *
+     * @param null|int $nextAttemptAtUnixNano when null, the adapter's clock decides
+     *
+     * @return OutboxEntry the updated entry
+     *
+     * @throws EventSourcingException when the entry does not exist or is not `failed`
+     */
+    public function requeue(string $id, ?int $nextAttemptAtUnixNano = null): OutboxEntry;
+
     public function countPending(): int;
 }

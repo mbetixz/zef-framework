@@ -20,6 +20,10 @@ use Zef\Framework\Database\SqlQuery;
  * `save()` is a portable upsert (DELETE + INSERT inside the surrounding
  * transaction) — no driver-specific ON CONFLICT syntax. Like the event
  * store it joins an ambient transaction when one is open.
+ *
+ * v2.23.0 hardening: `save()` checks the stored version first and refuses
+ * to regress — a snapshot older than the persisted one is discarded, so a
+ * slow writer can never clobber a newer snapshot saved concurrently.
  */
 final readonly class PdoSnapshotStore implements SnapshotStoreInterface
 {
@@ -113,6 +117,16 @@ final readonly class PdoSnapshotStore implements SnapshotStoreInterface
 
     private function doSave(Snapshot $snapshot): void
     {
+        $row = $this->connection->fetchOne(
+            $this->selectQb()
+                ->where('aggregate_type', '=', $snapshot->aggregateType)
+                ->where('aggregate_id', '=', $snapshot->aggregateId)
+                ->build(),
+        );
+        $existingVersion = $row === null ? null : RowCast::int($row['version'] ?? null);
+        if ($existingVersion !== null && $existingVersion > $snapshot->version) {
+            return; // a concurrent writer already saved a newer snapshot
+        }
         $this->connection->execute(
             $this->deleteQb()
                 ->where('aggregate_type', '=', $snapshot->aggregateType)

@@ -104,6 +104,35 @@ final readonly class OutboxRelay
     }
 
     /**
+     * Give dead letters a fresh retry budget (v2.23.0): status back to
+     * pending, attempts reset to 0, eligible on the next {@see relay()}.
+     * Use after fixing the root cause; the original error stays visible on
+     * each entry until its next dispatch attempt.
+     *
+     * Requeued entries are STAGGERED one millisecond apart (per position in
+     * the batch) so a requeued herd re-enters the downstream spread out
+     * instead of all at once.
+     *
+     * @param int $limit >= 1
+     *
+     * @return int number of entries requeued
+     */
+    public function requeueDeadLetters(int $limit = 100): int
+    {
+        if ($limit < 1) {
+            throw new EventSourcingException("requeueDeadLetters() limit must be >= 1 (got {$limit}).");
+        }
+        $now = ($this->clock)();
+        $requeued = 0;
+        foreach ($this->outbox->failed($limit) as $entry) {
+            $this->outbox->requeue($entry->id, $now + $requeued * 1_000_000);
+            ++$requeued;
+        }
+
+        return $requeued;
+    }
+
+    /**
      * Exponential backoff for the 1-based attempt number:
      * `base * 2^(attempt-1)`, capped at backoffCapMs.
      */

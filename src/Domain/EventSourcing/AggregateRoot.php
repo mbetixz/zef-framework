@@ -75,14 +75,18 @@ abstract class AggregateRoot
     }
 
     /**
-     * @internal replay one committed event; versions must arrive strictly
-     *           ascending, anything else is a corrupted read model
+     * @internal replay one committed event; versions must arrive in strict
+     *           steps of one — a gap or a regression means the stream on
+     *           disk is corrupt (truncated, hand-edited or written by a
+     *           rogue writer) and replaying it would silently fabricate a
+     *           wrong aggregate state
      */
     final public function applyStored(StoredEvent $event): void
     {
-        if ($event->version <= $this->version) {
+        if ($event->version !== $this->version + 1) {
             throw new EventSourcingException(
-                "Stored event version {$event->version} does not exceed the current aggregate version {$this->version}.",
+                'Corrupt stream for event ' . $event->eventId . ': expected stored version '
+                . ($this->version + 1) . ', got ' . $event->version . ' (aggregate version ' . $this->version . ').',
             );
         }
         $this->version = $event->version;
