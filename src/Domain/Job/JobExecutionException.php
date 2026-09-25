@@ -10,4 +10,11 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Job;
 
-class JobExecutionException extends \RuntimeException {}
+class JobExecutionException extends \RuntimeException
+{
+    /** Corrupt stored payload: the row exists but its JSON document is unparsable. */
+    public static function corruptPayload(\JsonException $previous): self
+    {
+        return new self('Stored job payload is not valid JSON.', 0, $previous);
+    }
+}

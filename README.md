@@ -121,6 +121,10 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
     <td><b>Runtime</b></td>
     <td>Worker persisten RoadRunner v4.1 · async runtime fiber-native (<code>FiberScheduler</code>, channel, semaphore, wait group, cancellation + timeout, v2.26.0) · async rules engine konkuren (<code>AsyncRuleEngine</code>: batas konkurensi, deadline kooperatif per rule, fail-fast graceful, v2.27.0) · <code>.rr.yaml</code> siap pakai + <code>rr:init</code>/<code>doctor</code> preflight (v2.29.0) · scaffold aplikasi standalone <code>make:app</code> (v2.29.0) · CLI <code>bin/zef</code> dengan 11 generator · REPL <code>tinker</code></td>
   </tr>
+  <tr>
+    <td><b>Ecosystem</b></td>
+    <td>Object storage port + adapter <code>LocalStorage</code> (tulis atomik) &amp; <code>S3CompatibleStorage</code> (SigV4 in-house tanpa SDK — AWS/MinIO/Ceph/R2/GCS XML-API, v2.30.0) · transport pesan <code>InMemoryMessageTransport</code> (FIFO terbatas, id deterministik, v2.30.0) · antrean job tahan lama <code>PdoJobQueue</code> (klaim transaksional portabel) + <code>PdoJobIdempotencyStore</code> (efek exactly-once, v2.30.0) · peta integrasi <a href="docs/INTEGRATIONS.md">INTEGRATIONS.md</a></td>
+  </tr>
 </table>
 
 <details>
@@ -152,8 +156,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.27.0** | **Async Rules**: engine evaluasi rule konkuren di atas fiber scheduler (`AsyncRuleEngine` + port `AsyncRuleEngineInterface`), verdict total per rule (`RuleVerdict` pass/fail/skip + throwable), `RuleReport` urutan input, `RuleEngineOptions` (batas konkurensi, deadline kooperatif per rule, fail-fast graceful via pembatalan kooperatif), zona mutasi `app-rules` MSI 96.40% |
 | **v2.28.0** | **Env Facade Deprecation**: penutup issue #55 — `Env::int/bool/string/csv` kini `@deprecated` + `E_USER_DEPRECATED` (ter-suppress di runtime), pengganti `EnvInterface::readInt/readBool/readString/readCsv` dengan tanda tangan identik; sensus call statis `src/` 0 | 
 | **v2.29.0** | **DX Release**: `make:app` scaffold aplikasi standalone (path-repo leluhur bersama + wrapper maker), `rr:init` konfigurasi RoadRunner dari knob `ZEF_*` (collision-safe), `doctor` preflight lingkungan + boot smoke, tutorial Zero-to-Hero `TUTORIAL-CQRS-101.md`, kontrak plugin `PLUGINS.md` |
+| **v2.30.0** | **Ecosystem Ports**: port `ObjectStorageInterface` + adapter `LocalStorage` (atomik, bebas traversal) & `S3CompatibleStorage` (SigV4 in-house, vektor resmi AWS, tanpa SDK), transport `InMemoryMessageTransport` + `ReceivedMessage`, antrean durable `PdoJobQueue` (klaim SELECT+DELETE portabel, seq transaksional, UNIQUE job_id) + `PdoJobIdempotencyStore` (exactly-once effect), `INTEGRATIONS.md` — nol paket runtime baru |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.29.0.md`](docs/CHANGELOG-v2.29.0.md), [`v2.28.0.md`](docs/CHANGELOG-v2.28.0.md), [`v2.27.0.md`](docs/CHANGELOG-v2.27.0.md), [`v2.26.0.md`](docs/CHANGELOG-v2.26.0.md), [`v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh berkas lainnya di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.30.0.md`](docs/CHANGELOG-v2.30.0.md), [`v2.29.0.md`](docs/CHANGELOG-v2.29.0.md), [`v2.28.0.md`](docs/CHANGELOG-v2.28.0.md), [`v2.27.0.md`](docs/CHANGELOG-v2.27.0.md), [`v2.26.0.md`](docs/CHANGELOG-v2.26.0.md), [`v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh berkas lainnya di [`docs/`](docs/README.md).
 
 </details>
 
