@@ -7,10 +7,14 @@ declare(strict_types=1);
  * ZEF Maker: command catalog + dispatcher for every generator. `bin/zef`
  * stays a thin composition root; all maker logic lives here so it is
  * unit-tested and inside the mutation-testing gate.
+ *
+ * v2.29.0: `make:app` joins the catalog — the DX release scaffolds whole
+ * standalone applications, not only in-repo artefacts.
  */
 
 namespace Zef\Framework\Console;
 
+use Zef\Framework\Console\Generator\AppGenerator;
 use Zef\Framework\Console\Generator\CommandGenerator;
 use Zef\Framework\Console\Generator\ConfigGenerator;
 use Zef\Framework\Console\Generator\EntityGenerator;
@@ -38,6 +42,10 @@ final readonly class ZefMaker
     public function catalog(): array
     {
         return [
+            'make:app' => [
+                'usage' => 'make:app <path> [--name=<project>] [--address=host:port]',
+                'desc' => 'Scaffold a standalone ZEF app (composer.json + Bootstrap + Home module + RR config).',
+            ],
             'make:module' => [
                 'usage' => 'make:module <name>',
                 'desc' => 'Scaffold modules/<Pascal>/ (ConfigProvider + HomeHandler).',
@@ -149,6 +157,7 @@ final readonly class ZefMaker
         $writer = new ScaffoldWriter($io);
 
         return match ($command) {
+            'make:app' => new AppGenerator($root, $io, $writer),
             'make:module' => new ModuleGenerator($root, $io, $writer),
             'make:plugin' => new PluginGenerator($root, $io, $writer),
             'make:handler' => new HandlerGenerator($root, $io, $writer),

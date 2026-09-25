@@ -72,7 +72,7 @@ php bin/zef config:show tidak.ada.key    # exit 1
 
 ## 3. Generator — `bin/zef make:*`
 
-10 generator menghasilkan artefak kerja framework. Seluruhnya melewati
+11 generator menghasilkan artefak kerja framework. Seluruhnya melewati
 `ZefMaker` → `NamingRules` → `ScaffoldWriter`, sehingga aturan berikut berlaku
 seragam:
 
@@ -84,6 +84,7 @@ seragam:
 
 | Command | Menghasilkan |
 |---------|--------------|
+| `make:app <path> [--name=<project>] [--address=host:port]` | **v2.29.0** — scaffold aplikasi standalone di `<path>` (di luar root framework): composer.json (path-repo) + `app/Bootstrap.php` + modul pertama + `.rr.yaml` + entrypoint web/worker + wrapper `bin/zef`. Panduan lengkap: [`TUTORIAL-CQRS-101.md`](TUTORIAL-CQRS-101.md) |
 | `make:module <name>` | `modules/<Pascal>/` — `ConfigProvider` + `HomeHandler` |
 | `make:plugin <Name>` | `plugins/<Name>/` — `ConfigProvider` + `Service` + `Handler` |
 | `make:handler <Name> [--module=] [--path=/uri]` | handler PSR-15 di dalam modul |
@@ -111,7 +112,55 @@ php bin/zef --self-test
 
 ---
 
-## 4. REPL — `bin/zef tinker`
+## 4. RoadRunner & kesehatan lingkungan — v2.29.0
+
+### `bin/zef rr:init`
+
+Menghasilkan `.rr.yaml` (RoadRunner v2025.1) dari precedensi
+**flag CLI > env knob > default** — developer tidak menyunting konfigurasi
+pool secara manual:
+
+```bash
+php bin/zef rr:init                                   # default 0.0.0.0:8080, 4 worker
+php bin/zef rr:init --address=127.0.0.1:9000 --workers=8
+ZEF_HTTP_ADDRESS=0.0.0.0:8080 php bin/zef rr:init     # env juga didukung
+php bin/zef rr:init --force                           # regenerasi (timpa eksplisit)
+```
+
+| Knob | Flag | Env | Default |
+|------|------|-----|---------|
+| Address | `--address=` (IPv4/IPv6 `host:port`) | `ZEF_HTTP_ADDRESS` | `0.0.0.0:8080` |
+| Workers | `--workers=` (1–1024) | `ZEF_RR_NUM_WORKERS` | `4` |
+| Max jobs | `--max-jobs=` (0 = unbounded) | `ZEF_WORKER_MAX_JOBS` | `0` |
+| Memori/worker | `--memory=` MB (0 = off) | `ZEF_WORKER_MEMORY_LIMIT` | `512` |
+
+**Collision-safe**: tanpa `--force`, `.rr.yaml` eksisting tidak pernah ditimpa
+(exit 1). Validasi gagal (address busuk, workers di luar rentang) → exit 1
+tanpa menulis berkas apa pun.
+
+### `bin/zef doctor`
+
+Preflight lingkungan read-only — PHP/ekstensi, autoloader, entrypoint,
+bridge & binary RoadRunner, validitas `.rr.yaml`, dan **boot smoke**
+(aplikasi benar-benar di-boot lewat probe yang di-inject composition root):
+
+```text
+$ php bin/zef doctor
+ZEF doctor — environment preflight
+  [OK] PHP                      8.4.24
+  [OK] ext-mbstring             loaded
+  ...
+  [OK] app boot                 Application booted (ZEF v2.29.0)
+11 ok, 1 warn, 0 fail
+```
+
+**Kontrak exit code**: `0` tanpa FAIL, `1` bila minimal satu FAIL — WARN
+(`pcov`/`redis` absen, binary `rr` tak ditemukan, dst.) tidak mengubah exit
+code sehingga aman dipakai di awal script CI.
+
+---
+
+## 5. REPL — `bin/zef tinker`
 
 REPL stateful dengan `$app` dan `$container` siap pakai. Mendukung eksekusi sekali
 jalan, melewati boot, dan *override* produksi.
@@ -134,7 +183,7 @@ REPL mengeksekusi kode arbitrer; `--force` adalah *override* eksplisit.
 
 ---
 
-## 5. Keluar-kode
+## 6. Keluar-kode
 
 | Kode | Arti |
 |------|------|

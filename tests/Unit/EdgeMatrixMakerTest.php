@@ -274,14 +274,14 @@ final class EdgeMatrixMakerTest extends TestCase
         $writer->writeFile($root . '/dupe.php', 'new');
     }
 
-    /** ZefMaker::catalog — tepat 10 command, metadata lengkap. */
-    public function testCatalogHasExactlyTenCommandsWithMetadata(): void
+    /** ZefMaker::catalog — tepat 11 command (v2.29.0 += make:app), metadata lengkap. */
+    public function testCatalogHasExactlyElevenCommandsWithMetadata(): void
     {
         $catalog = $this->maker($this->sandbox())->catalog();
         self::assertSame([
-            'make:module', 'make:plugin', 'make:handler', 'make:middleware',
-            'make:config', 'make:command', 'make:query', 'make:entity',
-            'make:valueobject', 'make:service',
+            'make:app', 'make:module', 'make:plugin', 'make:handler',
+            'make:middleware', 'make:config', 'make:command', 'make:query',
+            'make:entity', 'make:valueobject', 'make:service',
         ], array_keys($catalog));
         foreach ($catalog as $name => $spec) {
             self::assertTrue(str_starts_with($spec['usage'], $name), "usage {$name} wajib diawali nama command");
@@ -296,13 +296,14 @@ final class EdgeMatrixMakerTest extends TestCase
         $io = $this->io();
         $maker = new ZefMaker($root, $io);
         self::assertSame(0, $maker->run(['zef', 'list']), 'list plain wajib exit 0');
-        // Struktur eksak: header + 10 baris command + baris kosong + footer.
-        self::assertCount(13, $io->outLog());
+        // Struktur eksak: header + 11 baris command + baris kosong + footer.
+        self::assertCount(14, $io->outLog());
         self::assertSame('ZEF maker commands:', $io->outLog()[0]);
-        self::assertSame('', $io->outLog()[11], 'baris kosong pemisah wajib ada');
-        self::assertSame('10 command(s)', $io->outLog()[12]);
-        self::assertStringContainsString('make:module <name>', $io->outLog()[1]);
-        self::assertStringContainsString('make:valueobject <Name> [--module=<name>]', $io->outLog()[9]);
+        self::assertSame('', $io->outLog()[12], 'baris kosong pemisah wajib ada');
+        self::assertSame('11 command(s)', $io->outLog()[13]);
+        self::assertStringContainsString('make:app <path>', $io->outLog()[1]);
+        self::assertStringContainsString('make:module <name>', $io->outLog()[2]);
+        self::assertStringContainsString('make:valueobject <Name> [--module=<name>]', $io->outLog()[10]);
     }
 
     /** ZefMaker::listCommands — JSON: dekode == katalog, satu baris. */
@@ -335,7 +336,7 @@ final class EdgeMatrixMakerTest extends TestCase
         $code = new ZefMaker($this->sandbox(), $io)->run(['zef', 'make:widget']);
         self::assertSame(1, $code);
         self::assertSame(
-            "Unknown generator 'make:widget'. Supported: make:module, make:plugin, make:handler,"
+            "Unknown generator 'make:widget'. Supported: make:app, make:module, make:plugin, make:handler,"
             . ' make:middleware, make:config, make:command, make:query, make:entity, make:valueobject,'
             . ' make:service.',
             $io->errLog()[0],
@@ -357,7 +358,7 @@ final class EdgeMatrixMakerTest extends TestCase
         self::assertFileExists($root . '/' . $expectedFile);
     }
 
-    /** ZefMaker::run — SEMUA command katalog ter-dispatch (bunuh MatchArmRemoval di resolve()). */
+    /** ZefMaker::run — SEMUA generator in-root ter-dispatch (make:app punya kurikulum sendiri di EdgeMatrixDxToolsTest — target-nya wajib di luar root). */
     /**
      * @return list<array{0:string,1:list<string>,2:string}>
      */
