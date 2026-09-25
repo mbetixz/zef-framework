@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace Zef\Framework\Observability;
 
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 
 final readonly class RetryBackoffPolicy
 {
@@ -24,14 +25,21 @@ final readonly class RetryBackoffPolicy
         }
     }
 
-    public static function fromEnvironment(): self
+    /**
+     * Issue #55 step 3 (Domain module): the three retry knobs flow through
+     * the EnvInterface port — the static facade is gone from this file. The
+     * parameter is optional and defaults to the concrete Env, so existing
+     * callers keep working unchanged.
+     */
+    public static function fromEnvironment(?EnvInterface $env = null): self
     {
-        $initial = Env::int('ZEF_OTEL_RETRY_DELAY_MS', 100, 0, 10000);
+        $env ??= new Env();
+        $initial = $env->readInt('ZEF_OTEL_RETRY_DELAY_MS', 100, 0, 10000);
 
         return new self(
-            Env::int('ZEF_OTEL_RETRY_ATTEMPTS', 2, 0, 10),
+            $env->readInt('ZEF_OTEL_RETRY_ATTEMPTS', 2, 0, 10),
             $initial,
-            max($initial, Env::int('ZEF_OTEL_RETRY_DELAY_CAP_MS', 1000, 0, 60000)),
+            max($initial, $env->readInt('ZEF_OTEL_RETRY_DELAY_CAP_MS', 1000, 0, 60000)),
         );
     }
 
