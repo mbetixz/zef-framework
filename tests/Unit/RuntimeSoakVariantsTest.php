@@ -157,7 +157,7 @@ final class RuntimeSoakVariantsTest extends TestCase
                 sprintf('total span terekspor (%d) wajib >= jumlah request (%d) — jalur BatchSpanProcessor+flush tidak berjalan penuh', $spans, self::TOTAL_REQUESTS),
             );
         } finally {
-            @unlink($sink);
+            @unlink($sink); // nosemgrep: php.lang.security.unlink-use — tempnam() sink the test itself created; finally teardown, no request superglobal in a PHPUnit process (§7.2 register)
         }
     }
 

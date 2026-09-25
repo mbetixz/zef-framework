@@ -475,6 +475,7 @@ applies unchanged.
 | 21 | `unlink-use-qualified` (ZEF-local) | `tests/Unit/EdgeMatrixF10KernelTest.php:436`, `tests/Unit/EdgeMatrixF8ObsInfraTest.php:566`, `tests/Unit/MutationDeepHttpTest.php:81`, `tests/Unit/ObservabilityTest.php:666` | Four backslash-qualified `@\unlink()` teardowns that the pinned rule never matched — a ruleset **false negative**, closed on 2026-09-24 by a ZEF-local rule. Detail, measurement and negative control in §7.3. | **Permanent** — no rewrite can satisfy the rule (§7.1) |
 | 22 | `tests/Unit/OpenApiAdaptersTest.php` | 87, 110, 111 | spec/Postman artefacts the CLI test itself named: `sys_get_temp_dir() . '/zef-openapi-test-' . uniqid('', true)` suffixes, deleted after `file_get_contents()` assertions pass |
 | 23 | `tests/Unit/OpenApiInfectionSweepTest.php` | 910, 940, 958, 974, 992, 993 | spec/Postman artefacts and the suite's own `openapi.json`/`'0'` dirents in `finally` teardown, over a directory the test created via `mkdir()` |
+| 24 | `tests/Unit/RuntimeSoakVariantsTest.php` | 160 | OTLP soak sink from `tempnam(sys_get_temp_dir(), 'zef-otlp-sink-')`, removed in `finally` teardown after the sink-file assertions |
 
 **Lifetime: permanent** — §7.1 applies unchanged, no rewrite satisfies the rule.
 Every entry is `inSource`, single-line, and carries its reason inline. Since the
@@ -490,6 +491,14 @@ dirent of a directory the test created) — no request superglobal can be in sco
 in a PHPUnit process — and each now carries its own inline marker. The gate was
 reproduced locally with semgrep 1.177.0 and the pinned ruleset before pushing:
 0 findings across all four scans.
+
+Re-measured on the soak-variants branch (issue #37): the new OTLP soak test
+introduced **1 new `php.lang.security.unlink-use` site** (entry 24) — the
+`tempnam()` file-sink removed in `finally` teardown after the batch-export
+assertions. Same disposition path: the argument traces to `tempnam()` under
+`sys_get_temp_dir()` with a test-chosen prefix; no request superglobal can be in
+scope in a PHPUnit process. The four scans were reproduced locally with the
+pinned semgrep 1.177.0 + ruleset before pushing: 0 findings.
 
 ### 7.4 The whole class of the qualified-call miss — closed, and the register after it
 
