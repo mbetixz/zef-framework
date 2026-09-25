@@ -156,12 +156,9 @@ if (version_compare($newestTag, 'v' . $codeVersion, '>')) {
 
 // --- pass ------------------------------------------------------------------------
 
-$tagList = array_keys($tags);
-sort($tagList);
-
 $result = [
     'status' => 'PASS',
-    'tags' => count($tagList),
+    'tags' => count($tags),
     'newest_tag' => $newestTag,
     'code_version' => $codeVersion,
     'pending_changelogs' => count(array_filter(
