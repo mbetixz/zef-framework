@@ -56,8 +56,6 @@ final class Scheduler
 
     private readonly string $clusterLockKey;
 
-    private readonly string $clusterName;
-
     public function __construct(
         private readonly JobQueueInterface $queue,
         private readonly int $maxRegistrations = 256,
@@ -75,7 +73,6 @@ final class Scheduler
         if ($this->clusterTtlSeconds < 1 || $this->clusterTtlSeconds > 86400) {
             throw new \InvalidArgumentException('Scheduler cluster lease TTL must be 1..86400 seconds.');
         }
-        $this->clusterName = $clusterName;
         $this->clusterLockKey = self::CLUSTER_KEY_PREFIX . $clusterName;
         $this->clusterOwner = 'sched-' . bin2hex(random_bytes(8));
     }

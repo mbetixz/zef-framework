@@ -52,7 +52,7 @@ final readonly class LockingJobIdempotencyStore implements JobIdempotencyStoreIn
      * classic MySQL utf8mb4-friendly index limit) so both adapters of the
      * port accept exactly the same key space.
      */
-     * Matches InMemoryJobIdempotencyStore's 256-byte key bound so both adapters of the
+    private const int MAX_KEY_LENGTH = 191;
 
     public function __construct(private LockStoreInterface $store) {}
 
@@ -85,10 +85,6 @@ final readonly class LockingJobIdempotencyStore implements JobIdempotencyStoreIn
             // key — so report it rather than swallowing it silently. The
             // producer's failure still propagates untouched.
             try {
-                $this->store->release($leaseKey, $owner);
-            } catch (\Throwable) {
-                // Never mask the producer's failure with a store error.
-            }
                 $this->store->release($leaseKey, $owner);
             } catch (\Throwable $releaseFailure) {
                 error_log(sprintf(
