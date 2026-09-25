@@ -1,3 +1,5 @@
+# ZEF Framework — Hexagonal · PSR-15 · RoadRunner · PHP 8.4+
+
 <div align="center">
   <img src="assets/readme-banner.svg" alt="ZEF Framework — Hexagonal · PSR-15 · RoadRunner · PHP 8.4+" width="100%">
 </div>
@@ -16,7 +18,7 @@
   <img src="https://img.shields.io/badge/Mutation%20gate-MSI%20%E2%89%A5%2085-f59e0b?style=for-the-badge" alt="Mutation gate MSI 85">
   <br>
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="MIT">
-  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.21.0-0ea5e9?style=for-the-badge" alt="v2.21.0">
+  <img src="https://img.shields.io/badge/Rilis%20terdokumentasi-v2.30.0-0ea5e9?style=for-the-badge" alt="v2.30.0">
 
 </div>
 
@@ -34,6 +36,10 @@
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/mutation.yml/badge.svg" alt="Mutation"></a>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/sbom.yml/badge.svg" alt="SBOM"></a>
   <a href="https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/pages.yml/badge.svg" alt="Docs &amp; Pages"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/release.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/release-drafter.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/release-drafter.yml/badge.svg" alt="Release Drafter"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/auto-fix.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/auto-fix.yml/badge.svg" alt="Auto Fix"></a>
+  <a href="https://github.com/mbetixz/zef-framework/actions/workflows/composer-lock.yml"><img src="https://github.com/mbetixz/zef-framework/actions/workflows/composer-lock.yml/badge.svg" alt="Composer Lock"></a>
 
 </div>
 
@@ -128,7 +134,7 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
 </table>
 
 <details>
-<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.21.0)</b> — 25 catatan perubahan</summary>
+<summary><b>Riwayat rilis selengkapnya (v2.8.0 → v2.30.0)</b> — 36 berkas CHANGELOG · 23 entri ringkas</summary>
 
 <br>
 
@@ -150,7 +156,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.21.0** | **Configuration System v2**: multi-source + env overlay + secrets provider, skema fail-fast collect-all, accessor bertipe + native enum, config terkompilasi |
 | **v2.21.1** | **Configuration hardening**: kueri pola radix (`query()/subtree()/longestMatch()`), decorator secrets tangguh (retry + backoff + stale fallback), hint penolakan string kosong, compiled config `chmod 0600` + header keamanan |
 | **v2.22.0** | **Transaction orchestration & UoW-lite**: port `TransactionManagerInterface` + hook after-commit, `TransactionalCommandBus` (commit/rollback per command, flush UnitOfWork sebelum commit), `CommandBus` fan-out event pasca-commit |
+| **v2.22.1** | **Hardening pass**: dokumentasi semantik error hook, retry opt-in untuk transient failure UoW, guard slow-hook kooperatif (tiga item Low tinjauan v2.22.0, issue #65) |
 | **v2.23.0** | **Event Sourcing Hardening**: guard stream-continuity (versi wajib +1), snapshot no-regress (CAS), dead-letter `requeue()` + `requeueDeadLetters()`, backstop schema `UNIQUE(event_id)`/`UNIQUE(global_sequence)`, upcasting `UpcasterInterface` + `EventUpcaster` (rename chain + identity guard) |
+| **v2.24.0** | **Redis Distributed Lock** (issue #68): adapter `RedisLockStore` (Lua atomic acquire/release/refresh), leader election, scheduler cluster-safe, claim idempotent lintas node |
 | **v2.25.0** | **Rate Limiting**: sliding window counter + token bucket (refill kontinu, cost-aware), tiering `RateLimitRule` + `TieredRateLimiter` (most restrictive wins), header `RateLimit-*` draft IETF + legacy `X-RateLimit-*`, rantai identitas identity > API key > IP, middleware PSR-15 + wiring env fail-fast |
 | **v2.26.0** | **Async Runtime**: scheduler fiber-native (`FiberScheduler::run()/spawn()/await()/awaitAll()/suspend()/sleep()/timeout()`), `FiberChannel` bounded FIFO, `Semaphore` pembatas konkurensi, `WaitGroup`, `CoroutineLocal`, `CancellationToken(Source)`, deteksi deadlock, surfacing unobserved failure, timer monotonic + clock/sleeper port (deterministik di test) |
 | **v2.27.0** | **Async Rules**: engine evaluasi rule konkuren di atas fiber scheduler (`AsyncRuleEngine` + port `AsyncRuleEngineInterface`), verdict total per rule (`RuleVerdict` pass/fail/skip + throwable), `RuleReport` urutan input, `RuleEngineOptions` (batas konkurensi, deadline kooperatif per rule, fail-fast graceful via pembatalan kooperatif), zona mutasi `app-rules` MSI 96.40% |
