@@ -24,11 +24,11 @@ use Zef\Framework\Observability\SpanInterface;
 use Zef\Framework\Observability\Telemetry;
 use Zef\Framework\Router\Router;
 
-final class Dispatcher implements RequestHandlerInterface
+final readonly class Dispatcher implements RequestHandlerInterface
 {
     public function __construct(
-        private readonly Router $router,
-        private readonly Container $container,
+        private Router $router,
+        private Container $container,
     ) {}
 
     /**

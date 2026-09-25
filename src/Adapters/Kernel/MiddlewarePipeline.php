@@ -16,15 +16,15 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Zef\Framework\Http\Response;
 
-final class MiddlewarePipeline implements RequestHandlerInterface
+final readonly class MiddlewarePipeline implements RequestHandlerInterface
 {
     /**
      * @param list<MiddlewareInterface> $stack
      */
     public function __construct(
-        private readonly array $stack = [],
-        private readonly ?RequestHandlerInterface $terminal = null,
-        private readonly int $index = 0,
+        private array $stack = [],
+        private ?RequestHandlerInterface $terminal = null,
+        private int $index = 0,
     ) {}
 
     public function withMiddleware(MiddlewareInterface $middleware): self

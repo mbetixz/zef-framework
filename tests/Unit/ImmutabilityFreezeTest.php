@@ -45,10 +45,6 @@ final class ImmutabilityFreezeTest extends TestCase
      * instance-nya readonly, tanpa modifier `readonly` pada kelas.
      */
     private const array IMMUTABLE_WITHOUT_READONLY = [
-        'src/Adapters/Kernel/Dispatcher.php',
-        'src/Adapters/Kernel/MiddlewarePipeline.php',
-        'src/Adapters/Kernel/ModuleBootstrapper.php',
-        'src/Adapters/Kernel/PipelineFactory.php',
         'src/Adapters/Router/UrlGenerator.php',
         'src/Adapters/Runtime/RoadRunnerWorkerAdapter.php',
         'src/Adapters/Security/AuthenticationMiddleware.php',
@@ -115,9 +111,9 @@ final class ImmutabilityFreezeTest extends TestCase
     {
         $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
-            89,
+            93,
             $current,
-            sprintf('Jumlah kelas `readonly` menurun (%d < 89) — regresi kebijakan immutability.', $current),
+            sprintf('Jumlah kelas `readonly` menurun (%d < 93) — regresi kebijakan immutability.', $current),
         );
     }
 

@@ -16,12 +16,12 @@ use Zef\Framework\Config\ConfigAggregator;
 use Zef\Framework\Container\Container;
 use Zef\Framework\Exception\InvalidConfigurationException;
 
-final class PipelineFactory
+final readonly class PipelineFactory
 {
     public function __construct(
-        private readonly Container $container,
-        private readonly ConfigAggregator $config,
-        private readonly RequestHandlerInterface $terminal,
+        private Container $container,
+        private ConfigAggregator $config,
+        private RequestHandlerInterface $terminal,
     ) {}
 
     public function build(): MiddlewarePipeline
