@@ -53,6 +53,11 @@ final readonly class UnitOfWorkRetryPolicy
      * - 1205 (ER_LOCK_WAIT_TIMEOUT) — MySQL/MariaDB
      * - 1040 (ER_CON_COUNT_ERROR) — too many connections (transient)
      * - 2006 (CR_SERVER_GONE / CR_SERVER_LOST) — connection lost
+     *
+     * Duplicated inline as the constructor default for
+     * {@see $retryableSqlStates} to avoid `self::CONSTANT` as a default
+     * value for a promoted property (parser edge case — kept simple
+     * so Doctum's nikic/php-parser stays happy).
      */
     public const array DEFAULT_RETRYABLE_SQL_STATES = [
         '40001',
@@ -91,7 +96,15 @@ final readonly class UnitOfWorkRetryPolicy
         public float $multiplier = 2.0,
         public int $jitterMs = 0,
         public array $retryableClassNames = ['PDOException'],
-        public array $retryableSqlStates = self::DEFAULT_RETRYABLE_SQL_STATES,
+        public array $retryableSqlStates = [
+            '40001',
+            '40P01',
+            '55P03',
+            '1213',
+            '1205',
+            '1040',
+            '2006',
+        ],
     ) {
         if (
             $maxAttempts < 1
