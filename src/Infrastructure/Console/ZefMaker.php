@@ -22,11 +22,11 @@ use Zef\Framework\Console\Generator\QueryGenerator;
 use Zef\Framework\Console\Generator\ServiceGenerator;
 use Zef\Framework\Console\Generator\ValueObjectGenerator;
 
-final class ZefMaker
+final readonly class ZefMaker
 {
     public function __construct(
-        private readonly string $root,
-        private readonly ConsoleIO $io,
+        private string $root,
+        private ConsoleIO $io,
     ) {}
 
     /**

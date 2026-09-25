@@ -15,11 +15,11 @@ namespace Zef\Framework\Console\Inspector;
 use Zef\Framework\Config\ModuleRegistry;
 use Zef\Framework\Console\ConsoleIO;
 
-final class ModuleLister
+final readonly class ModuleLister
 {
     public function __construct(
-        private readonly ModuleRegistry $registry,
-        private readonly ConsoleIO $io,
+        private ModuleRegistry $registry,
+        private ConsoleIO $io,
     ) {}
 
     public function run(): int
