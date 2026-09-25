@@ -122,8 +122,8 @@ final class SpyLogger extends AbstractLogger
     public function log(mixed $level, string|\Stringable $message, array $context = []): void
     {
         $this->records[] = [
-            'level' => is_string($level) ? $level : (string) $level,
-            'message' => is_string($message) ? $message : (string) $message,
+            'level' => is_string($level) ? $level : 'unknown',
+            'message' => is_string($message) ? $message : $message->__toString(),
             'context' => $context,
         ];
     }
