@@ -12,6 +12,7 @@
 - [x] Core domain isolation → `src/Domain`
 - [x] PSR interfaces sebagai ports → `src/Compat/Psr` + `src/Domain/**`
 - [x] HTTP, CLI, RoadRunner sebagai inbound adapters → `src/Adapters/{Http,Kernel,Runtime}` + `bin/`
+- [x] Async runtime fiber-native (v2.26.0: `FiberScheduler` pump FIFO + timer monotonic via `MonotonicClockInterface`/`SleeperInterface` (deterministik di test), `await/awaitAll/suspend/sleep/timeout`, `FiberChannel` bounded FIFO (invarian park satu sisi, splice cancellation), `Semaphore` + `WaitGroup` fail-fast, `CoroutineLocal` WeakMap, `CancellationTokenSource`/token view, deteksi deadlock + surfacing `UnobservedTaskException` — zona mutasi `app-runtime-async` MSI 96.64%)
 - [x] Database, Cache, Queue sebagai outbound adapters → `src/Infrastructure/{Cache,Security}` + `src/Application/{CQRS,Job,Message}`
 - [x] Dependency injection melalui Container PSR-11 → `src/Application/Container`
 - [x] Request/Response handling melalui PSR-7 → `src/Adapters/Http`
