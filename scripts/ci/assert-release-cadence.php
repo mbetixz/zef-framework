@@ -32,18 +32,18 @@ declare(strict_types=1);
  * EVIDENCE DISCIPLINE
  * -------------------
  * The gate is proven to FAIL on a violation (negative control) before it is
- * trusted: tag pointing at a version the tree does not carry, and a major-2+
- * tag without its changelog file, both fail the build on purpose.
+ * trusted. Controls run through a throwaway REPOSITORY harness (a temp repo
+ * with its own `origin` remote, ZefVersion source and docs/ tree), so the
+ * production code path itself is exercised — not an option that only tests
+ * use: (1) a tag whose changelog file is absent fails the build; (2) a tag
+ * that runs ahead of the tree's ZefVersion fails the build.
  *
- * Usage: php scripts/ci/assert-release-cadence.php [--remote=URL] [--changelog-dir=PATH]
+ * Usage: php scripts/ci/assert-release-cadence.php [--json]
  */
 
 $root = dirname(__DIR__, 2);
 
-$options = getopt('', ['remote::', 'changelog-dir::', 'json::']);
-
-$remote = (string) ($options['remote'] ?? 'origin');
-$changelogDir = (string) ($options['changelog-dir'] ?? $root . '/docs');
+$options = getopt('', ['json::']);
 $asJson = array_key_exists('json', $options);
 
 /** Fail-closed exit. */
@@ -61,19 +61,28 @@ $fail = static function (string $reason, array $context = []) use ($asJson): nev
 
 // --- 1. read the remote tag set -------------------------------------------------
 
-// Run inside the repository so `origin` resolves; CI checkouts qualify.
-$cwd = is_dir($root . '/.git') ? $root : getcwd();
-if ($cwd === false) {
-    $fail('could not resolve a working directory for git');
+// The script lives in scripts/ci/ of the repository, so $root IS the repo —
+// chdir there so git resolves the `origin` remote regardless of the caller's
+// working directory (CI steps and local gate queues both qualify).
+if (!is_dir($root . '/.git')) {
+    $fail('script must run from inside a git clone (no .git at the repo root)', ['root' => $root]);
+}
+if (!chdir($root)) {
+    $fail('could not chdir into the repository root', ['root' => $root]);
 }
 
-$spec = escapeshellarg($remote);
-$ls = shell_exec('cd ' . escapeshellarg($cwd) . ' && git ls-remote --tags ' . $spec . ' 2>&1');
+// The command is a single string LITERAL on purpose: the pinned SAST ruleset's
+// exec-use rule flags every non-constant first argument to the exec family
+// (exec/passthru/proc_open/popen/shell_exec/system/pcntl_exec — proc_open's
+// array form included), and its only carve-out is a literal command. A remote
+// tag query needs no dynamic parts: `origin` is fixed, the output is parsed,
+// and errors surface as `fatal:` lines in the captured output below.
+$ls = shell_exec('git ls-remote --tags origin 2>&1');
 if (!is_string($ls) || $ls === '') {
-    $fail('git ls-remote returned no tag references', ['remote' => $remote]);
+    $fail('git ls-remote returned no tag references from origin');
 }
 if (str_contains($ls, 'fatal:') || str_contains($ls, 'ERROR:')) {
-    $fail('git ls-remote failed', ['remote' => $remote, 'output' => trim($ls)]);
+    $fail('git ls-remote failed against origin', ['output' => trim($ls)]);
 }
 
 $tags = [];
@@ -85,11 +94,12 @@ foreach (preg_split('/\R/', $ls) ?: [] as $line) {
     $tags[$m[1]] = true;
 }
 if ($tags === []) {
-    $fail('no vX.Y.Z tags found on the remote — the release record is empty', ['remote' => $remote]);
+    $fail('no vX.Y.Z tags found on the remote — the release record is empty');
 }
 
 // --- 2. every major-2+ tag carries its changelog --------------------------------
 
+$changelogDir = $root . '/docs';
 $missing = [];
 foreach (array_keys($tags) as $tag) {
     if (preg_match('/^v(\d+)\./', $tag, $m) !== 1) {
