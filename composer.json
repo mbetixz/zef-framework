@@ -1,8 +1,13 @@
 {
     "name": "mbetixz/zef-framework",
-    "description": "ZEF Framework",
-    "type": "project",
+    "description": "Hexagonal PHP 8.4 framework — PSR-15 middleware, RoadRunner runtime, fiber-native async, radix-tree routing",
+    "type": "library",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "mbetixz"
+        }
+    ],
     "require": {
         "php": "^8.4",
         "spiral/roadrunner-http": "^4.1",
@@ -84,6 +89,11 @@
         "framework"
     ],
     "homepage": "https://github.com/mbetixz/zef-framework",
+    "support": {
+        "issues": "https://github.com/mbetixz/zef-framework/issues",
+        "docs": "https://mbetixz.github.io/zef-framework/",
+        "source": "https://github.com/mbetixz/zef-framework"
+    },
     "suggest": {
         "ext-redis": "Redis-backed distributed rate limiter store (src/Infrastructure/Security/RedisRateLimiter)",
         "ext-apcu": "APCu-backed rate limiter for single-instance deployments (src/Infrastructure/Security/ApcuRateLimiter)",
