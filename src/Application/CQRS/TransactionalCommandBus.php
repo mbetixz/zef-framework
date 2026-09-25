@@ -13,6 +13,7 @@ use Zef\Framework\Database\ConnectionInterface;
 use Zef\Framework\Database\IsolationLevel;
 use Zef\Framework\Database\TransactionManagerInterface;
 use Zef\Framework\Database\UnitOfWork;
+use Zef\Framework\Database\UnitOfWorkRetryPolicy;
 
 /**
  * Transactional decorator over a {@see CommandBusInterface}.
@@ -35,6 +36,14 @@ use Zef\Framework\Database\UnitOfWork;
  * commit, so a replay never re-executes the handler; events still fire
  * only for the FIRST successful commit (the inner bus defers fan-out to
  * afterCommit hooks, which a replay never registers).
+ *
+ * v2.22.1 (issue #65, item 2 — UoW retry strategy): when an optional
+ * {@see UnitOfWorkRetryPolicy} is injected, the FLUSH phase is wrapped in
+ * a retry loop for transient DB failures (deadlock, lock-wait-timeout,
+ * serialization-failure). Only the flush retries — never the handler
+ * body. Default `null` preserves the v2.22.0 no-retry behaviour.
+ *
+ * Full contract and rationale live in docs/TRANSACTION-HOOKS.md.
  */
 final readonly class TransactionalCommandBus implements CommandBusInterface
 {
@@ -43,6 +52,7 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
         private TransactionManagerInterface $transactions,
         private ?UnitOfWork $unitOfWork = null,
         private ?IsolationLevel $isolation = null,
+        private ?UnitOfWorkRetryPolicy $retryPolicy = null,
     ) {}
 
     #[\Override]
@@ -62,7 +72,7 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
     {
         return $this->transactions->withTransaction(function (ConnectionInterface $connection) use ($command, $context): mixed {
             $result = $this->inner->dispatch($command, $context);
-            $this->unitOfWork?->flush($connection);
+            $this->flushWithRetry($connection);
 
             return $result;
         }, $this->isolation);
@@ -78,5 +88,30 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
     public function isFrozen(): bool
     {
         return $this->inner->isFrozen();
+    }
+
+    /**
+     * Flush the UoW queue, optionally retrying on transient failures.
+     *
+     * Contract (see docs/TRANSACTION-HOOKS.md):
+     * - When no {@see UnitOfWork} or no {@see UnitOfWorkRetryPolicy} is
+     *   configured, this is a direct call to flush() — preserving the
+     *   v2.22.0 single-shot behaviour (queue cleared before execution).
+     * - When a retry policy is configured, delegates to
+     *   {@see UnitOfWork::flushRetrying()} which preserves the queue
+     *   snapshot across attempts. Only the FLUSH phase retries — never
+     *   the command handler body.
+     */
+    private function flushWithRetry(ConnectionInterface $connection): void
+    {
+        if (!$this->unitOfWork instanceof UnitOfWork) {
+            return;
+        }
+        if (!$this->retryPolicy instanceof UnitOfWorkRetryPolicy) {
+            $this->unitOfWork->flush($connection);
+
+            return;
+        }
+        $this->unitOfWork->flushRetrying($connection, $this->retryPolicy);
     }
 }
