@@ -96,6 +96,8 @@
     },
     "suggest": {
         "ext-redis": "Redis-backed distributed rate limiter store (src/Infrastructure/Security/RedisRateLimiter)",
-        "ext-apcu": "APCu-backed rate limiter for single-instance deployments (src/Infrastructure/Security/ApcuRateLimiter)"
+        "ext-apcu": "APCu-backed rate limiter for single-instance deployments (src/Infrastructure/Security/ApcuRateLimiter)",
+        "ext-curl": "cURL transport for the S3-compatible object storage adapter (src/Infrastructure/Storage/CurlS3HttpTransport)",
+        "ext-simplexml": "XML parsing for S3 ListObjectsV2 listing responses (src/Infrastructure/Storage/S3CompatibleStorage)"
     }
 }

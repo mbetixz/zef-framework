@@ -29,3 +29,6 @@ es-hardening|src/Domain/EventSourcing/AggregateRoot.php,src/Domain/EventSourcing
 app-rate-limit|src/Domain/Security/RateLimitAlgorithm.php,src/Domain/Security/RateLimitRule.php,src/Domain/Security/RateLimitRuleOutcome.php,src/Domain/Security/RateLimitVerdict.php,src/Domain/Security/CostAwareRateLimiterInterface.php,src/Application/Security/SlidingWindowRateLimiter.php,src/Application/Security/TokenBucketRateLimiter.php,src/Application/Security/TieredRateLimiter.php,src/Application/Security/HrTimeClock.php,src/Adapters/Security/RateLimitMiddleware.php
 app-runtime-async|src/Domain/Runtime/Async,src/Application/Runtime/Async
 app-rules|src/Domain/Rules,src/Application/Rules
+d-storage|src/Domain/Storage
+infra-storage|src/Infrastructure/Storage,src/Infrastructure/Message
+infra-job-pdo|src/Infrastructure/Job
