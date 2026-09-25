@@ -86,6 +86,10 @@ final readonly class LockingJobIdempotencyStore implements JobIdempotencyStoreIn
             // producer's failure still propagates untouched.
             try {
                 $this->store->release($leaseKey, $owner);
+            } catch (\Throwable) {
+                // Never mask the producer's failure with a store error.
+            }
+                $this->store->release($leaseKey, $owner);
             } catch (\Throwable $releaseFailure) {
                 error_log(sprintf(
                     '[ZEF][job] idempotency lease release failed for key "%s" (window %ds): %s — lease remains held until TTL lapse; retries for this key are blocked until then.',
