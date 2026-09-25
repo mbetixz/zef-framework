@@ -29,7 +29,7 @@
   - [ ] `OpenAPI breaking-change detection` — diff spesifikasi otomatis untuk evolusi API
   - [ ] `Social auth adapters (Google, Facebook, GitHub)`
   - [ ] `SMS/Email service adapters`
-  - [ ] `CDN/storage adapters (S3, GCS, Local)`
+  - [x] `CDN/storage adapters (S3, GCS, Local)` — **v2.30.0**: port `ObjectStorageInterface` + adapter `LocalStorage` (filesystem, tulis atomik) & `S3CompatibleStorage` (SigV4 in-house, tanpa SDK — AWS/MinIO/Ceph/R2/GCS via endpoint XML-API); broker transports tetap terbuka (baris RabbitMQ/SQS/Kafka di bawah)
   - [x] `v2.8.0`: Conditional-GET adapter (ETag/If-None-Match/If-Modified-Since) → `src/Adapters/Http/ETagMiddleware`
 ### Container System (PSR-11) — `src/Application/Container` + `src/Domain/Container`
 - [x] Auto-wiring dengan reflection
@@ -112,7 +112,7 @@
   - [x] Event Store (v2.19.0: port + InMemory/PDO adapter di atas Database Core — MySQL/SQLite/PostgreSQL-ready) · Event replay (`AggregateRoot::applyStored`) · Snapshot (`SnapshotPolicy` + store) · Projection/Read model sync (`Projector` + checkpoint store) — [ ] Postgres/NoSQL dedicated store optimizations
   - [ ] Event versioning & migration tools
   - [ ] Saga Orchestration/Choreography · Compensating actions · Timeout/circuit breaker
-  - [ ] RabbitMQ · Amazon SQS · Apache Kafka adapters · Protobuf serialization
+  - [ ] RabbitMQ · Amazon SQS · Apache Kafka adapters · Protobuf serialization — dasar siap: transport `MessageTransportInterface` + `InMemoryMessageTransport` (v2.30.0), `JsonMessageSerializer`; sisa pekerjaan = adapter broker eksternal (pola suggest + skip-guard)
   - [ ] DLQ (parsial: job worker ✔) · Retry policies (parsial: `RetryPolicy`, `RetryBackoffPolicy` ✔)
   - [ ] Message ordering guarantees · Exactly-once semantics
   - [x] v2.8.0: `DeduplicatingMiddleware` (at-least-once → efektif once per messageId via idempotency store)

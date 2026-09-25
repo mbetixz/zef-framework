@@ -1,0 +1,262 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * ZEF Framework v2.30.0 — Infrastructure layer (outbound adapters)
+ * Ecosystem Ports: durable JobQueueInterface adapter over the Database Core port.
+ */
+
+namespace Zef\Framework\Job;
+
+use Zef\Framework\Database\ConnectionInterface;
+use Zef\Framework\Database\QueryBuilder;
+use Zef\Framework\Database\QueryException;
+use Zef\Framework\Database\SqlQuery;
+
+/**
+ * PDO-backed {@see JobQueueInterface} built on the Database Core port —
+ * the durable counterpart of Application/Job InMemoryJobQueue.
+ *
+ * Ordering: (priority DESC, available_at ASC, seq ASC). `seq` is
+ * `MAX(seq) + 1` computed inside the enqueue INSERT (the same portable
+ * pattern PdoEventStore uses for its global sequence) and the
+ * UNIQUE(job_id) constraint is the race backstop: under concurrent
+ * enqueues the loser fails loudly instead of silently reordering.
+ *
+ * Claiming (dequeue): SELECT the head candidate, then DELETE it by
+ * job_id inside the same transaction — rows===1 claims, rows===0 means a
+ * concurrent worker won the race and the scan continues with the next
+ * candidate (bounded, so a queue of continuously-racing rows still
+ * terminates). DELETE-claiming is portable across SQLite/MySQL/PostgreSQL
+ * (SELECT ... FOR UPDATE is not: SQLite rejects it).
+ *
+ * The two retry triggers are deliberately distinguished: an empty SELECT
+ * proves the queue has nothing to claim at all, so the scan stops
+ * immediately (one transaction, not MAX_CLAIM_ATTEMPTS); only a lost
+ * DELETE race — a candidate that existed a statement ago — justifies
+ * re-scanning.
+ *
+ * Payloads travel as JSON documents (mixed round-trip: scalars, lists,
+ * string-keyed maps) — object payloads must be serialised by the caller,
+ * mirroring the outbox contract. Ambient transactions are joined, so a
+ * domain transaction can enqueue jobs atomically with its writes.
+ */
+final readonly class PdoJobQueue implements JobQueueInterface
+{
+    private const int MAX_CLAIM_ATTEMPTS = 8;
+    private string $table;
+
+    /** @var (\Closure(): int) */
+    private \Closure $clock;
+
+    /**
+     * @param ConnectionInterface    $connection database port
+     * @param string                 $table      queue table name
+     * @param null|(\Closure(): int) $clock      availableAt/now source (default: realtime nanoseconds)
+     * @param null|int               $maxSize    optional capacity guard (COUNT check per enqueue)
+     */
+    public function __construct(
+        private ConnectionInterface $connection,
+        string $table = 'zef_job_queue',
+        ?\Closure $clock = null,
+        private ?int $maxSize = null,
+    ) {
+        new QueryBuilder()->quoteIdentifier($table, 'table');
+        if ($maxSize !== null && $maxSize < 1) {
+            throw new \InvalidArgumentException('Job queue capacity must be positive.');
+        }
+        $this->table = $table;
+        $this->clock = $clock ?? static fn (): int => (int) (microtime(true) * 1_000_000_000);
+    }
+
+    /**
+     * Create the queue table (portable DDL, safe to run repeatedly).
+     */
+    public function createSchema(): void
+    {
+        $this->connection->execute(SqlQuery::raw(
+            'CREATE TABLE IF NOT EXISTS "' . $this->table . '" ('
+            . '"seq" BIGINT NOT NULL, '
+            . '"job_id" VARCHAR(64) NOT NULL, '
+            . '"job_type" VARCHAR(191) NOT NULL, '
+            . '"payload" TEXT NOT NULL, '
+            . '"available_at" BIGINT NOT NULL, '
+            . '"priority" INT NOT NULL, '
+            . '"attempt" INT NOT NULL, '
+            . '"correlation_id" VARCHAR(64) NULL, '
+            . '"trace_parent" VARCHAR(64) NULL, '
+            . '"headers" TEXT NOT NULL, '
+            . 'CONSTRAINT "uq_' . $this->table . '_job" UNIQUE ("job_id"))',
+        ));
+    }
+
+    #[\Override]
+    public function enqueue(JobEnvelope $job): void
+    {
+        $payload = $this->encodePayload($job->payload);
+        $headers = $this->encodePayload($job->headers);
+        if ($this->maxSize !== null && $this->size() >= $this->maxSize) {
+            throw new \OverflowException('Job queue capacity exceeded.');
+        }
+
+        $own = $this->connection->transactionLevel() === 0;
+        if (!$own) {
+            // Ambient transaction (e.g. aggregate persist + outbox-style enqueue).
+            $this->doEnqueue($job, $payload, $headers);
+
+            return;
+        }
+        $this->connection->beginTransaction();
+
+        try {
+            $this->doEnqueue($job, $payload, $headers);
+        } catch (\Throwable $error) {
+            $this->connection->rollBack();
+
+            throw $error;
+        }
+        $this->connection->commit();
+    }
+
+    #[\Override]
+    public function dequeue(?int $nowUnixNano = null): ?JobEnvelope
+    {
+        $now = $nowUnixNano ?? ($this->clock)();
+        for ($attempt = 0; $attempt < self::MAX_CLAIM_ATTEMPTS; ++$attempt) {
+            // false = the SELECT proved there is no candidate (stop retrying);
+            // null = a candidate existed but the DELETE lost the race (rescan);
+            // JobEnvelope = claimed.
+            $claimed = $this->connection->transaction(function () use ($now): false|JobEnvelope|null {
+                $rows = $this->connection->fetchAll(
+                    QueryBuilder::table($this->table)
+                        ->select('seq', 'job_id', 'job_type', 'payload', 'available_at', 'priority', 'attempt', 'correlation_id', 'trace_parent', 'headers')
+                        ->where('available_at', '<=', $now)
+                        ->orderBy('priority', 'DESC')
+                        ->orderBy('available_at', 'ASC')
+                        ->orderBy('seq', 'ASC')
+                        ->limit(1)
+                        ->build(),
+                );
+                $row = $rows[0] ?? null;
+                if ($row === null) {
+                    return false;
+                }
+                $deleted = $this->connection->execute(
+                    QueryBuilder::table($this->table)
+                        ->delete()
+                        ->where('job_id', '=', $this->str($row['job_id'] ?? null))
+                        ->build(),
+                );
+
+                return $deleted === 1 ? $this->hydrate($row) : null;
+            });
+            if ($claimed instanceof JobEnvelope) {
+                return $claimed;
+            }
+            if ($claimed === false) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    #[\Override]
+    public function size(): int
+    {
+        $row = $this->connection->fetchOne(new SqlQuery(
+            'SELECT COUNT(*) AS "aggregate" FROM "' . $this->table . '"',
+        ));
+        if ($row === null || !isset($row['aggregate']) || !is_numeric($row['aggregate'])) {
+            throw new QueryException('Job queue size query returned an unexpected result.');
+        }
+
+        return (int) $row['aggregate'];
+    }
+
+    private function doEnqueue(JobEnvelope $job, string $payload, string $headers): void
+    {
+        $this->connection->execute(new SqlQuery(
+            'INSERT INTO "' . $this->table . '" ('
+            . '"seq", "job_id", "job_type", "payload", "available_at", "priority", "attempt", "correlation_id", "trace_parent", "headers"'
+            . ') SELECT COALESCE(MAX("seq"), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM "' . $this->table . '"',
+            [
+                $job->jobId,
+                $job->jobType,
+                $payload,
+                $job->availableAtUnixNano,
+                $job->priority,
+                $job->attempt,
+                $job->correlationId,
+                $job->traceParent,
+                $headers,
+            ],
+        ));
+    }
+
+    /** @param array<string, mixed> $row */
+    private function hydrate(array $row): JobEnvelope
+    {
+        return new JobEnvelope(
+            $this->str($row['job_id'] ?? null),
+            $this->str($row['job_type'] ?? null),
+            $this->decodePayload($this->str($row['payload'] ?? null)),
+            $this->intVal($row['available_at'] ?? null),
+            $this->intVal($row['priority'] ?? null),
+            $this->intVal($row['attempt'] ?? null),
+            $row['correlation_id'] === null ? null : $this->str($row['correlation_id']),
+            $row['trace_parent'] === null ? null : $this->str($row['trace_parent']),
+            $this->decodeHeaders($this->str($row['headers'] ?? null)),
+        );
+    }
+
+    /** Row narrowing: PDO rows are array<string, mixed>; ids are strings. */
+    private function str(mixed $value): string
+    {
+        return is_string($value) ? $value : (is_scalar($value) ? (string) $value : '');
+    }
+
+    /** Row narrowing: numeric columns (int on SQLite, string on MySQL PDO). */
+    private function intVal(mixed $value): int
+    {
+        return is_int($value) ? $value : (is_numeric($value) ? (int) $value : 0);
+    }
+
+    private function encodePayload(mixed $payload): string
+    {
+        try {
+            return json_encode($payload, \JSON_THROW_ON_ERROR | \JSON_PRESERVE_ZERO_FRACTION);
+        } catch (\JsonException $error) {
+            throw new \InvalidArgumentException('Job payload must be JSON-serializable.', 0, $error);
+        }
+    }
+
+    private function decodePayload(string $payload): mixed
+    {
+        try {
+            return json_decode($payload, true, 512, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException $error) {
+            throw JobExecutionException::corruptPayload($error);
+        }
+    }
+
+    /**
+     * Header round-trip narrowing: entries that lost their string type in
+     * storage cannot satisfy the envelope contract and are dropped.
+     *
+     * @return array<string, string>
+     */
+    private function decodeHeaders(string $payload): array
+    {
+        $decoded = $this->decodePayload($payload);
+        $headers = [];
+        foreach (is_array($decoded) ? $decoded : [] as $name => $value) {
+            if (is_string($name) && is_string($value)) {
+                $headers[$name] = $value;
+            }
+        }
+
+        return $headers;
+    }
+}
