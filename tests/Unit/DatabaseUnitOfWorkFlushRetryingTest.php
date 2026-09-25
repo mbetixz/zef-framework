@@ -81,7 +81,7 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
     public function testFlushRetryingPropagatesNonRetryableThrowable(): void
     {
         $uow = new UnitOfWork();
-        $uow->record(static function (ConnectionInterface $c): void {
+        $uow->record(static function (ConnectionInterface $c): never {
             throw new \LogicException('not retryable');
         });
 
@@ -93,7 +93,7 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
     public function testFlushRetryingExhaustsAttemptsAndPropagatesLast(): void
     {
         $uow = new UnitOfWork();
-        $uow->record(function (ConnectionInterface $c): void {
+        $uow->record(function (ConnectionInterface $c): never {
             throw $this->makePdoException('deadlock', '40P01');
         });
 

@@ -36,7 +36,7 @@ use Zef\Framework\Job\RetryPolicy;
  * - Default is OFF: passing `null` to the {@see TransactionalCommandBus}
  *   preserves the v2.22.0 no-retry behaviour.
  *
- * @see \Zef\Framework\Job\RetryPolicy for the Job-layer sibling — this
+ * @see RetryPolicy for the Job-layer sibling — this
  *      value object mirrors its validation/backoff shape but adds the
  *      transient-failure taxonomy (retryable class names + SQLSTATE
  *      codes) specific to DB writes.
@@ -174,13 +174,7 @@ final readonly class UnitOfWorkRetryPolicy
 
     private function matchesClassName(\Throwable $e): bool
     {
-        foreach ($this->retryableClassNames as $fqcn) {
-            if ($e instanceof $fqcn) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->retryableClassNames, fn (string $fqcn): bool => $e instanceof $fqcn);
     }
 
     private function matchesSqlState(\Throwable $e): bool
@@ -190,12 +184,7 @@ final readonly class UnitOfWorkRetryPolicy
             $candidates[] = $e->errorInfo[0] ?? null;
             $candidates[] = $e->errorInfo[1] ?? null;
         }
-        foreach ($this->retryableSqlStates as $state) {
-            if (in_array($state, $candidates, true)) {
-                return true;
-            }
-        }
 
-        return false;
+        return array_any($this->retryableSqlStates, fn (string $state): bool => in_array($state, $candidates, true));
     }
 }

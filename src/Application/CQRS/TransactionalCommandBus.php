@@ -104,13 +104,14 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
      */
     private function flushWithRetry(ConnectionInterface $connection): void
     {
-        if ($this->unitOfWork === null) {
+        if (!$this->unitOfWork instanceof UnitOfWork) {
             return;
         }
-        if ($this->retryPolicy === null) {
+        if (!$this->retryPolicy instanceof UnitOfWorkRetryPolicy) {
             $this->unitOfWork->flush($connection);
 
             return;
         }
         $this->unitOfWork->flushRetrying($connection, $this->retryPolicy);
     }
+}

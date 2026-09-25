@@ -49,10 +49,10 @@ final class TransactionManager implements TransactionManagerInterface
     private bool $flushing = false;
 
     /**
-     * @param int|null $hookDurationThresholdMs Soft threshold in milliseconds;
-     *        null disables the slow-hook debug log (default behaviour).
-     * @param \Psr\Log\LoggerInterface|null $logger Where to emit the debug
-     *        log; defaults to a silent NullLogger.
+     * @param null|int $hookDurationThresholdMs soft threshold in milliseconds;
+     *        null disables the slow-hook debug log (default behaviour)
+     * @param null|LoggerInterface $logger where to emit the debug
+     *        log; defaults to a silent NullLogger
      */
     public function __construct(
         private readonly ConnectionInterface $connection,
