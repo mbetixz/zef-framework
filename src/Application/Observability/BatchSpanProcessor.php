@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace Zef\Framework\Observability;
 
 use Zef\Framework\Foundation\Env;
+use Zef\Framework\Foundation\EnvInterface;
 use Zef\Framework\Runtime\SleeperInterface;
 use Zef\Framework\Runtime\SystemSleeper;
 
@@ -27,6 +28,7 @@ final class BatchSpanProcessor
         private readonly int $maxQueueSize = 2048,
         private readonly int $batchSize = 256,
         private readonly SleeperInterface $sleeper = new SystemSleeper(),
+        private readonly ?EnvInterface $env = null,
     ) {
         if ($maxQueueSize < 1) {
             throw new \InvalidArgumentException('maxQueueSize must be >= 1.');
@@ -79,7 +81,8 @@ final class BatchSpanProcessor
         if ($this->shutdown) {
             return;
         }
-        $deadline = microtime(true) + Env::int('ZEF_OTEL_SHUTDOWN_DRAIN_MS', 2000, 0, 60000) / 1000;
+        $env = $this->env ?? new Env();
+        $deadline = microtime(true) + $env->readInt('ZEF_OTEL_SHUTDOWN_DRAIN_MS', 2000, 0, 60000) / 1000;
         while ($this->queue !== [] && microtime(true) < $deadline) {
             $batch = array_splice($this->queue, 0, min($this->batchSize, count($this->queue)));
             for ($attempt = 0; $attempt < 3; ++$attempt) {

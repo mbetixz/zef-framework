@@ -472,9 +472,12 @@ final class Application
                 /** @var Observability\OtlpExporterFactoryInterface $exporterFactory */
                 $exporterFactory = $c->get(Observability\OtlpExporterFactoryInterface::class);
 
-                return Telemetry::fromEnvironment($logger, true, $exporterFactory);
+                /** @var Foundation\EnvInterface $env */
+                $env = $c->get(Foundation\EnvInterface::class);
+
+                return Telemetry::fromEnvironment($logger, true, $exporterFactory, $env);
             },
-            [Observability\OtlpExporterFactoryInterface::class],
+            [Observability\OtlpExporterFactoryInterface::class, Foundation\EnvInterface::class],
             'framework',
             ServiceLifetime::SINGLETON,
         );
