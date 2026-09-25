@@ -52,7 +52,7 @@ final readonly class LockingJobIdempotencyStore implements JobIdempotencyStoreIn
      * classic MySQL utf8mb4-friendly index limit) so both adapters of the
      * port accept exactly the same key space.
      */
-    private const int MAX_KEY_LENGTH = 191;
+    private const int MAX_KEY_LENGTH = 256;
 
     public function __construct(private LockStoreInterface $store) {}
 
