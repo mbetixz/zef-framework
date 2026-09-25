@@ -61,12 +61,137 @@ state eksternal (Redis/APCu) untuk hal yang harus dibagi antar-worker.
 | Singleton menyimpan request terakhir | ❌ | bocor antar pengguna |
 | Cache in-memory per worker | ⚠️ | hanya konsisten per-worker; butuh L2 bersama untuk konsistensi global |
 | Rate limiter in-memory | ⚠️ | batas efektif × jumlah worker |
-| `InMemoryLockStore` | ⚠️ | tidak memberi mutual exclusion lintas-worker |
+| `InMemoryLockStore` | ⚠️ | tidak memberi mutual exclusion lintas-worker; pakai `RedisLockStore` (§3.1) |
+| `Scheduler` tanpa `clusterLockStore` di banyak worker | ❌ | job terjadwal di-enqueue dobel; lihat §3.1 |
 
 Untuk pembatas laju, pilih store bersama: `RedisRateLimiter` /
 `RedisSharedRateLimitStore` (skrip Lua, atomik) atau `ApcuRateLimiter` untuk
 deployment satu instance. Data akun, sesi, dan variabel per-request harus
 meninggalkan proses.
+
+### 3.1 Scheduler & job lintas node (v2.24.0)
+
+Begitu ada lebih dari satu worker atau replika, `Scheduler` dan worker job yang
+berjalan di setiap proses akan men-*tick* dan mengeksekusi secara paralel. Tanpa
+koordinasi, job terjadwal di-enqueue dobel dan pesan duplikat dieksekusi berulang.
+v2.24.0 menambahkan komponen opt-in di atas port `LockStoreInterface` untuk
+mencegahnya. Tanpa lock store yang di-inject, perilaku identik dengan v2.23.0.
+
+| Komponen | Namespace | Fungsi |
+|----------|-----------|--------|
+| `RedisLockStore` | `Zef\Framework\Cache` | implementasi `LockStoreInterface` atas phpredis; mutual exclusion lintas proses dan node |
+| `LeaderElector` | `Zef\Framework\Cache` | lease kepemimpinan bernama; tepat satu replika menjadi leader |
+| `Scheduler` (`clusterLockStore`) | `Zef\Framework\Job` | hanya pemegang lease yang men-*tick*; follower melewati tick |
+| `LockingJobIdempotencyStore` | `Zef\Framework\Job` | eksekusi *exactly-once* per key dalam window TTL lintas node |
+
+**`RedisLockStore`.** Ganti `InMemoryLockStore` dengan adapter ini untuk semua
+deployment multi-worker/multi-replika. Semantiknya:
+
+- `acquire()` menjalankan `SET key owner PX ttl NX` di dalam satu skrip Lua
+  (atomik di server). Owner yang sama memanggil ulang → lease diperpanjang dan
+  mengembalikan `true`. Owner lain → `false`.
+- `release()` dan `refresh()` bersifat *compare-and-act*: hanya pemilik token saat
+  ini yang boleh menghapus atau memperpanjang. Node tidak pernah melepas lease yang
+  sudah lapse dan diambil alih node lain.
+- TTL dipaksakan oleh server Redis, bukan jam lokal, sehingga bebas *clock drift*
+  antar node.
+- Key di-namespace `zef:lock:` + hash sha256. Batas input: key/owner 1..256 byte,
+  TTL 1..86400 detik.
+
+```php
+use Zef\Framework\Cache\RedisLockStore;
+
+$redis = new \Redis();
+$redis->connect('redis', 6379);
+
+$locks = new RedisLockStore($redis);
+```
+
+**Scheduler cluster-safe.** Berikan lock store ke `Scheduler` melalui parameter
+constructor opsional:
+
+```php
+use Zef\Framework\Job\Scheduler;
+
+$scheduler = new Scheduler(
+    queue: $queue,
+    clusterLockStore: $locks,
+    clusterName: 'default',   // 1..128 byte; lease: zef:scheduler:<name>
+    clusterTtlSeconds: 30,    // 1..86400; harus > durasi tick terburuk
+);
+```
+
+- Setiap `tick()` lebih dulu mengakuisisi lease `zef:scheduler:<name>`. Node yang
+  tidak memegang lease melewati tick sepenuhnya (return `0`). Job yang *due* tetap
+  *due* dan di-enqueue tepat sekali oleh leader.
+- Lease bersifat *sticky*: tidak di-release setelah tick. Selama leader terus
+  men-*tick* dalam TTL, lease ter-refresh. Bila leader crash atau berhenti, lease
+  lapse setelah `clusterTtlSeconds` dan node lain mengambil alih tanpa tindakan
+  operator.
+- Pilih `clusterTtlSeconds` lebih besar dari durasi tick terburuk. TTL terlalu kecil
+  membuat lease lapse di tengah tick. TTL terlalu besar memperlambat *failover*.
+- Rolling restart: panggil `relinquishClusterLeadership()` sebelum proses berhenti
+  agar node lain mengambil alih tanpa menunggu TTL.
+- Observabilitas: `isClusterLeader()`, `clusterOwner()`, `clusterName()`.
+
+**`LeaderElector`.** Untuk pekerjaan singleton selain scheduler (mis. loop
+pembersihan), gunakan lease kepemimpinan bernama:
+
+```php
+use Zef\Framework\Cache\LeaderElector;
+
+$elector = new LeaderElector($locks, 'cleanup', ttlSeconds: 15);
+
+if ($elector->acquireLeadership()) {
+    // hanya satu replika yang masuk sini
+    // panggil $elector->renewLeadership() minimal tiap TTL/2
+}
+
+// handover terencana (rolling restart)
+$elector->resign();
+```
+
+- Identitas default `node-<hostname>-<pid>-<rand>`, sehingga dua proses di host yang
+  sama tetap kontender berbeda. Parameter `identity` tersedia untuk ID node stabil.
+- `isLeader()` dan `holder()` bertanya ke lock store setiap panggilan. Lease yang
+  expired atau diambil alih langsung terlihat.
+
+**`LockingJobIdempotencyStore`.** `InMemoryJobIdempotencyStore` hanya menjamin
+idempotensi per proses. Untuk jaminan lintas node, inject adapter ini ke
+`InProcessJobWorker`:
+
+```php
+use Zef\Framework\Job\InProcessJobWorker;
+use Zef\Framework\Job\LockingJobIdempotencyStore;
+
+$worker = new InProcessJobWorker(
+    queue: $queue,
+    idempotency: new LockingJobIdempotencyStore($locks),
+);
+```
+
+- `remember($key, $producer, $ttlSeconds = 3600)` mengakuisisi lease
+  `zef:jobidem:<key>` sepanjang window. Pemenang menjalankan producer dan
+  mengembalikan hasilnya.
+- Node yang kalah (key sudah diklaim dalam window) mengembalikan `null` tanpa
+  menjalankan producer. Pengulangan dari proses yang sama pun kalah.
+- Setelah sukses, lease ditahan sampai TTL lapse sehingga *delivery* duplikat
+  dalam window di-*short-circuit*.
+- Bila producer melempar exception, lease di-release (best-effort) dan exception
+  diteruskan, sehingga retry policy worker tetap dapat menjalankan ulang job. Bila
+  release gagal (Redis tidak terjangkau), kegagalan dicatat lewat `error_log()` dan
+  lease bertahan sampai TTL lapse.
+- Window = TTL lease. Window lebih dari 86400 detik ditolak.
+
+**Non-tujuan (batasan yang perlu diketahui):**
+
+- **Tanpa Redlock / quorum multi-node.** Jaminan berlaku untuk satu instance Redis.
+  Bila instance itu gagal, mutual exclusion tidak dijamin.
+- **Tanpa fencing token monoton.** Node yang ter-*pause* melewati TTL dapat
+  melanjutkan kerja setelah lease diambil alih node lain. Atur TTL dengan margin
+  yang cukup dan buat efek samping job idempoten.
+- **Tanpa transport queue Redis bersama.** Rilis ini mengamankan sisi konsumen dan
+  scheduler, bukan queue-nya.
 
 ## 4. Kepemilikan sinyal & graceful shutdown
 
@@ -167,7 +292,10 @@ Perhatian saat menyusun image produksi:
 - probe memakai endpoint kesehatan ZEF (§5);
 - jumlah replika ditentukan horizontal — **perhatikan**: menambah replika menambah
   jumlah worker, sehingga rate limiter in-memory kehilangan makna. Pindahkan batas
-  ke store bersama sebelum melakukan *scale-out*.
+  ke store bersama sebelum melakukan *scale-out*. Hal yang sama berlaku untuk
+  scheduler dan idempotensi job: aktifkan mode cluster (§3.1).
+- rolling update: panggil `Scheduler::relinquishClusterLeadership()` /
+  `LeaderElector::resign()` saat proses berhenti agar *failover* tidak menunggu TTL.
 
 ## 10. Runbook singkat
 
@@ -176,6 +304,8 @@ Perhatian saat menyusun image produksi:
 | `/health` 503 | baca indikator yang gagal pada respons agregat; cek dependensi (Redis/collector) sebelum me-restart |
 | worker memori tumbuh | turunkan `ZEF_WORKER_MAX_JOBS`/`ZEF_WORKER_MEMORY_LIMIT` sehingga worker mendaur ulang lebih cepat |
 | rate limit tembus | pastikan store bersama, bukan in-memory; cek jumlah worker × jumlah replika |
+| job terjadwal dobel | pastikan `Scheduler` memakai `clusterLockStore` bersama (Redis) dengan `clusterName` yang sama di semua node |
+| job dieksekusi ulang di node lain | pakai `LockingJobIdempotencyStore` di atas `RedisLockStore`, bukan store in-memory |
 | trace hilang | verifikasi `ZEF_OTEL_ENABLED=1` dan keterjangkauan collector dari dalam pod |
 | 413 beruntun | naikkan `ZEF_MAX_BODY_BYTES` **atau** perbaiki klien — jangan naikkan tanpa batas |
 | deploy tidak zero-downtime | periksa urutan: readiness harus gagal lebih dulu sebelum proses lama dihentikan |
