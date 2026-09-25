@@ -435,7 +435,7 @@ final class EdgeMatrixDxToolsTest extends TestCase
     public function testDoctorWarnsWhenRrYamlIsMissing(): void
     {
         $root = $this->healthySandbox();
-        unlink("{$root}/.rr.yaml");
+        @unlink("{$root}/.rr.yaml"); // nosemgrep: php.lang.security.unlink-use
         $io = $this->io();
 
         $exit = new Doctor($root, $io)->run();
@@ -449,8 +449,8 @@ final class EdgeMatrixDxToolsTest extends TestCase
     public function testDoctorWarnsOnMissingEntrypoints(): void
     {
         $root = $this->healthySandbox();
-        unlink("{$root}/bin/worker.php");
-        unlink("{$root}/public/index.php");
+        @unlink("{$root}/bin/worker.php"); // nosemgrep: php.lang.security.unlink-use
+        @unlink("{$root}/public/index.php"); // nosemgrep: php.lang.security.unlink-use
         $io = $this->io();
 
         $exit = new Doctor($root, $io)->run();
