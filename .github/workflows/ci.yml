@@ -210,6 +210,16 @@ jobs:
         # (see docs/GOVERNANCE.md 2.6).
         run: php scripts/ci/assert-release-cadence.php
 
+      - name: Release docs ratchet (README/SECURITY ↔ ZefVersion)
+        # Issue #87: the README badge and SECURITY.md supported-versions table
+        # drifted up to nine minors behind ZefVersion::VERSION, misstating the
+        # documented release to new readers and security reporters. This gate
+        # (fail-closed) pins those references to the code's own version, so a
+        # version-bump PR that forgets the docs fails in the same PR instead
+        # of drifting. One-directional on purpose: the docs follow the code,
+        # never the other way round.
+        run: php scripts/ci/assert-release-docs.php
+
       - name: Rector (dry-run)
         run: vendor/bin/rector process --dry-run --no-progress-bar
 
