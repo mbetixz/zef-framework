@@ -62,6 +62,10 @@ dilaporkan adalah **keadaan runtime nyata**, bukan hasil parsing statis.
 yang membedakan *key tidak ada* (**exit 1**) dari *nilai `null` tersimpan*
 (**exit 0**) — perbedaan ini penting untuk skrip.
 
+`config:show` menampilkan config **modul** (`ConfigAggregator`), bukan
+pengaturan aplikasi Configuration System v2 (`Application::config()`). Lihat
+[`CONFIGURATION.md`](CONFIGURATION.md) untuk perbedaan keduanya.
+
 ```bash
 php bin/zef route:list
 php bin/zef config:show middleware.services

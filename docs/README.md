@@ -14,6 +14,7 @@ berarsitektur *Hexagonal (Ports & Adapters)* dengan worker RoadRunner.
 |---------|-----|-------------|
 | [`INSTALLATION.md`](INSTALLATION.md) | Persyaratan, instalasi (Composer & zero-composer), RoadRunner, Docker, Kubernetes, variabel lingkungan | Operator, developer baru |
 | [`CLI.md`](CLI.md) | Referensi lengkap `bin/zef` — self-test, serve, route list, inspector, 11 generator `make:*`, `rr:init`/`doctor`, tinker | Developer sehari-hari |
+| [`CONFIGURATION.md`](CONFIGURATION.md) | **v2.21.0+** — Configuration System v2: sumber (file/env/compiled), secrets, skema fail-fast, accessor bertipe, config terkompilasi, kueri pola radix, migrasi versi skema | Developer, operator |
 | [`TUTORIAL-CQRS-101.md`](TUTORIAL-CQRS-101.md) | **v2.29.0** — Zero-to-Hero: `make:app` → modul → command/query → wiring bus → HTTP/RoadRunner, plus troubleshooting | Developer baru |
 | [`PLUGINS.md`](PLUGINS.md) | **v2.29.0** — kontrak manifest plugin, registrasi composition root, kriteria registry index, distribusi | Author plugin, maintainer |
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | **v2.30.0** — peta port × adapter ekosistem (object storage S3/Local, transport pesan, job queue PDO), resep kontributor adapter broker, jembatan Cycle ORM, matriks kompatibilitas | Integrator, kontributor adapter |
@@ -47,6 +48,7 @@ docs/
 ├── README.md            ← Anda di sini (indeks)
 ├── INSTALLATION.md
 ├── CLI.md
+├── CONFIGURATION.md
 ├── TUTORIAL-CQRS-101.md
 ├── PLUGINS.md
 ├── ARCHITECTURE.md
