@@ -279,6 +279,10 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * boundary count==limit masih allowed, >limit ditolak, key independen, guards. */
     public function testApcuRealWindowBehaviourAndBoundaries(): void
     {
+        if (!\extension_loaded('apcu')) {
+            self::markTestSkipped('ext-apcu not available in this environment.');
+        }
+
         $limiter = new ApcuRateLimiter();
         $k = 'apcu-real-' . \bin2hex(\random_bytes(4));
 
@@ -322,6 +326,10 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * akan salah reset counter lagi (remaining 1 vs 0). */
     public function testApcuStaleWindowResetsCounter(): void
     {
+        if (!\extension_loaded('apcu')) {
+            self::markTestSkipped('ext-apcu not available in this environment.');
+        }
+
         $limiter = new ApcuRateLimiter();
         $key = 'apcu-stale-' . \bin2hex(\random_bytes(4));
         $hash = \hash('sha256', $key);
@@ -343,6 +351,10 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * sehingga retryAfter ≈ 1000, bukan 30 — asersi retryAfter membedakannya. */
     public function testApcuNumericStringWindowForcesReanchorPath(): void
     {
+        if (!\extension_loaded('apcu')) {
+            self::markTestSkipped('ext-apcu not available in this environment.');
+        }
+
         $limiter = new ApcuRateLimiter();
         $key = 'apcu-numstr-' . \bin2hex(\random_bytes(4));
         $hash = \hash('sha256', $key);
@@ -357,6 +369,10 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * Membunuh Increment:67 (max(1,..) → max(2,..)) pada boundary retryAfter minimum. */
     public function testApcuRetryAfterBoundaryAtOneSecond(): void
     {
+        if (!\extension_loaded('apcu')) {
+            self::markTestSkipped('ext-apcu not available in this environment.');
+        }
+
         $limiter = new ApcuRateLimiter();
         $key = 'apcu-bound-' . \bin2hex(\random_bytes(4));
         $hash = \hash('sha256', $key);
