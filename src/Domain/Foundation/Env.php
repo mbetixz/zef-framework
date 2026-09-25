@@ -13,9 +13,16 @@ declare(strict_types=1);
  * a pure typed reader over process environment state — no side effects,
  * no cross-layer references — matching the getenv()/filter_var() calls
  * the Domain layer already performs directly (see SecurityPolicy).
- * A future instance-based EnvInterface port for composition-root
- * injection remains open on issue #36 and is no longer blocked by the
- * carve-out inventory.
+ *
+ * Issue #55: the read-prefixed instance methods below implement
+ * EnvInterface (same namespace), bound by the kernel composition root
+ * as an ordinary container service. PHP forbids static and instance
+ * methods sharing one name, so the historic static surface
+ * (`Env::int(...)`, 38 call sites at the time the issue was opened)
+ * keeps its exact bodies — the instance surface delegates to them — and
+ * the migration can proceed opportunistically per module until the
+ * static facade is deprecated and removed in a release-note-worthy
+ * final step (issue #55 step 4).
  */
 
 namespace Zef\Framework\Foundation;
@@ -23,8 +30,13 @@ namespace Zef\Framework\Foundation;
 /**
  * Typed helpers for reading environment variables.
  * Replaces inline getenv() parsing scattered across the codebase.
+ *
+ * Two calling conventions over one implementation: the static methods
+ * are the historic facade (unchanged signatures, unchanged bodies), the
+ * read-prefixed instance methods are the EnvInterface port used by new
+ * production code. Zero static state either way.
  */
-final class Env
+final class Env implements EnvInterface
 {
     /**
      * Read an integer env var, clamping to [$min, $max].
@@ -87,5 +99,40 @@ final class Env
                 static fn (string $v): bool => $v !== '',
             )
         );
+    }
+
+    // ---------------------------------------------- EnvInterface surface
+
+    /** @see Env::int() — same body, instance calling convention. */
+    #[\Override]
+    public function readInt(
+        string $name,
+        int $default,
+        int $min,
+        int $max,
+        bool $strict = false,
+    ): int {
+        return self::int($name, $default, $min, $max, $strict);
+    }
+
+    /** @see Env::bool() — same body, instance calling convention. */
+    #[\Override]
+    public function readBool(string $name, bool $default = false): bool
+    {
+        return self::bool($name, $default);
+    }
+
+    /** @see Env::string() — same body, instance calling convention. */
+    #[\Override]
+    public function readString(string $name, string $default = ''): string
+    {
+        return self::string($name, $default);
+    }
+
+    /** @see Env::csv() — same body, instance calling convention. */
+    #[\Override]
+    public function readCsv(string $name): array
+    {
+        return self::csv($name);
     }
 }
