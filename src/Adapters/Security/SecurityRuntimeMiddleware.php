@@ -16,16 +16,16 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Zef\Framework\Http\JsonResponse;
 
-final class SecurityRuntimeMiddleware implements MiddlewareInterface
+final readonly class SecurityRuntimeMiddleware implements MiddlewareInterface
 {
     private const array SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS', 'TRACE'];
-    private readonly ?CsrfTokenManager $csrf;
+    private ?CsrfTokenManager $csrf;
 
     /** @param list<string> $trustedProxies */
     public function __construct(
-        private readonly SecurityPolicy $policy,
-        private readonly RateLimiterInterface $rateLimiter,
-        private readonly array $trustedProxies = [],
+        private SecurityPolicy $policy,
+        private RateLimiterInterface $rateLimiter,
+        private array $trustedProxies = [],
     ) {
         $this->csrf = $policy->csrfEnabled && $policy->csrfSecret !== ''
             ? new CsrfTokenManager($policy->csrfSecret, $policy->csrfTokenBytes)

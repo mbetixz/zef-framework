@@ -15,9 +15,9 @@ use Zef\Framework\Exception\InvalidFactoryException;
 /**
  * @internal
  */
-final class ServiceRegistrar
+final readonly class ServiceRegistrar
 {
-    public function __construct(private readonly ServiceRegistry $registry) {}
+    public function __construct(private ServiceRegistry $registry) {}
 
     public function register(
         string $id,

@@ -10,11 +10,11 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Security\Distributed;
 
-final class AllowScopeAuthorizationPolicy implements AuthorizationPolicyInterface
+final readonly class AllowScopeAuthorizationPolicy implements AuthorizationPolicyInterface
 {
     public function __construct(
-        private readonly string $requiredScope,
-        private readonly bool $allowAnonymous = false,
+        private string $requiredScope,
+        private bool $allowAnonymous = false,
     ) {
         if ($requiredScope === '') {
             throw new \InvalidArgumentException('requiredScope must not be empty.');

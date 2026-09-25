@@ -16,9 +16,9 @@ use Psr\Http\Message\ServerRequestInterface;
 /**
  * Bug fix #12: validates waitRequest/respond in constructor.
  */
-final class RoadRunnerWorkerAdapter implements WorkerInterface
+final readonly class RoadRunnerWorkerAdapter implements WorkerInterface
 {
-    public function __construct(private readonly object $worker)
+    public function __construct(private object $worker)
     {
         if (!method_exists($this->worker, 'waitRequest')) {
             throw new \InvalidArgumentException('RoadRunner HTTP worker must expose waitRequest().');

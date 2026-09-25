@@ -10,9 +10,9 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Config;
 
-abstract class AbstractModule implements ModuleInterface
+abstract readonly class AbstractModule implements ModuleInterface
 {
-    public function __construct(private readonly ModuleDefinition $definition) {}
+    public function __construct(private ModuleDefinition $definition) {}
 
     #[\Override]
     public function getName(): string

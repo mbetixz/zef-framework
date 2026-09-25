@@ -17,14 +17,14 @@ namespace Zef\Framework\Cache;
  * to each tag's member list; `invalidateTag()` deletes every member and the
  * index itself. Plain CacheInterface passthrough methods work unchanged.
  */
-final class TaggableCache implements CacheInterface
+final readonly class TaggableCache implements CacheInterface
 {
     private const string RESERVED_PREFIX = "\0zef-tag:";
     private const string REVERSE_PREFIX = "\0zef-keytags:";
     private const int MAX_TAGS_PER_KEY = 16;
 
     public function __construct(
-        private readonly CacheInterface $inner,
+        private CacheInterface $inner,
     ) {}
 
     /**

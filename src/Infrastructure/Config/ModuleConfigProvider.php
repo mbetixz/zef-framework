@@ -10,9 +10,9 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Config;
 
-final class ModuleConfigProvider implements ConfigProviderInterface
+final readonly class ModuleConfigProvider implements ConfigProviderInterface
 {
-    public function __construct(private readonly ModuleInterface $module) {}
+    public function __construct(private ModuleInterface $module) {}
 
     #[\Override]
     public function getModuleName(): string

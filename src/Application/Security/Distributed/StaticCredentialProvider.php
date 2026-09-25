@@ -10,19 +10,19 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Security\Distributed;
 
-final class StaticCredentialProvider implements CredentialProviderInterface
+final readonly class StaticCredentialProvider implements CredentialProviderInterface
 {
     /**
      * @var list<string> SHA-256 digests of the accepted tokens
      */
-    private readonly array $tokenDigests;
+    private array $tokenDigests;
 
     /** @param list<string> $validTokens */
     public function __construct(
         array $validTokens,
-        private readonly string $principalId = 'static-principal',
-        private readonly string $scope = 'api',
-        private readonly int $expiresAtMs = 0,
+        private string $principalId = 'static-principal',
+        private string $scope = 'api',
+        private int $expiresAtMs = 0,
     ) {
         if ($validTokens === []) {
             throw new \InvalidArgumentException('StaticCredentialProvider requires at least one valid token.');
