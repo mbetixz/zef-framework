@@ -20,7 +20,7 @@ namespace Zef\Framework\Security;
  * Keys: exactly 32 bytes. Accepts raw, hex (64 chars), or base64 strings;
  * anything else is rejected at construction — no silent hashing of weak keys.
  */
-final class AesGcmEncryptor implements EncryptionInterface
+final readonly class AesGcmEncryptor implements EncryptionInterface
 {
     private const string CIPHER = 'aes-256-gcm';
     private const string VERSION = 'zefenc1';
@@ -28,7 +28,7 @@ final class AesGcmEncryptor implements EncryptionInterface
     private const int TAG_BYTES = 16;
 
     public function __construct(
-        private readonly string $key,
+        private string $key,
     ) {
         $decoded = $this->decodeKey($key);
         if (strlen($decoded) !== 32) {

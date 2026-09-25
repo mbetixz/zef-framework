@@ -18,11 +18,11 @@ namespace Zef\Framework\Observability;
  * are typically collected through the TaggedServiceLocator using the
  * `health.indicator` tag.
  */
-final class HealthAggregator
+final readonly class HealthAggregator
 {
     /** @param list<HealthIndicatorInterface> $indicators */
     public function __construct(
-        private readonly array $indicators = [],
+        private array $indicators = [],
     ) {}
 
     /** @return list<HealthIndicatorInterface> */

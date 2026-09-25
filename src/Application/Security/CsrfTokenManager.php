@@ -10,11 +10,11 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Security;
 
-final class CsrfTokenManager
+final readonly class CsrfTokenManager
 {
     public function __construct(
-        private readonly string $secret,
-        private readonly int $tokenBytes = 32,
+        private string $secret,
+        private int $tokenBytes = 32,
     ) {
         if (strlen($secret) < 32) {
             throw new \InvalidArgumentException('CSRF secret must be at least 32 bytes.');

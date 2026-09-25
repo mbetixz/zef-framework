@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Security;
 
-final class RedisSharedRateLimitStore implements SharedRateLimitStoreInterface
+final readonly class RedisSharedRateLimitStore implements SharedRateLimitStoreInterface
 {
     private const string PREFIX = 'zef:ratelimit:';
     private const string LUA_INCREMENT = <<<'LUA'
@@ -31,7 +31,7 @@ final class RedisSharedRateLimitStore implements SharedRateLimitStoreInterface
         return {count, reset}
         LUA;
 
-    public function __construct(private readonly \Redis $redis) {}
+    public function __construct(private \Redis $redis) {}
 
     #[\Override]
     public function increment(string $key, int $windowSeconds, int $now): array

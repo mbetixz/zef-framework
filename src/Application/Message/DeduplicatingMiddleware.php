@@ -22,11 +22,11 @@ use Zef\Framework\CQRS\IdempotencyStoreInterface;
  *
  * Insert BEFORE transport-boundary middlewares in the bus configuration.
  */
-final class DeduplicatingMiddleware implements MessageMiddlewareInterface
+final readonly class DeduplicatingMiddleware implements MessageMiddlewareInterface
 {
     public function __construct(
-        private readonly IdempotencyStoreInterface $idempotency,
-        private readonly int $ttlSeconds = 3600,
+        private IdempotencyStoreInterface $idempotency,
+        private int $ttlSeconds = 3600,
     ) {
         if ($this->ttlSeconds < 1 || $this->ttlSeconds > 86400 * 7) {
             throw new \InvalidArgumentException('Dedup TTL must be 1..604800 seconds.');

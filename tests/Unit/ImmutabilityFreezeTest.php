@@ -41,40 +41,19 @@ use PHPUnit\Framework\TestCase;
 final class ImmutabilityFreezeTest extends TestCase
 {
     /**
-     * Baseline beku: kelas final non-exception yang seluruh property
-     * instance-nya readonly, tanpa modifier `readonly` pada kelas.
+     * Baseline beku — TERMINAL (Guild Action Item 3 selesai via final sweep):
+     * seluruh 55 kelas immutable kini `readonly class`; snapshot dikosongkan.
+     * Kelas final non-exception baru yang seluruh property instance-nya
+     * readonly TANPA modifier `readonly` pada kelas akan gagal test ini
+     * secara default — tambahkan `readonly` atau justifikasi eksplisit di sini.
      */
-    private const array IMMUTABLE_WITHOUT_READONLY = [
-        'src/Adapters/Router/UrlGenerator.php',
-        'src/Adapters/Runtime/RoadRunnerWorkerAdapter.php',
-        'src/Adapters/Security/AuthenticationMiddleware.php',
-        'src/Adapters/Security/SecurityRuntimeMiddleware.php',
-        'src/Application/Container/ContainerCompiler.php',
-        'src/Application/Container/RadixTreeCompilerPass.php',
-        'src/Application/Container/ServiceRegistrar.php',
-        'src/Application/Container/ServiceRegistryView.php',
-        'src/Application/Message/DeduplicatingMiddleware.php',
-        'src/Application/Observability/HealthAggregator.php',
-        'src/Application/Observability/TelemetryLogger.php',
-        'src/Application/Observability/Tracer.php',
-        'src/Application/Security/CsrfTokenManager.php',
-        'src/Application/Security/Distributed/AllowScopeAuthorizationPolicy.php',
-        'src/Application/Security/Distributed/StaticCredentialProvider.php',
-        'src/Infrastructure/Cache/InMemoryCache.php',
-        'src/Infrastructure/Cache/TaggableCache.php',
-        'src/Infrastructure/Cache/TieredCache.php',
-        'src/Infrastructure/Config/ConfigProviderModule.php',
-        'src/Infrastructure/Config/ModuleConfigProvider.php',
-        'src/Infrastructure/Security/AesGcmEncryptor.php',
-        'src/Infrastructure/Security/ApcuRateLimiter.php',
-        'src/Infrastructure/Security/RedisRateLimiter.php',
-        'src/Infrastructure/Security/RedisSharedRateLimitStore.php',
-    ];
+    private const array IMMUTABLE_WITHOUT_READONLY = [];
 
     /**
-     * Set kelas immutable-tanpa-readonly wajib identik dengan baseline.
-     * Kelas BARU yang immutable tanpa keyword readonly (pola DTO/VO baru)
-     * akan gagal di sini — tambahkan `readonly` atau justifikasi baseline.
+     * Set kelas immutable-tanpa-readonly wajib identik dengan baseline
+     * (sekarang kosong — terminal state). Kelas BARU yang immutable tanpa
+     * keyword readonly (pola DTO/VO baru) akan gagal di sini — tambahkan
+     * `readonly` atau justifikasi baseline.
      */
     public function testImmutableClassesWithoutReadonlyKeywordAreFrozen(): void
     {
@@ -90,15 +69,17 @@ final class ImmutabilityFreezeTest extends TestCase
 
     /**
      * Kelas yang sudah `readonly class` tidak boleh mundur ke non-readonly
-     * (regresi kebijakan) — jumlahnya wajib tidak menurun.
+     * (regresi kebijakan) — jumlahnya wajib tidak menurun. Nilai terminal
+     * 132 = 55 kelas ledger Guild Action Item 3 + kelas yang mengeras
+     * sepanjang jalur zone-by-zone (#59, #64, #72, #78, final sweep).
      */
     public function testReadonlyClassCountDoesNotRegress(): void
     {
         $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
-            108,
+            132,
             $current,
-            sprintf('Jumlah kelas `readonly` menurun (%d < 108) — regresi kebijakan immutability.', $current),
+            sprintf('Jumlah kelas `readonly` menurun (%d < 132) — regresi kebijakan immutability.', $current),
         );
     }
 

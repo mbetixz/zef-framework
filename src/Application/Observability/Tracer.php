@@ -10,11 +10,11 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Observability;
 
-final class Tracer implements TracerInterface
+final readonly class Tracer implements TracerInterface
 {
     public function __construct(
-        private readonly BatchSpanProcessor $processor,
-        private readonly bool $enabled = true,
+        private BatchSpanProcessor $processor,
+        private bool $enabled = true,
     ) {}
 
     #[\Override]

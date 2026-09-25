@@ -13,11 +13,11 @@ namespace Zef\Framework\Observability;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
-final class TelemetryLogger
+final readonly class TelemetryLogger
 {
     public function __construct(
-        private readonly LoggerInterface $logger = new NullLogger(),
-        private readonly ?Telemetry $telemetry = null,
+        private LoggerInterface $logger = new NullLogger(),
+        private ?Telemetry $telemetry = null,
     ) {}
 
     /** @param array<string,mixed> $context */

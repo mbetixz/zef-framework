@@ -10,12 +10,12 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Cache;
 
-final class InMemoryCache implements CacheInterface
+final readonly class InMemoryCache implements CacheInterface
 {
     public function __construct(
-        private readonly CacheStoreInterface $store,
-        private readonly CacheKeyNormalizerInterface $normalizer = new DefaultCacheKeyNormalizer(),
-        private readonly CacheClockInterface $clock = new SystemCacheClock(),
+        private CacheStoreInterface $store,
+        private CacheKeyNormalizerInterface $normalizer = new DefaultCacheKeyNormalizer(),
+        private CacheClockInterface $clock = new SystemCacheClock(),
     ) {}
 
     #[\Override]

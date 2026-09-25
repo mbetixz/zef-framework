@@ -17,12 +17,12 @@ namespace Zef\Framework\Cache;
  * additionally capped by $l1TtlSeconds so hot-tier staleness stays bounded
  * even when the underlying L1 has a longer native TTL.
  */
-final class TieredCache implements CacheInterface
+final readonly class TieredCache implements CacheInterface
 {
     public function __construct(
-        private readonly CacheInterface $l1,
-        private readonly CacheInterface $l2,
-        private readonly ?int $l1TtlSeconds = 60,
+        private CacheInterface $l1,
+        private CacheInterface $l2,
+        private ?int $l1TtlSeconds = 60,
     ) {
         if ($this->l1TtlSeconds !== null && $this->l1TtlSeconds < 1) {
             throw new \InvalidArgumentException('L1 TTL must be >= 1 second (or null).');
