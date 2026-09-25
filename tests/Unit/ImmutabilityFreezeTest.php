@@ -65,21 +65,6 @@ final class ImmutabilityFreezeTest extends TestCase
         'src/Infrastructure/Cache/TieredCache.php',
         'src/Infrastructure/Config/ConfigProviderModule.php',
         'src/Infrastructure/Config/ModuleConfigProvider.php',
-        'src/Infrastructure/Console/Generator/CommandGenerator.php',
-        'src/Infrastructure/Console/Generator/ConfigGenerator.php',
-        'src/Infrastructure/Console/Generator/EntityGenerator.php',
-        'src/Infrastructure/Console/Generator/HandlerGenerator.php',
-        'src/Infrastructure/Console/Generator/MiddlewareGenerator.php',
-        'src/Infrastructure/Console/Generator/ModuleGenerator.php',
-        'src/Infrastructure/Console/Generator/PluginGenerator.php',
-        'src/Infrastructure/Console/Generator/QueryGenerator.php',
-        'src/Infrastructure/Console/Generator/ServiceGenerator.php',
-        'src/Infrastructure/Console/Generator/ValueObjectGenerator.php',
-        'src/Infrastructure/Console/Inspector/ConfigShower.php',
-        'src/Infrastructure/Console/Inspector/ModuleLister.php',
-        'src/Infrastructure/Console/Inspector/PluginLister.php',
-        'src/Infrastructure/Console/ScaffoldWriter.php',
-        'src/Infrastructure/Console/ZefMaker.php',
         'src/Infrastructure/Security/AesGcmEncryptor.php',
         'src/Infrastructure/Security/ApcuRateLimiter.php',
         'src/Infrastructure/Security/RedisRateLimiter.php',
@@ -111,9 +96,9 @@ final class ImmutabilityFreezeTest extends TestCase
     {
         $current = $this->countReadonlyClasses();
         self::assertGreaterThanOrEqual(
-            93,
+            108,
             $current,
-            sprintf('Jumlah kelas `readonly` menurun (%d < 93) — regresi kebijakan immutability.', $current),
+            sprintf('Jumlah kelas `readonly` menurun (%d < 108) — regresi kebijakan immutability.', $current),
         );
     }
 
