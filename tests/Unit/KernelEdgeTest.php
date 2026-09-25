@@ -483,7 +483,7 @@ final class KernelEdgeTest extends TestCase
         $app = new Application();
         $app->addProvider($this->fixtureProvider());
         $app->boot();
-        $module = new class(new ModuleDefinition('late', [])) extends AbstractModule {};
+        $module = new LateModuleFixture(new ModuleDefinition('late', []));
         $this->expectException(\LogicException::class);
         $app->addModule($module);
     }
@@ -703,3 +703,10 @@ final class KernelEdgeTest extends TestCase
         };
     }
 }
+
+/**
+ * Named module fixture — PHP cannot declare an anonymous class readonly, and
+ * AbstractModule is abstract-readonly since the issue #38 final sweep, so
+ * test extensions of it must be named readonly classes.
+ */
+final readonly class LateModuleFixture extends AbstractModule {}

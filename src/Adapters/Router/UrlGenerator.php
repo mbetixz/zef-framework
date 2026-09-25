@@ -20,12 +20,12 @@ use Zef\Framework\Validation\RouteConstraintValidator;
  * generated URL can never fail to match its own route. Generation is strict:
  * missing parameters and unknown extra parameters both throw.
  */
-final class UrlGenerator
+final readonly class UrlGenerator
 {
-    private readonly RouteConstraintValidator $constraints;
+    private RouteConstraintValidator $constraints;
 
     public function __construct(
-        private readonly Router $router,
+        private Router $router,
     ) {
         // Reuse the router's own validator so custom constraints are known here.
         $this->constraints = $router->constraintValidator();

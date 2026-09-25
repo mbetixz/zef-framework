@@ -13,9 +13,9 @@ namespace Zef\Framework\Container;
 /**
  * Read-only view of the service registry exposed to application code.
  */
-final class ServiceRegistryView
+final readonly class ServiceRegistryView
 {
-    public function __construct(private readonly ServiceRegistry $registry) {}
+    public function __construct(private ServiceRegistry $registry) {}
 
     /** @return array<string,ServiceDefinition> */
     public function definitions(): array

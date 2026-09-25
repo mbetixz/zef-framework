@@ -15,14 +15,14 @@ namespace Zef\Framework\Console\Inspector;
 use Zef\Framework\Config\ConfigAggregator;
 use Zef\Framework\Console\ConsoleIO;
 
-final class ConfigShower
+final readonly class ConfigShower
 {
     /** Sentinel distinguishes "key missing" from a legitimately stored null. */
     private const string MISSING = '__zef_config_missing__';
 
     public function __construct(
-        private readonly ConfigAggregator $aggregator,
-        private readonly ConsoleIO $io,
+        private ConfigAggregator $aggregator,
+        private ConsoleIO $io,
     ) {}
 
     public function run(?string $key): int

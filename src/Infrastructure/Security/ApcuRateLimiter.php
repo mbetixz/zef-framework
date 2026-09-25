@@ -16,11 +16,11 @@ namespace Zef\Framework\Security;
  * Bug fix #5: uses apcu_add for counter init to avoid clobbering concurrent
  * increments (documented, not self-testable without APCu).
  */
-final class ApcuRateLimiter implements RateLimiterInterface
+final readonly class ApcuRateLimiter implements RateLimiterInterface
 {
     private const string PREFIX = 'zef:ratelimit:';
 
-    public function __construct(private readonly int $maxKeys = 10000)
+    public function __construct(private int $maxKeys = 10000)
     {
         if ($this->maxKeys < 1) {
             throw new \InvalidArgumentException('maxKeys must be >= 1.');

@@ -15,12 +15,12 @@ use Zef\Framework\Console\GeneratorInterface;
 use Zef\Framework\Console\NamingRules;
 use Zef\Framework\Console\ScaffoldWriter;
 
-final class ModuleGenerator implements GeneratorInterface
+final readonly class ModuleGenerator implements GeneratorInterface
 {
     public function __construct(
-        private readonly string $root,
-        private readonly ConsoleIO $io,
-        private readonly ScaffoldWriter $writer,
+        private string $root,
+        private ConsoleIO $io,
+        private ScaffoldWriter $writer,
     ) {}
 
     public function generate(?string $rawName, array $argv = []): int

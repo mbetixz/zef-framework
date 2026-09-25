@@ -22,13 +22,13 @@ use Zef\Framework\Security\Distributed\ReplayProtectorInterface;
 use Zef\Framework\Security\Distributed\SecurityBoundaryInterface;
 use Zef\Framework\Security\Distributed\SecurityRequest;
 
-final class AuthenticationMiddleware implements MiddlewareInterface
+final readonly class AuthenticationMiddleware implements MiddlewareInterface
 {
     public function __construct(
-        private readonly CredentialProviderInterface $credentialProvider,
-        private readonly AuthorizationPolicyInterface $authorization,
-        private readonly ReplayProtectorInterface $replayProtector,
-        private readonly SecurityBoundaryInterface $boundary,
+        private CredentialProviderInterface $credentialProvider,
+        private AuthorizationPolicyInterface $authorization,
+        private ReplayProtectorInterface $replayProtector,
+        private SecurityBoundaryInterface $boundary,
     ) {}
 
     #[\Override]

@@ -13,11 +13,11 @@ namespace Zef\Framework\Console\Inspector;
 
 use Zef\Framework\Console\ConsoleIO;
 
-final class PluginLister
+final readonly class PluginLister
 {
     public function __construct(
-        private readonly string $root,
-        private readonly ConsoleIO $io,
+        private string $root,
+        private ConsoleIO $io,
     ) {}
 
     public function run(): int

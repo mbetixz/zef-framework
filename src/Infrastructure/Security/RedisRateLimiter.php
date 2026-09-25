@@ -10,11 +10,11 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Security;
 
-final class RedisRateLimiter implements RateLimiterInterface
+final readonly class RedisRateLimiter implements RateLimiterInterface
 {
     public function __construct(
-        private readonly SharedRateLimitStoreInterface $store,
-        private readonly int $maxKeys = 10000,
+        private SharedRateLimitStoreInterface $store,
+        private int $maxKeys = 10000,
     ) {
         if ($this->maxKeys < 1) {
             throw new \InvalidArgumentException('maxKeys must be >= 1.');

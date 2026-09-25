@@ -19,9 +19,9 @@ use Zef\Framework\Policy\NamespaceScopePolicy;
 /**
  * @internal
  */
-final class RadixTreeCompilerPass
+final readonly class RadixTreeCompilerPass
 {
-    public function __construct(private readonly NamespaceScopePolicy $policy) {}
+    public function __construct(private NamespaceScopePolicy $policy) {}
 
     public function process(CompiledContainerPlan $plan): NamespaceRadixTree
     {

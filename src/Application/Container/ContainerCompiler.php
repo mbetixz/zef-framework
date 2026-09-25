@@ -18,9 +18,9 @@ use Zef\Framework\Validation\DependencyGraphValidator;
  *
  * @internal
  */
-final class ContainerCompiler
+final readonly class ContainerCompiler
 {
-    public function __construct(private readonly DependencyGraphValidator $graphValidator) {}
+    public function __construct(private DependencyGraphValidator $graphValidator) {}
 
     public function compile(
         ServiceRegistry $registry,

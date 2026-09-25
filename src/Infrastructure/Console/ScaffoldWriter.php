@@ -11,9 +11,9 @@ declare(strict_types=1);
 
 namespace Zef\Framework\Console;
 
-final class ScaffoldWriter
+final readonly class ScaffoldWriter
 {
-    public function __construct(private readonly ConsoleIO $io) {}
+    public function __construct(private ConsoleIO $io) {}
 
     public function writeFile(string $path, string $contents): void
     {
