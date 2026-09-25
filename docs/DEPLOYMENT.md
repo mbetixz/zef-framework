@@ -68,6 +68,89 @@ Untuk pembatas laju, pilih store bersama: `RedisRateLimiter` /
 deployment satu instance. Data akun, sesi, dan variabel per-request harus
 meninggalkan proses.
 
+### 3.1 Rate limiting bertingkat (v2.25.0)
+
+Selain limiter global per-IP dari `SecurityRuntimeMiddleware`, ZEF menyediakan
+`RateLimitMiddleware` untuk kuota per rute, per method, atau per klien. Gunakan
+fitur ini bila Anda butuh batas berbeda untuk endpoint mahal (laporan, tulis)
+dibanding pembacaan murah, atau kuota per API key/pengguna.
+
+Middleware ini hanya masuk pipeline (tepat setelah `middleware.security.runtime`)
+bila `ZEF_SECURITY_RATE_LIMIT_TIERS` diisi. Bila limiter global juga aktif,
+keduanya bertumpuk dengan sengaja: cap global (luar) sebagai jaring pengaman,
+cap per-tier (dalam) untuk kuota rute/tenant.
+
+**Algoritma** (`ZEF_SECURITY_RATE_LIMIT_ALGORITHM`):
+
+| Nilai | Algoritma | Perilaku |
+|-------|-----------|----------|
+| `sliding` (default) | sliding window counter | pemakaian efektif = `ceil(prev × (1 − rasio waktu berlalu) + curr)`; menghaluskan ledakan di batas jendela dengan state O(1) per kunci |
+| `token` | token bucket | bucket penuh (= `limit`) di awal, refill kontinu `limit / windowSeconds` per detik; burst sah tidak ditolak di awal jendela |
+
+**Definisi tier** (`ZEF_SECURITY_RATE_LIMIT_TIERS`) adalah list JSON objek:
+
+| Kunci | Wajib | Default | Aturan |
+|-------|-------|---------|--------|
+| `name` | ya | — | string tidak kosong, maks. 64 karakter, tanpa `>` |
+| `limit` | ya | — | integer ≥ 1 |
+| `windowSeconds` | ya | — | integer ≥ 1 |
+| `cost` | tidak | `1` | unit kuota per request; `1 ≤ cost ≤ limit` |
+| `pathPrefix` | tidak | `/` | wajib diawali `/` |
+| `methods` | tidak | semua | list method HTTP uppercase, misalnya `["POST"]` |
+
+```json
+[
+  {"name": "api", "limit": 100, "windowSeconds": 60, "pathPrefix": "/api"},
+  {"name": "reports", "limit": 100, "windowSeconds": 60, "pathPrefix": "/api/reports", "cost": 10},
+  {"name": "write", "limit": 20, "windowSeconds": 60, "pathPrefix": "/api", "methods": ["POST", "PUT", "DELETE"]}
+]
+```
+
+JSON rusak, root bukan list, entry bukan objek, kunci tidak dikenal, atau nilai
+invalid menggagalkan **boot** dengan pesan yang menyebut indeks entry. Tier salah
+ketik tidak pernah diabaikan diam-diam.
+
+**Pencocokan tier:**
+
+- `pathPrefix` dicocokkan pada batas segmen: `/api` cocok dengan `/api` dan
+  `/api/users`, tetapi tidak dengan `/apiv2`.
+- `methods` (bila diisi) membatasi tier ke method tersebut.
+- Semua tier yang cocok dievaluasi, masing-masing dengan kuota terpisah.
+  Hasilnya **most restrictive wins**: request diizinkan hanya bila semua tier
+  lolos; header melaporkan limit paling ketat dan sisa terkecil; `Retry-After`
+  memakai tunggu terlama di antara tier yang menolak.
+- Request yang tidak cocok dengan tier mana pun diteruskan tanpa header rate limit.
+
+**Rantai identitas** (sumber pertama yang tersedia dipakai sebagai kunci kuota):
+
+1. atribut request `zef.auth.identity` (diisi middleware autentikasi);
+2. header API key `X-API-Key`;
+3. IP klien sadar-proxy (melalui `ClientAddressResolver`).
+
+Nilai identitas dan API key disimpan sebagai fingerprint sha256, sehingga
+kredensial tidak pernah masuk ke penyimpanan limiter.
+
+**Header respons:**
+
+| Header | Kapan |
+|--------|-------|
+| `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` | setiap request yang dicakup tier (draft IETF httpapi-ratelimit-headers) |
+| `X-RateLimit-Limit`, `X-RateLimit-Remaining` | setiap request yang dicakup tier (legacy, untuk klien lama) |
+| `Retry-After` | pada `429 Too Many Requests` (detik) |
+
+Handler dapat membaca hasil evaluasi melalui atribut request
+`zef.security.rate_limit`.
+
+**Kegagalan penyimpanan limiter** (`ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN`):
+
+- `false` (default, fail-closed): respons `503 Service Unavailable` dengan
+  `Retry-After: 1`, sama seperti `SecurityRuntimeMiddleware`.
+- `true` (fail-open): request diteruskan ke handler tanpa header rate limit.
+
+> ⚠️ Tier v2.25.0 berjalan **per-proses** (tidak ada store terdistribusi untuk
+> algoritma baru), sehingga batas efektif = limit × jumlah worker. Untuk cap
+> global lintas-worker, tetap gunakan store bersama pada limiter global.
+
 ## 4. Kepemilikan sinyal & graceful shutdown
 
 Worker tidak boleh memasang handler sinyal yang bertabrakan dengan supervisi

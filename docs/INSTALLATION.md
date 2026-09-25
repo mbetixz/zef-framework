@@ -126,9 +126,21 @@ konfigurasi — **tidak ada rahasia yang boleh ditulis ke berkas, log, atau lapo
 | `ZEF_TRUSTED_HOSTS` | `localhost,127.0.0.1,::1,zef.test` | daftar host tepercaya (CSV) |
 | `ZEF_SECURITY_CSRF_SECRET` | — | secret CSRF ≥ 32 byte; **diisi = CSRF aktif** |
 | `ZEF_SECURITY_DISTRIBUTED_RATE_LIMIT` | — | pemilih store rate-limit terdistribusi |
+| `ZEF_SECURITY_RATE_LIMIT_TIERS` | — (kosong = nonaktif) | daftar JSON tier rate limit (v2.25.0); **diisi = middleware tier aktif**; JSON/tier invalid → boot gagal |
+| `ZEF_SECURITY_RATE_LIMIT_ALGORITHM` | `sliding` | algoritma tier: `sliding` (sliding window counter) atau `token` (token bucket); nilai lain → boot gagal |
+| `ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN` | `false` | `true` = request diteruskan tanpa header rate limit saat penyimpanan limiter gagal; default fail-closed (`503`) |
 | `ZEF_WORKER_MAX_JOBS` | `0` (tanpa batas) | jumlah job per worker RoadRunner |
 | `ZEF_WORKER_MEMORY_LIMIT` | `0` (nonaktif) | batas memori worker (byte) |
 | `ZEF_OTEL_ENABLED` | `0` | `1` mengaktifkan tracer OTLP riil (bukan NoopSpan) |
+
+Contoh konfigurasi tier rate limit (detail perilaku di
+[DEPLOYMENT.md §3.1](DEPLOYMENT.md#31-rate-limiting-bertingkat-v2250)):
+
+```bash
+export ZEF_SECURITY_RATE_LIMIT_TIERS='[{"name":"api","limit":100,"windowSeconds":60,"pathPrefix":"/api"},{"name":"write","limit":20,"windowSeconds":60,"pathPrefix":"/api","methods":["POST","PUT","DELETE"]}]'
+export ZEF_SECURITY_RATE_LIMIT_ALGORITHM=token
+export ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN=false
+```
 
 Pemeriksaan keberadaan variabel (untuk skrip operasional) harus *masked* — hanya
 melaporkan `PRESENT`/`ABSENT`, tidak pernah mencetak nilainya.
