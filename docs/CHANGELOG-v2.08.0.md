@@ -1,4 +1,4 @@
-# ZEF Framework — Changelog v2.8.0 (Roadmap Continuation)
+# ZEF Framework — Changelog v2.08.0 (Roadmap Continuation)
 
 > Rilis fitur pertama setelah refactor hexagonal v2.7.0. Seluruh perubahan bersifat
 > **aditif**: tidak ada perilaku lama yang diubah. Konstanta `ZefVersion::VERSION`
@@ -12,7 +12,7 @@
 |---|---|
 | `php -l` seluruh file | 287 file, 0 gagal |
 | Self-test suite lama (baseline monolith) | 145/145 PASSED |
-| Suite fitur baru (`v2.8.0 feature suite`) | 103 assertion PASSED |
+| Suite fitur baru (`v2.08.0 feature suite`) | 103 assertion PASSED |
 | Total self-test (`bin/zef --self-test`) | **248 PASSED / 0 FAILED** |
 | HTTP compare vs monolith (status + body) | **11/11 byte-identik** |
 
@@ -94,9 +94,9 @@
   `.github/workflows/ci.yml` (lint + self-test di PHP 8.4).
 
 ### Testing
-- **Suite v2.8.0 berkas tersendiri** — `tests/V280FeatureSuite.php`: 13 sub-suite
+- **Suite v2.08.0 berkas tersendiri** — `tests/V280FeatureSuite.php`: 13 sub-suite
   (103 assertion) dipindah verbatim dari `tests/CliRunner.php` sehingga fitur-fitur
-  v2.8.0 punya suite yang terlihat dan bisa dijalankan mandiri. Counter assertion
+  v2.08.0 punya suite yang terlihat dan bisa dijalankan mandiri. Counter assertion
   tetap terpusat di `CliRunner`; `CliRunner::ok()`/`throws()` dilebarkan menjadi public.
 - **Filter suite** — `bin/zef --self-test=<key>` menjalankan hanya suite yang cocok
   (substring case-insensitive terhadap key/label: `psr, routes, container, concurrency,
