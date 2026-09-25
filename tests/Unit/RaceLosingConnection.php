@@ -17,12 +17,16 @@ use Zef\Framework\Database\SqlQuery;
 /**
  * Delegates everything to the inner connection; execute() returns 0 for
  * DELETE statements hitting the queue table (simulating a concurrent
- * worker that deleted the candidate first).
+ * worker that deleted the candidate first), and transaction() calls are
+ * counted so tests can pin the retry economics (one scan on an empty
+ * queue vs the full bounded scan under continuous races).
  *
  * @internal
  */
 final class RaceLosingConnection implements ConnectionInterface
 {
+    public int $transactions = 0;
+
     public function __construct(private readonly ConnectionInterface $inner, private readonly string $queueTable) {}
 
     #[\Override]
@@ -80,6 +84,8 @@ final class RaceLosingConnection implements ConnectionInterface
     #[\Override]
     public function transaction(callable $fn, ?IsolationLevel $isolation = null): mixed
     {
+        ++$this->transactions;
+
         return $this->inner->transaction($fn, $isolation);
     }
 }

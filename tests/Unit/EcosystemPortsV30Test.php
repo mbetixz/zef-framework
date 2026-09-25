@@ -1145,11 +1145,26 @@ final class EcosystemPortsV30Test extends TestCase
         $queue->createSchema();
         $queue->enqueue($this->job('job-winner'));
         $queue->enqueue($this->job('job-loser'));
-        // Every DELETE claim "loses" (affected rows 0) — the loop must keep
-        // scanning and eventually report an empty queue without hanging.
-        $racing = new PdoJobQueue(new RaceLosingConnection($connection, 'zef_jobs_race'), 'zef_jobs_race');
+        // Every DELETE claim "loses" (affected rows 0) and a candidate stays
+        // visible, so the loop must keep scanning through the full bounded
+        // attempt budget and eventually report an empty queue without
+        // hanging.
+        $spy = new RaceLosingConnection($connection, 'zef_jobs_race');
+        $racing = new PdoJobQueue($spy, 'zef_jobs_race');
         self::assertNull($racing->dequeue());
         self::assertSame(2, $queue->size()); // nothing was actually removed
+        self::assertSame(8, $spy->transactions); // a lost race justifies each rescan
+    }
+
+    public function testPdoJobQueueEmptyQueueStopsAfterSingleScan(): void
+    {
+        $spy = new RaceLosingConnection($this->sqliteConn(), 'zef_jobs_empty');
+        $queue = new PdoJobQueue($spy, 'zef_jobs_empty');
+        $queue->createSchema();
+        // An empty SELECT proves there is nothing to claim — the scan must
+        // not burn the remaining claim attempts on pure nothingness.
+        self::assertNull($queue->dequeue());
+        self::assertSame(1, $spy->transactions);
     }
 
     public function testPdoJobQueueRejectsCorruptedStoredPayload(): void
@@ -1243,6 +1258,54 @@ final class EcosystemPortsV30Test extends TestCase
             return 'loser';
         };
         self::assertSame('winner', $store->remember('idem-key-4', $produce, 600));
+    }
+
+    public function testPdoIdempotencyExpiresAtIsComputedAtInsertTime(): void
+    {
+        $now = 1000;
+        $store = new PdoJobIdempotencyStore($this->sqliteConn(), 'zef_idem_ttl', static function () use (&$now): int {
+            return $now;
+        });
+        $store->createSchema();
+        $calls = 0;
+        $produce = static function () use (&$now, &$calls): string {
+            // The producer outlasts most of the TTL…
+            $now = 1500;
+            ++$calls;
+
+            return 'slow-producer';
+        };
+        self::assertSame('slow-producer', $store->remember('idem-key-6', $produce, 100));
+        // …yet expires_at is anchored to insert time (1600, not 1100), so
+        // the value stays live at 1550 and the producer must NOT re-run.
+        $now = 1550;
+        self::assertSame('slow-producer', $store->remember('idem-key-6', $produce, 100));
+        self::assertSame(1, $calls);
+    }
+
+    public function testPdoIdempotencyExpiredWinnerIsNotAdopted(): void
+    {
+        $connection = $this->sqliteConn();
+        $now = 1000;
+        $store = new PdoJobIdempotencyStore($connection, 'zef_idem_stale', static function () use (&$now): int {
+            return $now;
+        });
+        $store->createSchema();
+        // The concurrent winner commits with a 5-second TTL and the loser's
+        // producer outlasts it: by the time the loser's INSERT fails the
+        // winner's entry is dead, so the loser must rethrow its INSERT error
+        // instead of adopting a value that no longer honours its TTL.
+        $produce = static function () use ($connection, &$now): string {
+            $connection->execute(new SqlQuery(
+                'INSERT INTO "zef_idem_stale" ("idem_key", "value", "expires_at") VALUES (?, ?, ?)',
+                ['idem-key-7', json_encode('winner'), $now + 5],
+            ));
+            $now = 2000;
+
+            return 'loser';
+        };
+        $this->expectException(QueryException::class);
+        $store->remember('idem-key-7', $produce, 600);
     }
 
     public function testPdoIdempotencyValidationAndCorruption(): void

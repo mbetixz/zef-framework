@@ -26,10 +26,15 @@ use Zef\Framework\Database\SqlQuery;
  * - expired entries are swept lazily on the next remember() for the same
  *   key (no background reaper, no server clock dependency beyond the
  *   injected closure);
+ * - the clock is re-read at INSERT time, so the full TTL is honoured even
+ *   when the producer itself ran for a large fraction of it;
  * - concurrent first-execution races: both workers miss, both run the
  *   producer, the loser's INSERT hits UNIQUE(idem_key) and the loser then
  *   returns the winner's stored value (at-least-once execution,
- *   exactly-once effect — the documented contract for this port).
+ *   exactly-once effect — the documented contract for this port). The
+ *   winner check re-reads the clock too: a winning entry that expired
+ *   while the loser's producer was running is dead, not authoritative,
+ *   and its INSERT error is rethrown instead.
  *
  * Values are JSON documents (mixed round-trip) — the same contract as the
  * PDO job queue payloads.
@@ -95,15 +100,20 @@ final readonly class PdoJobIdempotencyStore implements JobIdempotencyStoreInterf
                 QueryBuilder::table($this->table)->insert([
                     'idem_key' => $key,
                     'value' => $stored,
-                    'expires_at' => $now + $ttlSeconds,
+                    // Fresh clock at insert time: a producer that ran for a
+                    // while must not shorten the entry's effective TTL.
+                    'expires_at' => ($this->clock)() + $ttlSeconds,
                 ])->build(),
             );
 
             return $value;
         } catch (\Throwable $insertError) {
             // Lost a first-execution race (UNIQUE idem_key) — the winner's
-            // value is authoritative. Any other failure rethrows below.
-            $winner = $this->fetch($key, $now);
+            // value is authoritative while it is still live. The clock is
+            // re-read here: the producer may have outlasted the winner's
+            // TTL, and an expired winner is swept, not adopted. Any other
+            // failure rethrows below.
+            $winner = $this->fetch($key, ($this->clock)());
             if ($winner !== null) {
                 return $winner;
             }

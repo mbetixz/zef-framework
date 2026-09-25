@@ -31,6 +31,12 @@ use Zef\Framework\Database\SqlQuery;
  * terminates). DELETE-claiming is portable across SQLite/MySQL/PostgreSQL
  * (SELECT ... FOR UPDATE is not: SQLite rejects it).
  *
+ * The two retry triggers are deliberately distinguished: an empty SELECT
+ * proves the queue has nothing to claim at all, so the scan stops
+ * immediately (one transaction, not MAX_CLAIM_ATTEMPTS); only a lost
+ * DELETE race — a candidate that existed a statement ago — justifies
+ * re-scanning.
+ *
  * Payloads travel as JSON documents (mixed round-trip: scalars, lists,
  * string-keyed maps) — object payloads must be serialised by the caller,
  * mirroring the outbox contract. Ambient transactions are joined, so a
@@ -118,7 +124,10 @@ final readonly class PdoJobQueue implements JobQueueInterface
     {
         $now = $nowUnixNano ?? ($this->clock)();
         for ($attempt = 0; $attempt < self::MAX_CLAIM_ATTEMPTS; ++$attempt) {
-            $claimed = $this->connection->transaction(function () use ($now): ?JobEnvelope {
+            // false = the SELECT proved there is no candidate (stop retrying);
+            // null = a candidate existed but the DELETE lost the race (rescan);
+            // JobEnvelope = claimed.
+            $claimed = $this->connection->transaction(function () use ($now): false|JobEnvelope|null {
                 $rows = $this->connection->fetchAll(
                     QueryBuilder::table($this->table)
                         ->select('seq', 'job_id', 'job_type', 'payload', 'available_at', 'priority', 'attempt', 'correlation_id', 'trace_parent', 'headers')
@@ -131,7 +140,7 @@ final readonly class PdoJobQueue implements JobQueueInterface
                 );
                 $row = $rows[0] ?? null;
                 if ($row === null) {
-                    return null;
+                    return false;
                 }
                 $deleted = $this->connection->execute(
                     QueryBuilder::table($this->table)
@@ -142,8 +151,11 @@ final readonly class PdoJobQueue implements JobQueueInterface
 
                 return $deleted === 1 ? $this->hydrate($row) : null;
             });
-            if ($claimed !== null) {
+            if ($claimed instanceof JobEnvelope) {
                 return $claimed;
+            }
+            if ($claimed === false) {
+                return null;
             }
         }
 
