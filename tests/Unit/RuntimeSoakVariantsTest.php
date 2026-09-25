@@ -81,6 +81,11 @@ final class RuntimeSoakVariantsTest extends TestCase
         putenv('ZEF_SECURITY_CSRF_SECRET');
         putenv('ZEF_RATE_LIMIT_STORE');
         putenv('ZEF_REDIS_URL');
+        // PHPUnit 10 default: backupStaticAttributes=false, runInSeparateProcess
+        // tidak diaktifkan — static state probe WAJIB dibersihkan manual agar
+        // tidak bocor ke test berikutnya dalam satu proses (review PR #82).
+        OtlpSoakProbeMiddleware::reset();
+        RedisSoakProbeMiddleware::reset();
     }
 
     /**
@@ -129,7 +134,12 @@ final class RuntimeSoakVariantsTest extends TestCase
             self::assertSame(0, $worker->nonOk, 'tidak ada respons non-200 selama soak OTLP');
             self::assertSame(0, $worker->errors, 'tidak ada error worker selama soak OTLP');
 
-            $this->assertMemoryBounded();
+            $this->assertMemoryBounded(
+                OtlpSoakProbeMiddleware::$baselineUsed,
+                OtlpSoakProbeMiddleware::$finalUsed,
+                OtlpSoakProbeMiddleware::$baselineReal,
+                OtlpSoakProbeMiddleware::$finalReal,
+            );
 
             // Jalur flush/export benar-benar berjalan: sink file berisi
             // batch JSON, dan jumlah span total >= jumlah request (2-3
@@ -212,7 +222,12 @@ final class RuntimeSoakVariantsTest extends TestCase
             self::assertSame(0, $worker->nonOk, 'tidak ada respons non-200 selama soak Redis (limit sengaja dilonggarkan)');
             self::assertSame(0, $worker->errors, 'tidak ada error worker selama soak Redis');
 
-            $this->assertMemoryBounded();
+            $this->assertMemoryBounded(
+                RedisSoakProbeMiddleware::$baselineUsed,
+                RedisSoakProbeMiddleware::$finalUsed,
+                RedisSoakProbeMiddleware::$baselineReal,
+                RedisSoakProbeMiddleware::$finalReal,
+            );
 
             // Server tetap sehat dan koneksi reuse terjadi: satu hash
             // rate-limit dengan count tepat TOTAL_REQUESTS (setiap request
@@ -239,13 +254,8 @@ final class RuntimeSoakVariantsTest extends TestCase
 
     // ------------------------------------------------------------- Helpers
 
-    private function assertMemoryBounded(): void
+    private function assertMemoryBounded(?int $baselineUsed, ?int $finalUsed, ?int $baselineReal, ?int $finalReal): void
     {
-        $baselineUsed = OtlpSoakProbeMiddleware::$baselineUsed ?? RedisSoakProbeMiddleware::$baselineUsed;
-        $finalUsed = OtlpSoakProbeMiddleware::$finalUsed ?? RedisSoakProbeMiddleware::$finalUsed;
-        $baselineReal = OtlpSoakProbeMiddleware::$baselineReal ?? RedisSoakProbeMiddleware::$baselineReal;
-        $finalReal = OtlpSoakProbeMiddleware::$finalReal ?? RedisSoakProbeMiddleware::$finalReal;
-
         self::assertNotNull($baselineUsed, 'snapshot memori warmup wajib terekam');
         self::assertNotNull($finalUsed, 'snapshot memori akhir wajib terekam');
         self::assertNotNull($baselineReal, 'snapshot arena warmup wajib terekam');
