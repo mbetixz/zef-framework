@@ -71,7 +71,7 @@
 - [x] Authentication boundaries (layer isolation)
 - [x] Authorization policies (scope-based) → `AllowScopeAuthorizationPolicy`
 - [x] Replay protection (idempotency keys) → `BoundedInMemoryReplayProtector`
-- [x] Rate limiting (in-memory, APCu, Redis) → `InMemoryRateLimiter`, `ApcuRateLimiter`, `RedisRateLimiter`
+- [x] Rate limiting (in-memory, APCu, Redis) → `InMemoryRateLimiter`, `ApcuRateLimiter`, `RedisRateLimiter` — [x] Rate limiting tiered (v2.25.0: sliding window counter + token bucket cost-aware via `CacheClockInterface`, `RateLimitRule` + `RateLimitVerdict` (most restrictive wins), `TieredRateLimiter` kunci komposit `name>identity`, `RateLimitMiddleware` PSR-15: header draft IETF `RateLimit-*` + legacy `X-RateLimit-*`, rantai identitas identity > API key > IP sadar-proxy, fail-open/closed, wiring env `ZEF_SECURITY_RATE_LIMIT_TIERS/_ALGORITHM/_FAIL_OPEN` fail-fast)
 - [x] Credential management → `StaticCredentialProvider`, `CredentialHandle`
 - [x] Security context propagation → `SecurityContext`, `CorrelationPropagator`
 - [x] CSRF protection dengan token rotation → `CsrfTokenManager`

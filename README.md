@@ -112,7 +112,7 @@ Banyak framework PHP tumbuh dari kenyamanan. ZEF tumbuh dari pembongkaran: satu 
   </tr>
   <tr>
     <td><b>Keamanan</b></td>
-    <td>AES-256-GCM + rotasi key ring · TOTP (RFC 6238) &amp; Base32 · CSRF · origin policy · rate limiter (in-memory/Redis/APCu) · SecurityPolicy fail-closed</td>
+    <td>AES-256-GCM + rotasi key ring · TOTP (RFC 6238) &amp; Base32 · CSRF · origin policy · rate limiter (in-memory/Redis/APCu) · rate limit tiered (sliding window + token bucket, v2.25.0) · SecurityPolicy fail-closed</td>
   </tr>
   <tr>
     <td><b>Observability</b></td>
@@ -148,8 +148,9 @@ Setiap rilis bersifat **aditif**: perilaku lama tidak diubah.
 | **v2.21.1** | **Configuration hardening**: kueri pola radix (`query()/subtree()/longestMatch()`), decorator secrets tangguh (retry + backoff + stale fallback), hint penolakan string kosong, compiled config `chmod 0600` + header keamanan |
 | **v2.22.0** | **Transaction orchestration & UoW-lite**: port `TransactionManagerInterface` + hook after-commit, `TransactionalCommandBus` (commit/rollback per command, flush UnitOfWork sebelum commit), `CommandBus` fan-out event pasca-commit |
 | **v2.23.0** | **Event Sourcing Hardening**: guard stream-continuity (versi wajib +1), snapshot no-regress (CAS), dead-letter `requeue()` + `requeueDeadLetters()`, backstop schema `UNIQUE(event_id)`/`UNIQUE(global_sequence)`, upcasting `UpcasterInterface` + `EventUpcaster` (rename chain + identity guard) |
+| **v2.25.0** | **Rate Limiting**: sliding window counter + token bucket (refill kontinu, cost-aware), tiering `RateLimitRule` + `TieredRateLimiter` (most restrictive wins), header `RateLimit-*` draft IETF + legacy `X-RateLimit-*`, rantai identitas identity > API key > IP, middleware PSR-15 + wiring env fail-fast |
 
-Rincian per rilis: [`docs/CHANGELOG-v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`docs/CHANGELOG-v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`docs/CHANGELOG-v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`docs/CHANGELOG-v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`docs/CHANGELOG-v2.20.0.md`](docs/CHANGELOG-v2.20.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 26 berkas di [`docs/`](docs/README.md).
+Rincian per rilis: [`docs/CHANGELOG-v2.25.0.md`](docs/CHANGELOG-v2.25.0.md), [`docs/CHANGELOG-v2.23.0.md`](docs/CHANGELOG-v2.23.0.md), [`docs/CHANGELOG-v2.22.0.md`](docs/CHANGELOG-v2.22.0.md), [`docs/CHANGELOG-v2.21.1.md`](docs/CHANGELOG-v2.21.1.md), [`docs/CHANGELOG-v2.21.0.md`](docs/CHANGELOG-v2.21.0.md), [`v2.19.0`](docs/CHANGELOG-v2.19.0.md), [`v2.18.0`](docs/CHANGELOG-v2.18.0.md), [`v2.17.0`](docs/CHANGELOG-v2.17.0.md), [`v2.16.0`](docs/CHANGELOG-v2.16.0.md), [`v2.15.0`](docs/CHANGELOG-v2.15.0.md), [`v2.14.0`](docs/CHANGELOG-v2.14.0.md) — atau seluruh 27 berkas di [`docs/`](docs/README.md).
 
 </details>
 
@@ -406,7 +407,10 @@ Runtime worker persisten berbeda mendasar dari PHP-FPM: proses hidup lama, sehin
 | `ZEF_SECURITY_CSRF_SECRET` | — | Secret CSRF ≥ 32 byte; mengaktifkan CSRF |
 | `ZEF_SECURITY_CSRF_TOKEN_BYTES` · `_COOKIE` · `_HEADER` · `_SAMESITE` · `_SECURE` · `_HTTP_ONLY` | — | Penyetelan CSRF |
 | `ZEF_SECURITY_ORIGIN_POLICY` · `ZEF_SECURITY_ALLOWED_ORIGINS` | — | Kontrol origin |
-| `ZEF_SECURITY_RATE_LIMIT` · `_MAX` · `_WINDOW` · `_MAX_KEYS` · `_DISTRIBUTED_RATE_LIMIT` | — | Rate limiting |
+| `ZEF_SECURITY_RATE_LIMIT` · `_MAX` · `_WINDOW` · `_MAX_KEYS` · `_DISTRIBUTED_RATE_LIMIT` | — | Rate limiting global (SecurityRuntimeMiddleware) |
+| `ZEF_SECURITY_RATE_LIMIT_TIERS` | — (nonaktif) | Daftar JSON tier `RateLimitMiddleware` (lihat CHANGELOG v2.25.0) |
+| `ZEF_SECURITY_RATE_LIMIT_ALGORITHM` | `sliding` | Algoritma tier: `sliding` atau `token` |
+| `ZEF_SECURITY_RATE_LIMIT_FAIL_OPEN` | `false` | Lanjut tanpa kuota saat penyimpanan gagal (fail-open) |
 | `ZEF_SECURITY_HSTS` · `ZEF_SECURITY_CSP` | — | Header keamanan respons |
 | `ZEF_WORKER_MAX_JOBS` | `0` (tanpa batas) | Kapasitas job per worker sebelum daur ulang |
 | `ZEF_WORKER_MEMORY_LIMIT` | `0` (nonaktif) | Batas memori worker (byte) |

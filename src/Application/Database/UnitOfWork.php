@@ -70,6 +70,14 @@ final class UnitOfWork
     /**
      * Execute every queued operation FIFO on $connection and clear the
      * queue. Returns the number of operations executed.
+     *
+     * v2.22.0 contract (UNCHANGED): the queue is cleared BEFORE execution
+     * starts — a failed operation is never retried from this queue. The
+     * surrounding transaction rollback is the failure story; a retried
+     * command re-records fresh operations.
+     *
+     * For opt-in retry of transient DB failures see
+     * {@see flushRetrying()} (v2.22.1, issue #65 item 2).
      */
     public function flush(ConnectionInterface $connection): int
     {
@@ -94,6 +102,71 @@ final class UnitOfWork
         }
 
         return $executed;
+    }
+
+    /**
+     * Flush with opt-in retry for transient DB failures (v2.22.1,
+     * issue #65 item 2).
+     *
+     * Unlike {@see flush()}, this method preserves the queued operations
+     * across retry attempts — the snapshot is replayed each attempt
+     * until either the flush succeeds or the policy is exhausted. The
+     * queue is cleared ONLY on a successful flush; when a throwable
+     * escapes this method (non-retryable, or the policy exhausted), the
+     * queue is deliberately left populated for a potential replay by
+     * the caller, and the caller's transaction rollback is the failure
+     * story — the stale queue can never reach a commit path.
+     *
+     * Contract (see docs/TRANSACTION-HOOKS.md §"UoW retry strategy"):
+     * - Only the FLUSH phase is retried — never the command handler
+     *   body. Side effects produced during dispatch are NOT re-run.
+     * - The policy decides retryability via
+     *   {@see UnitOfWorkRetryPolicy::isRetryable()}; non-retryable
+     *   throwables propagate immediately.
+     * - On exhaustion the last throwable propagates.
+     *
+     * @return int number of operations executed by the successful attempt
+     */
+    public function flushRetrying(
+        ConnectionInterface $connection,
+        UnitOfWorkRetryPolicy $policy,
+    ): int {
+        if ($this->flushing) {
+            throw new TransactionException('UnitOfWork::flushRetrying() re-entered while flushing.');
+        }
+        $operations = $this->operations;
+        if ($operations === []) {
+            return 0;
+        }
+        $this->flushing = true;
+
+        try {
+            $attempt = 0;
+            while (true) {
+                ++$attempt;
+
+                try {
+                    $executed = 0;
+                    foreach ($operations as $operation) {
+                        $operation($connection);
+                        ++$executed;
+                    }
+                    // Success — drop the queue and return.
+                    $this->operations = [];
+
+                    return $executed;
+                } catch (\Throwable $e) {
+                    if (!$policy->isRetryable($e) || !$policy->shouldRetry($attempt)) {
+                        throw $e;
+                    }
+                    $delayMs = $policy->delayMs($attempt);
+                    usleep($delayMs * 1_000);
+                }
+            }
+        } finally {
+            $this->flushing = false;
+        }
+        // Unreachable — the loop either returns or throws.
     }
 
     /**
