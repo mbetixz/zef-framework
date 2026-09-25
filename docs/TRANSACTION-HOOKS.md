@@ -208,6 +208,9 @@ behavioural coverage.
 
 ## Further reading
 
+- [`DATABASE.md`](DATABASE.md) — usage guide for the Database Core
+  and transaction orchestration layer (query builder, PDO adapter,
+  migrator, repository, `TransactionManager`, `UnitOfWork`).
 - `src/Domain/Database/TransactionManagerInterface.php` — the
   outbound port contract.
 - `src/Application/Database/TransactionManager.php` — the default

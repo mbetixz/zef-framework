@@ -16,6 +16,8 @@ berarsitektur *Hexagonal (Ports & Adapters)* dengan worker RoadRunner.
 | [`CLI.md`](CLI.md) | Referensi lengkap `bin/zef` — self-test, serve, route list, inspector, 11 generator `make:*`, `rr:init`/`doctor`, tinker | Developer sehari-hari |
 | [`TUTORIAL-CQRS-101.md`](TUTORIAL-CQRS-101.md) | **v2.29.0** — Zero-to-Hero: `make:app` → modul → command/query → wiring bus → HTTP/RoadRunner, plus troubleshooting | Developer baru |
 | [`PLUGINS.md`](PLUGINS.md) | **v2.29.0** — kontrak manifest plugin, registrasi composition root, kriteria registry index, distribusi | Author plugin, maintainer |
+| [`DATABASE.md`](DATABASE.md) | **v2.18.0 / v2.22.x** — Database Core (query builder anti-injection, `SqlExpression`, adapter PDO, SAVEPOINT & isolation level, migrator + lock, repository) dan orkestrasi transaksi (`TransactionManager`, `afterCommit`, `TransactionalCommandBus`, `UnitOfWork`, retry flush opt-in) | Developer aplikasi |
+| [`TRANSACTION-HOOKS.md`](TRANSACTION-HOOKS.md) | **v2.22.1** — semantik error hook `afterCommit` per fase, kontrak hook, guard hook lambat, strategi retry UoW | Developer aplikasi, reviewer |
 | [`INTEGRATIONS.md`](INTEGRATIONS.md) | **v2.30.0** — peta port × adapter ekosistem (object storage S3/Local, transport pesan, job queue PDO), resep kontributor adapter broker, jembatan Cycle ORM, matriks kompatibilitas | Integrator, kontributor adapter |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Pemecahan monolith → layer hexagonal, aturan arah dependensi, peta namespace → layer, autoloading ganda | Arsitek, reviewer |
 | [`QUALITY.md`](QUALITY.md) | Seluruh gerbang kualitas: PHPUnit, coverage, **mutation testing (MSI per area)**, PHPStan, PHPCS, cs-fixer, Rector, Deptrac | Kontributor, release manager |
@@ -49,6 +51,8 @@ docs/
 ├── CLI.md
 ├── TUTORIAL-CQRS-101.md
 ├── PLUGINS.md
+├── DATABASE.md
+├── TRANSACTION-HOOKS.md
 ├── ARCHITECTURE.md
 ├── QUALITY.md
 ├── DEPLOYMENT.md
