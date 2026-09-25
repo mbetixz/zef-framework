@@ -107,6 +107,26 @@ final class DatabaseUnitOfWorkRetryPolicyTest extends TestCase
         self::assertFalse($p->isRetryable($syntaxError));
     }
 
+    /**
+     * Regression: MySQL surfaces transient failures as INT driver codes
+     * (getCode() = 1213, errorInfo[1] = 1213) while the policy stores the
+     * taxonomy as SQLSTATE strings — the strict comparison only matches
+     * after the candidates are normalised to strings. Before that
+     * normalisation, MySQL deadlocks silently never retried.
+     */
+    public function testIsRetryableMatchesMysqlIntegerDriverCode(): void
+    {
+        $p = new UnitOfWorkRetryPolicy();
+        $deadlock = new class('Deadlock found when trying to get lock', 1213) extends \PDOException {
+            public function __construct(string $message, int $driverCode)
+            {
+                parent::__construct($message, $driverCode);
+                $this->errorInfo = ['HY000', $driverCode, $message];
+            }
+        };
+        self::assertTrue($p->isRetryable($deadlock));
+    }
+
     public function testIsRetryableRejectsUnknownClass(): void
     {
         $p = new UnitOfWorkRetryPolicy();

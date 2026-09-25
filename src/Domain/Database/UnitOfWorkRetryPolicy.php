@@ -179,10 +179,19 @@ final readonly class UnitOfWorkRetryPolicy
 
     private function matchesSqlState(\Throwable $e): bool
     {
-        $candidates = [$e->getCode()];
+        // Candidates are normalised to string before the strict comparison:
+        // PDOException::getCode() returns the SQLSTATE string on Postgres,
+        // but the MySQL driver error number as an int (e.g. 1213) — without
+        // normalisation, the strict in_array() below can never match the
+        // int form and MySQL transient errors would silently not retry.
+        $candidates = [(string) $e->getCode()];
         if ($e instanceof \PDOException && isset($e->errorInfo) && is_array($e->errorInfo)) {
-            $candidates[] = $e->errorInfo[0] ?? null;
-            $candidates[] = $e->errorInfo[1] ?? null;
+            foreach ([0, 1] as $offset) {
+                $candidate = $e->errorInfo[$offset] ?? null;
+                if (is_string($candidate) || is_int($candidate)) {
+                    $candidates[] = (string) $candidate;
+                }
+            }
         }
 
         return array_any($this->retryableSqlStates, fn (string $state): bool => in_array($state, $candidates, true));

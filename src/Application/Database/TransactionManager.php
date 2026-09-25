@@ -64,6 +64,7 @@ final class TransactionManager implements TransactionManagerInterface
      * @template T
      *
      * @param callable(ConnectionInterface): T $fn
+     * @param null|IsolationLevel $isolation transaction isolation level for the scope
      *
      * @return T
      *
@@ -172,7 +173,7 @@ final class TransactionManager implements TransactionManagerInterface
                 $start = hrtime(true);
                 $hook();
                 $elapsedNs = hrtime(true) - $start;
-                $elapsedMs = (int) ($elapsedNs / 1_000_000);
+                $elapsedMs = (int) ceil($elapsedNs / 1_000_000);
                 if ($elapsedMs > $this->hookDurationThresholdMs) {
                     $this->logger?->debug(
                         'afterCommit hook exceeded slow-hook threshold',

@@ -111,9 +111,11 @@ final class UnitOfWork
      * Unlike {@see flush()}, this method preserves the queued operations
      * across retry attempts — the snapshot is replayed each attempt
      * until either the flush succeeds or the policy is exhausted. The
-     * queue is cleared only on a successful flush (or on a non-retryable
-     * throw that escapes this method, in which case the caller's
-     * transaction rollback is the failure story).
+     * queue is cleared ONLY on a successful flush; when a throwable
+     * escapes this method (non-retryable, or the policy exhausted), the
+     * queue is deliberately left populated for a potential replay by
+     * the caller, and the caller's transaction rollback is the failure
+     * story — the stale queue can never reach a commit path.
      *
      * Contract (see docs/TRANSACTION-HOOKS.md §"UoW retry strategy"):
      * - Only the FLUSH phase is retried — never the command handler
