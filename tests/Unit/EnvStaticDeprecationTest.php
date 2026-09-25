@@ -92,7 +92,13 @@ final class EnvStaticDeprecationTest extends TestCase
 
     public function testFrameworkVersionMatchesTheDeprecationRelease(): void
     {
-        self::assertSame('2.28.0', ZefVersion::VERSION, 'deprecation shipped in the v2.28.0 release.');
+        // The facade deprecation SHIPPED in v2.28.0; the runtime version may
+        // move on in later releases, but it must never appear to predate the
+        // deprecation itself (message contract stays anchored to v2.28.0).
+        self::assertTrue(
+            version_compare(ZefVersion::VERSION, '2.28.0', '>='),
+            sprintf('ZefVersion %s must not predate the v2.28.0 deprecation release.', ZefVersion::VERSION),
+        );
     }
 
     /**

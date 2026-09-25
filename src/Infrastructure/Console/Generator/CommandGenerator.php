@@ -103,6 +103,9 @@ final readonly class CommandGenerator implements GeneratorInterface
 
             Next steps — wire it into modules/{$modulePascal}/ConfigProvider.php and the bus:
 
+              // the handler lives in the Command\\ sub-namespace — import it:
+              use Zef\\Module\\{$modulePascal}\\Command\\{$name}CommandHandler;
+
               'services' => [
                   ...
                   '{$module}.command.{$snake}' => [
@@ -111,8 +114,10 @@ final readonly class CommandGenerator implements GeneratorInterface
                   ],
               ],
 
-              // during boot (e.g. a module's register()):
-              \$bus->register({$name}Command::class, '{$module}.command.{$snake}');
+              // during boot, resolving the handler from the container
+              // (the bus stays mutable until freeze()) — best from a Module
+              // register() hook, see docs/TUTORIAL-CQRS-101.md:
+              \$bus->register({$name}Command::class, \$container->get('{$module}.command.{$snake}'));
 
               // dispatch anywhere:
               \$app->getCommandBus()->dispatch(new {$name}Command('id-1'));
