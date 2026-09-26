@@ -33,8 +33,15 @@ $iterate = static function (string $dir) use ($root, $skipDirs): \Generator {
     );
     /** @var string $path */
     foreach ($objects as $path) {
+        // Platform-agnostic skip comparison (caught by the Windows smoke
+        // cell, issue #92): RecursiveDirectoryIterator yields separators
+        // native to the platform, so a forward-slash prefix test never
+        // matched on Windows and the linter descended into vendor/ —
+        // where the phpstorm-stubs analysis package legitimately
+        // redeclares core functions and every file is a parse error.
+        $normalized = str_replace('\\', '/', $path);
         foreach ($skipDirs as $skip) {
-            if (str_starts_with($path, $skip . '/')) {
+            if (str_starts_with($normalized, str_replace('\\', '/', $skip) . '/')) {
                 continue 2;
             }
         }

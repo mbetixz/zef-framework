@@ -157,6 +157,40 @@ reference in README/SECURITY keyed off it drifted three to nine minors behind
   draft remains advisory: publishing goes through `release.yml`, never
   through the draft's publish button.
 
+### 2.7 Platform smoke cells are advisory until proven
+
+`ci.yml` runs two platform cells beyond the canonical ubuntu/PHP-8.4 gate
+(restore of the matrix collapsed in PR #22 — audit issue #92):
+`Platform smoke (windows-latest)` and `Platform smoke (PHP 8.5)`. They are
+deliberately **static-named jobs, not a matrix strategy**: GitHub Actions
+suffixes matrix values onto job names, which breaks the exact match against
+the required status-check context. The cells are also deliberately **not in
+the branch-protection required contexts yet** — an advisory cell must prove
+itself stable on main (two consecutive green runs on pushes, no flakes)
+before promotion, at which point the context names are added to the ruleset
+and the "advisory" label removed here. A gate that blocks merges while it is
+itself unproven trades one flake class for another.
+
+The per-platform Redis profile is part of the design: Windows runners have no
+service containers, and loading `ext-redis` there without a server turns the
+suite into hard errors (phpredis throws in `setUp`, so the availability guard
+never returns false) — so the Windows cell omits the extension entirely and
+takes the graceful skip profile, while the 8.5 cell runs the full Redis wire
+profile like the canonical cell. `composer why-not php 8.5.0` was verified
+empty before the 8.5 cell landed (no locked package constrains it).
+
+The Windows cell landed with its phpunit step deliberately non-blocking: the
+first runs measured 26 platform-debt failures in recently-landed features
+(make:app DX paths, restrictive file modes, LocalStorage failure-mapping
+fixtures, CRLF-sensitive expectations), inventoried and tracked in issue #110.
+Flip `continue-on-error` off as that debt burns down, then promote the cell.
+
+**On the Kilo review bot**: it has repeatedly failed with output-limit errors
+on large PRs (observed twice during #83 and once during #84). It is not a
+required context and never blocked a merge — a red Kilo check with an
+infra-flake signature (output truncation, timeout, runner-side error) is not
+a code verdict. Do not "fix" a phantom: check the log signature first.
+
 ## 3. Credential policy
 
 ### 3.1 Declared by name only

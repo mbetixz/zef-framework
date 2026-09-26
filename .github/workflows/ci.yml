@@ -210,5 +210,126 @@ jobs:
         # (see docs/GOVERNANCE.md 2.6).
         run: php scripts/ci/assert-release-cadence.php
 
+      - name: Release docs ratchet (README/SECURITY ↔ ZefVersion)
+        # Issue #87: the README badge and SECURITY.md supported-versions table
+        # drifted up to nine minors behind ZefVersion::VERSION, misstating the
+        # documented release to new readers and security reporters. This gate
+        # (fail-closed) pins those references to the code's own version, so a
+        # version-bump PR that forgets the docs fails in the same PR instead
+        # of drifting. One-directional on purpose: the docs follow the code,
+        # never the other way round.
+        run: php scripts/ci/assert-release-docs.php
+
       - name: Rector (dry-run)
         run: vendor/bin/rector process --dry-run --no-progress-bar
+
+  platform-windows:
+    # Issue #92: platform coverage restoration. The archive-era matrix
+    # (collapsed in PR #22, finding F-03) is rebuilt as dedicated
+    # STATIC-NAMED jobs instead of a matrix strategy: GitHub Actions
+    # suffixes matrix values onto job names (" (8.4)"), which breaks the
+    # exact-match against the required status-check context (the PR #22
+    # lesson, relearned when the job rename landed in #93's follow-ups).
+    # Static names keep the required context set untouched.
+    #
+    # ADVISORY (not in the branch-protection required contexts yet): the
+    # cell must prove itself stable on main before promotion — see
+    # docs/GOVERNANCE.md 2.7. A red Kilo bot check with an infra-flake
+    # signature is likewise not a code verdict (same section).
+    name: Platform smoke (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.4"
+          coverage: none
+          # The per-platform Redis profile (issue #92): Windows runners
+          # support no service containers, so no Redis server exists there,
+          # and loading ext-redis WITHOUT a server turns the suite into 9
+          # hard errors (modern phpredis throws in setUp, so the
+          # isAvailable() guard never returns false — the exact failure
+          # mode diagnosed during PR #82/#22). Not loading ext-redis at all
+          # gives the graceful profile: RedisStoreTest self-skips, the
+          # rate-limiter wire tests drop out, nothing fails.
+          extensions: mbstring, dom, xml, xmlwriter, curl, pdo_sqlite, apcu, sockets
+          ini-values: apc.enable_cli=1
+          tools: composer:2.10.3
+
+      - name: Install dependencies (graceful profile without ext-redis)
+        run: composer install --no-interaction --no-progress --ignore-platform-req=ext-redis
+
+      - name: Syntax check (php -l over first-party files)
+        run: php scripts/lint.php
+
+      - name: Framework self-test suite
+        run: php bin/zef --self-test
+
+      - name: PHPUnit (Redis-skip profile)
+        # NON-BLOCKING on purpose (GOVERNANCE 2.7 + the windows platform-debt
+        # issue): the restored cell already caught real Unix-only assumptions
+        # (lint separator, F8 load-time Redis fake, ext-sockets) and the
+        # remaining red — make:app DX path assertions, restrictive file-mode
+        # assertions, LocalStorage failure-mapping fixtures, CRLF-sensitive
+        # expectations — is inventoried in issue #110. The step stays
+        # visible (orange + full log); flip continue-on-error off as the debt
+        # burns down, then promote the cell to required contexts.
+        continue-on-error: true
+        run: vendor/bin/phpunit
+
+  platform-php85:
+    # Issue #92: the PHP 8.5 column. The dependency set is verified
+    # 8.5-compatible BEFORE landing this job (`composer why-not php 8.5.0`
+    # reports no locked package constraining it), so the cell can join the
+    # smoke set in the same PR as the Windows row instead of waiting for a
+    # separate compat pass. Full profile: Redis service + ext-redis + APCu,
+    # same as the canonical ubuntu/8.4 cell.
+    name: Platform smoke (PHP 8.5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: "8.5"
+          coverage: none
+          extensions: mbstring, dom, xml, xmlwriter, curl, pdo_sqlite, apcu, redis
+          ini-values: apc.enable_cli=1
+          tools: composer:2.10.3
+
+      - name: Start Redis test server (127.0.0.1:6399)
+        run: |
+          docker run -d --name zef-redis \
+            -p 127.0.0.1:6399:6399 \
+            redis:7-alpine redis-server --port 6399 --requirepass zef-test-secret
+          for i in $(seq 1 30); do
+            if docker exec zef-redis redis-cli -p 6399 -a zef-test-secret --no-auth-warning ping 2>/dev/null | grep -q PONG; then
+              echo "Redis test server ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Redis test server failed to become ready."
+          docker logs zef-redis
+          exit 1
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Syntax check (php -l over first-party files)
+        run: php scripts/lint.php
+
+      - name: Framework self-test suite
+        run: php bin/zef --self-test
+
+      - name: PHPUnit (full profile incl. Redis wire tests)
+        run: vendor/bin/phpunit
