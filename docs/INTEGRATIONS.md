@@ -55,6 +55,13 @@ Tulisan bersifat atomik (berkas sementara unik + `rename(2)`) — pembaca tidak
 pernah melihat objek setengah jadi. Ukuran maksimum objek dikontrol lewat
 argumen konstruktor kedua (default 64 MiB).
 
+Symlink pada setiap komponen key (direktori perantara maupun berkas akhir,
+termasuk symlink putus dan symlink ke dalam root) ditolak dengan
+`StorageException`; `list()` melewatkan symlink. Root yang dikonfigurasi
+tetap di-resolve sekali melalui `realpath()`. Root dan direktori induknya
+harus dikelola proses tepercaya: pemeriksaan path tidak mencegah penggantian
+filesystem secara bersamaan antara validasi dan operasi I/O.
+
 ### 2.2 S3CompatibleStorage (produksi, kompatibel S3)
 
 ```php

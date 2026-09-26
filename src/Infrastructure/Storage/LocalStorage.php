@@ -10,9 +10,12 @@ declare(strict_types=1);
  * - Every key goes through StorageKeys::assertValidKey() — traversal
  *   segments (`.`/`..`), absolute keys and control characters can never
  *   reach the path builder (defense layer 1).
- * - The root is canonicalised once (realpath) and every object path is
- *   built as root + '/' + key — with layer 1 in place the concatenation is
- *   mathematically unable to escape the root (defense layer 2).
+ * - The root is canonicalised once (realpath). Every key component is
+ *   checked for symlinks, including dangling links and the final object;
+ *   symlink paths are rejected and listings omit links (defense layer 2).
+ * - The root and its ancestors must be controlled by trusted processes.
+ *   These path checks cannot prevent concurrent filesystem replacement
+ *   between validation and I/O (no descriptor-relative filesystem API).
  * - Writes are atomic: contents land in a unique temp file inside the
  *   destination directory, then rename(2) flips it into place, so readers
  *   observe either the previous object or the complete new one.
@@ -137,7 +140,7 @@ final readonly class LocalStorage implements ObjectStorageInterface
             \RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($iterator as $item) {
-            if (!$item instanceof \SplFileInfo || !$item->isFile()) {
+            if (!$item instanceof \SplFileInfo || $item->isLink() || !$item->isFile()) {
                 continue;
             }
             $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($this->root) + 1));
@@ -152,7 +155,18 @@ final readonly class LocalStorage implements ObjectStorageInterface
 
     private function pathFor(string $key): string
     {
-        return $this->root . '/' . $key;
+        $path = $this->root;
+        foreach (explode('/', $key) as $segment) {
+            $path .= '/' . $segment;
+            // Check every component before mkdir/read/write/delete can follow
+            // it. is_link() also detects links whose targets do not exist.
+            clearstatcache(true, $path);
+            if (is_link($path)) {
+                throw new StorageException("Storage key '{$key}' must not contain symbolic links.");
+            }
+        }
+
+        return $path;
     }
 
     private function ensureDirectory(string $directory): void
