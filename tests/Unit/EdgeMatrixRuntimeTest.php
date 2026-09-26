@@ -77,6 +77,8 @@ final class EdgeMatrixRuntimeWorker implements WorkerInterface
 
     public ?\Closure $onError = null;
 
+    private int $nullPolls = 0;
+
     #[\Override]
     public function waitRequest(): ?ServerRequestInterface
     {
@@ -84,8 +86,19 @@ final class EdgeMatrixRuntimeWorker implements WorkerInterface
         if ($this->queue !== []) {
             return array_shift($this->queue);
         }
-        if ($this->onWait instanceof \Closure) {
-            return ($this->onWait)($this, $this->waitCalls);
+        $polled = $this->onWait instanceof \Closure
+            ? ($this->onWait)($this, $this->waitCalls)
+            : null;
+        if ($polled instanceof ServerRequestInterface) {
+            $this->nullPolls = 0;
+
+            return $polled;
+        }
+        // Fail fast instead of polling null forever: the drain loop must
+        // TERMINATE on its terminating null (a hung loop gives mutation
+        // testing a timeout instead of a verdict).
+        if (++$this->nullPolls > 3) {
+            throw new \RuntimeException('drain did not terminate after the null poll');
         }
 
         return null;
