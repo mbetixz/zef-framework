@@ -34,8 +34,9 @@ namespace Zef\Framework\Database;
  *   flush together after the outermost commit, and a hook registered
  *   DURING hook flushing executes immediately (the queue is already
  *   being drained, so re-queueing would be ambiguous);
- * - When the outermost scope fails, every hook registered within it is
- *   discarded — never replayed on a retry;
+ * - When a scope fails, hooks registered within it (including successful
+ *   descendants) are discarded, while earlier hooks survive. Outermost
+ *   failure discards every queued hook — never replayed on a retry;
  * - A hook that throws propagates AFTER the commit has been applied:
  *   the data is committed, the failure is real, the caller observes it
  *   (mirrors the CQRS event fan-out contract);
@@ -52,7 +53,7 @@ interface TransactionManagerInterface
      * call (the connection primitive's own semantics).
      *
      * After the OUTERMOST scope commits, every hook queued via
-     * {@see afterCommit()} within the whole scope tree runs in FIFO order.
+     * {@see afterCommit()} within surviving scopes runs in FIFO order.
      *
      * @template T
      *

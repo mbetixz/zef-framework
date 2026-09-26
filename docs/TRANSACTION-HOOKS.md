@@ -28,8 +28,12 @@ caller
 
 The hook queue accumulates across the whole nested managed-scope tree
 (inner scopes become savepoints of the outermost scope). Hooks are
-**discarded on rollback** — a failed command never emits its events.
-Hooks execute only after the **outermost** commit succeeds.
+**discarded on rollback** for the failed scope and all its descendants,
+including descendants whose savepoints were already released. Hooks queued
+before that scope survive. If the caller catches an inner failure, the
+outer scope can continue and its surviving hooks execute in FIFO order
+only after the **outermost** commit succeeds. An outermost rollback
+discards the entire queue.
 
 ---
 
@@ -41,18 +45,20 @@ Hooks execute only after the **outermost** commit succeeds.
 ### Phase (1) — handler body
 
 A throw here is caught by `withTransaction()`; the connection rolls
-back via the underlying primitive, the hook queue is discarded, and
-the throwable is re-thrown to the caller. **Nothing has been
+back via the underlying primitive, hooks added within the failed scope
+are discarded, and the throwable is re-thrown to the caller. **Nothing has been
 committed**, so no afterCommit hook has run. This is the normal
 failure story; callers should treat it as "the command never
 happened".
 
 ### Phase (2) — UnitOfWork flush
 
-A throw here rolls back the transaction (same path as phase 1). The
-hook queue is discarded. Hooks do **not** run. A caller retrying the
-command must re-record fresh operations — the UnitOfWork queue is
-cleared before flush starts by design (see `UnitOfWork::flush()`).
+A throw escaping the flush rolls back the scope (same path as phase 1).
+Its hooks are discarded. With the default `UnitOfWork::flush()`, a caller
+retrying the command must re-record fresh operations — the operation
+queue is cleared before flush starts by design. The opt-in
+`flushRetrying()` method instead preserves its snapshot across attempts
+and clears the queue only on success (see "UoW retry strategy" below).
 
 ### Phase (3) — atomic commit
 
@@ -131,13 +137,14 @@ transaction orchestration surface:
 
 ```
 @throws \Throwable  The inner $fn threw, OR the underlying commit
-                   primitive failed. The hook queue is discarded
-                   and the connection rolled back.
+                   primitive failed. Hooks added within the failed
+                   scope are discarded; rollback is delegated to
+                   the connection primitive.
 ```
 
-Hooks do **not** throw out of `withTransaction()` — they run only
-after a successful commit, and their failures propagate via the
-`drainHooks()` call site (see below).
+Hook failures also propagate to the caller of `withTransaction()`, via
+`drainHooks()`, but only after a successful commit and outside the
+rollback path (see below).
 
 ### `TransactionManagerInterface::afterCommit()`
 
@@ -197,6 +204,11 @@ phase** (phase 2 above) is wrapped in a retry loop:
 - The retryable class list is configurable; defaults follow the
   transient-failure taxonomy (deadlock, lock-wait-timeout,
   serialization-failure).
+- `UnitOfWork::flushRetrying()` replays the same operation snapshot in
+  FIFO order on each attempt, using the same connection. It does not
+  restart the transaction or retry commit. The operation queue is
+  cleared only on success and remains populated if a non-retryable
+  failure escapes or the policy is exhausted.
 - The policy is **off by default** (`null` = current v2.22.0
   behaviour preserved).
 
