@@ -229,3 +229,33 @@ behavioural coverage.
 - `docs/CHANGELOG-v2.22.0.md` — the original v2.22.0 release notes.
 - `docs/CHANGELOG-v2.22.1.md` — the v2.22.1 hardening pass (this
   issue).
+
+## CQRS idempotency and transaction ownership
+
+With the built-in `CommandBus`, `TransactionalCommandBus` places the handler,
+UoW flush, and commit inside the idempotency store's `remember()` producer.
+A handler, flush, or commit failure does not publish a result. Retrying the
+same key runs the command again. A successful replay skips the transaction,
+handler, flush, and event fan-out. There is no separate lookup/write or
+rollback-time invalidation. The in-memory store reserves the key throughout
+`remember()` and rejects same-key re-entry (including another Fiber) with
+`LogicException`; its reservation is released on both success and failure.
+Custom stores must likewise serialize or reject concurrent producers for a key.
+
+Command events run after commit and after the result is cached, even when only
+the decorator receives the transaction manager. A listener or after-commit
+hook failure still propagates, but the committed result stays cached so a
+retry cannot duplicate the database write. As with ordinary idempotency,
+cache backend write failures and process crashes after the database commit
+require a durable, transaction-coordinated store for exactly-once guarantees.
+
+An uncached command with an idempotency key and store must own the outermost
+transaction. Dispatching it inside an existing managed or raw connection
+transaction throws `LogicException` before its handler runs: releasing a
+savepoint does not confirm the outer commit, and the current remember-only
+store port cannot reserve a result until that enclosing scope completes.
+Nested commands without idempotency and replays of already committed keys
+remain supported. A standalone `CommandBus` wired with a transaction manager
+also rejects uncached keyed dispatches inside an existing managed scope.
+Custom `CommandBusInterface` implementations wrapped by the decorator retain
+responsibility for their own idempotency policy.
