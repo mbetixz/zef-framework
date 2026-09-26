@@ -277,6 +277,16 @@ final class Application
         if ($this->shutdown) {
             throw new \LogicException('Application has already been shut down.');
         }
+
+        try {
+            $request = RequestFactory::validateIngress($request, $this->trustedHosts, $this->trustedProxies, $this->bodyPolicy);
+        } catch (Exception\PayloadTooLargeException) {
+            return JsonResponse::error(413, 'Content Too Large');
+        } catch (\InvalidArgumentException $e) {
+            return JsonResponse::error(400, 'Bad Request', [
+                'message' => $this->debug ? $e->getMessage() : 'Invalid request.',
+            ]);
+        }
         if (!$this->booted) {
             $this->boot();
         }

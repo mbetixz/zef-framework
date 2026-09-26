@@ -17,9 +17,85 @@ use Zef\Framework\Exception\PayloadTooLargeException;
 use Zef\Framework\Foundation\Env;
 use Zef\Framework\Foundation\EnvInterface;
 use Zef\Framework\Validation\HeaderValidator;
+use Zef\Framework\Validation\TrustedHostValidator;
 
 final class RequestFactory
 {
+    /**
+     * Enforce application ingress policy on requests supplied by any PSR-7
+     * adapter. Validate the entire body before middleware can dispatch or
+     * swallow a stream exception (including through __toString()).
+     *
+     * @param list<string> $trustedHosts
+     * @param list<string> $trustedProxies
+     */
+    public static function validateIngress(
+        ServerRequestInterface $request,
+        array $trustedHosts,
+        array $trustedProxies,
+        RequestBodyPolicy $bodyPolicy,
+    ): ServerRequestInterface {
+        if ($trustedHosts !== []) {
+            $validator = new TrustedHostValidator($trustedHosts);
+            [$host] = self::parseAuthority($request->getUri()->getHost());
+            if ($host === '') {
+                throw new \InvalidArgumentException('Missing request host.');
+            }
+            $validator->assert($host);
+
+            // Native requests can retain the proxy's original Host header
+            // while their URI contains the trusted forwarded authority.
+            $remote = $request->getServerParams()['REMOTE_ADDR'] ?? '';
+            $useForwardedHost = is_string($remote)
+                && TrustedProxyMatcher::matches($remote, $trustedProxies)
+                && $request->hasHeader('X-Forwarded-Host');
+            $authority = $useForwardedHost
+                ? self::firstForwardedValue($request->getHeaderLine('X-Forwarded-Host'))
+                : $request->getHeaderLine('Host');
+            if ($useForwardedHost || $request->hasHeader('Host')) {
+                [$headerHost] = self::parseAuthority($authority);
+                if ($headerHost === '') {
+                    throw new \InvalidArgumentException('Missing request host.');
+                }
+                $validator->assert($headerHost);
+            }
+        }
+
+        $contentLength = $request->getHeaderLine('Content-Length');
+        $body = $request->getBody();
+        $size = $body->getSize();
+        if (
+            (ctype_digit($contentLength) && (int) $contentLength > $bodyPolicy->maxBytes)
+            || ($size !== null && $size > $bodyPolicy->maxBytes)
+        ) {
+            throw new PayloadTooLargeException('Request body exceeds configured size limit.');
+        }
+
+        $position = null;
+        if ($body->isSeekable()) {
+            $position = $body->tell();
+            $body->rewind();
+        }
+
+        try {
+            $validated = Stream::fromString(new LimitedInputStream($body, $bodyPolicy)->getContents());
+        } finally {
+            if ($position !== null) {
+                $body->seek($position);
+            }
+        }
+        if ($position !== null) {
+            $validated->seek($position);
+        }
+
+        $validatedRequest = $request->withBody($validated);
+        if (!$validatedRequest instanceof ServerRequestInterface) {
+            throw new \LogicException('Request withBody() must preserve the server request type.');
+        }
+
+        return $validatedRequest;
+    }
+
     /**
      * Bug fix #8: simplified superglobal access patterns.
      *
