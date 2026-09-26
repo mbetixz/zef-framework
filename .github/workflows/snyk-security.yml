@@ -3,7 +3,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-# Snyk security scanning: Open Source (SCA), Code (SAST), IaC and Container.
+# Snyk security scanning: Open Source (SCA), Code (SAST) and IaC.
 # SARIF produced by Snyk Code is uploaded to the GitHub Code Scanning tab.
 #
 # Requires the repository secret SNYK_TOKEN
@@ -93,12 +93,3 @@ jobs:
             echo "::error::snyk iac test failed with exit code ${rc} (scan error, not findings)"
             exit "${rc}"
           fi
-
-      # The repository's Dockerfile lives at deploy/Dockerfile; the build
-      # context stays the repository root because the Dockerfile does `COPY . .`.
-      - name: Build a Docker image
-        run: docker build -f deploy/Dockerfile -t zef-framework:scan .
-
-      # Snyk Container (Container and SCA) analysis, uploaded to Snyk.
-      - name: Snyk Container monitor
-        run: snyk container monitor zef-framework:scan --file=deploy/Dockerfile
