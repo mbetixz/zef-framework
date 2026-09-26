@@ -65,6 +65,7 @@ return RectorConfig::configure()
         \Rector\CodeQuality\Rector\FunctionLike\SimplifyUselessVariableRector::class => [
             __DIR__ . '/tests/Unit/MutationDeepRuntimeTest.php',
             __DIR__ . '/tests/Unit/MutationDeepSecurityTest.php',
+            __DIR__ . '/tests/Unit/RuntimeSecMutationDebtTest.php',
         ],
         // assert() narrowing again: RemoveDeadInstanceOfAssertRector deletes
         // the assert() that PHPStan relies on to narrow the PSR
@@ -72,6 +73,7 @@ return RectorConfig::configure()
         \Rector\DeadCode\Rector\StmtsAwareInterface\RemoveDeadInstanceOfAssertRector::class => [
             __DIR__ . '/tests/Unit/MutationDeepRuntimeTest.php',
             __DIR__ . '/tests/Unit/MutationDeepSecurityTest.php',
+            __DIR__ . '/tests/Unit/RuntimeSecMutationDebtTest.php',
         ],
     ])
     ->withPhpVersion(PhpVersion::PHP_84)

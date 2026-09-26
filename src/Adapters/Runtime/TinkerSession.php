@@ -42,8 +42,9 @@ final class TinkerSession
     {
         $outputs = [];
         foreach ($lines as $line) {
-            $line = rtrim((string) $line, "\r\n");
-            $trimmed = trim($line);
+            // No rtrim("\r\n") here: trim() below already strips those (and
+            // more), so an intermediate rtrim was behaviourally subsumed.
+            $trimmed = trim((string) $line);
             if ($trimmed === '' || str_starts_with($trimmed, '#')) {
                 continue;
             }

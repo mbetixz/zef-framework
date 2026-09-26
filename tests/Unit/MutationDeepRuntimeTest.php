@@ -486,6 +486,8 @@ final class MutationDeepRuntimeWorker implements WorkerInterface
 
     public int $stopCalls = 0;
 
+    private int $nullPolls = 0;
+
     private bool $running = true;
 
     /** @param list<ServerRequestInterface> $requests */
@@ -504,8 +506,18 @@ final class MutationDeepRuntimeWorker implements WorkerInterface
         if ($this->waitFails !== null) {
             throw new \RuntimeException($this->waitFails);
         }
+        if ($this->requests === []) {
+            // Fail fast instead of polling null forever: the drain loop
+            // must TERMINATE on its terminating null (a hung loop gives
+            // mutation testing a timeout instead of a verdict).
+            if (++$this->nullPolls > 3) {
+                throw new \RuntimeException('drain did not terminate after the null poll');
+            }
 
-        return array_shift($this->requests) ?? null;
+            return null;
+        }
+
+        return array_shift($this->requests);
     }
 
     #[\Override]

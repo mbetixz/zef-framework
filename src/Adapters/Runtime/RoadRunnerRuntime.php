@@ -269,7 +269,9 @@ final class RoadRunnerRuntime implements RuntimeInterface
             return;
         }
         $usage = memory_get_usage(true);
-        $ratio = ($usage / max(1, $this->memoryLimitBytes)) * 100;
+        // No max(1, ...) guard: the early return above already guarantees
+        // memoryLimitBytes >= 1 here, so the clamp was unreachable-in-effect.
+        $ratio = ($usage / $this->memoryLimitBytes) * 100;
         if ($ratio >= (int) $this->runtimeConfig['saturation_percent']) {
             ++$this->resourceCounters['saturation'];
             $this->recordResource('saturated', ['memory.percent' => round($ratio, 2)]);
