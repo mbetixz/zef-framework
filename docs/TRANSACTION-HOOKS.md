@@ -194,6 +194,24 @@ phase** (phase 2 above) is wrapped in a retry loop:
 - Only the flush is retried — **never** the command handler body.
   Side effects produced during dispatch (event publishes, log writes)
   cannot be re-run safely; the contract is "retry the DB writes only".
+- Every attempt runs in its own transaction, or a savepoint when a caller
+  transaction is already active. A failed attempt is rolled back before
+  retrying the entire queue in FIFO order, including writes made by the
+  operation that threw. Writes preceding the flush remain in the caller's
+  transaction. Standalone retrying flushes are atomic as well.
+- Begin, rollback and commit/savepoint-release failures propagate without
+  retry, regardless of the policy. If a driver aborts the entire transaction
+  (for example, a MySQL deadlock), the savepoint is lost and rollback fails:
+  flush-only recovery stops because it cannot restore the handler's writes.
+  The caller must recover the failed transaction/connection. An uncertain
+  commit outcome is also never automatically replayed.
+- Queued callbacks must keep transaction boundaries intact and use
+  transactional writes on the supplied connection. External effects,
+  nontransactional tables and implicit-commit DDL cannot be undone by a
+  savepoint and are not safe to replay.
+- The queue is cleared only after success. On failure it remains available
+  for the caller to discard or explicitly replay after recovery; it must not
+  be blindly replayed after an uncertain commit outcome.
 - The retryable class list is configurable; defaults follow the
   transient-failure taxonomy (deadlock, lock-wait-timeout,
   serialization-failure).
@@ -201,7 +219,7 @@ phase** (phase 2 above) is wrapped in a retry loop:
   behaviour preserved).
 
 See `src/Domain/Database/UnitOfWorkRetryPolicy.php` for the value
-object and `tests/Unit/CqrsTransactionalBusRetryTest.php` for
+object and `tests/Unit/DatabaseUnitOfWorkFlushRetryingTest.php` for
 behavioural coverage.
 
 ---

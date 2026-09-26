@@ -19,6 +19,7 @@ use Zef\Framework\Database\PdoConnection;
 use Zef\Framework\Database\SqlQuery;
 use Zef\Framework\Database\TransactionManager;
 use Zef\Framework\Database\UnitOfWork;
+use Zef\Framework\Database\UnitOfWorkRetryPolicy;
 use Zef\Framework\Event\EventBusInterface;
 use Zef\Framework\Event\EventContext;
 use Zef\Framework\Event\EventSubscriberInterface;
@@ -111,6 +112,41 @@ final class CqrsTransactionalBusTest extends TestCase
 
         self::assertSame([], $this->names(), 'nothing survives the rollback');
         self::assertSame([], $this->firedEvents, 'a rolled-back command emits no events');
+    }
+
+    public function testRetryingFlushPreservesHandlerWritesAndEmitsEventsOnce(): void
+    {
+        $uow = new UnitOfWork();
+        $bus = new TransactionalCommandBus(
+            new CommandBus(eventBus: $this->eventBus, transactions: $this->tx),
+            $this->tx,
+            $uow,
+            retryPolicy: new UnitOfWorkRetryPolicy(initialDelayMs: 0),
+        );
+        $handlerCalls = 0;
+        $flushCalls = 0;
+        $bus->register(\stdClass::class, function (object $command, CqrsContext $context) use ($uow, &$handlerCalls, &$flushCalls): CqrsEventResult {
+            ++$handlerCalls;
+            $this->conn->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['handler-write']));
+            $uow->recordQuery(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['first-uow-write']));
+            $uow->record(static function (ConnectionInterface $conn) use (&$flushCalls): void {
+                ++$flushCalls;
+                $conn->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['second-uow-write']));
+                if ($flushCalls === 1) {
+                    throw new \PDOException('lock wait timeout', 1205);
+                }
+            });
+
+            return new CqrsEventResult('ok', [new \stdClass()]);
+        });
+
+        self::assertSame('ok', $bus->dispatch(new \stdClass()));
+        self::assertSame(1, $handlerCalls);
+        self::assertSame(2, $flushCalls);
+        self::assertSame(['handler-write', 'first-uow-write', 'second-uow-write'], $this->names());
+        self::assertCount(1, $this->firedEvents);
+        self::assertSame(0, $this->conn->transactionLevel());
+        self::assertSame(0, $uow->pending());
     }
 
     public function testEventsFireOnlyAfterOutermostCommit(): void

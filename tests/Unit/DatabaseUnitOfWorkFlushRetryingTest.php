@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Zef\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Zef\Framework\Database\ConnectionConfig;
 use Zef\Framework\Database\ConnectionInterface;
 use Zef\Framework\Database\PdoConnection;
+use Zef\Framework\Database\QueryException;
 use Zef\Framework\Database\SqlQuery;
 use Zef\Framework\Database\TransactionException;
 use Zef\Framework\Database\UnitOfWork;
@@ -76,6 +78,199 @@ final class DatabaseUnitOfWorkFlushRetryingTest extends TestCase
         self::assertSame(1, $executed, 'final attempt succeeded');
         self::assertSame(['op-1', 'op-1'], $calls, 'operation replayed on retry');
         self::assertSame(0, $uow->pending(), 'queue cleared on success');
+    }
+
+    #[DataProvider('transactionDepths')]
+    public function testRetryRollsBackAllAttemptWritesWithoutLosingEarlierWrites(int $depth): void
+    {
+        for ($level = 0; $level < $depth; ++$level) {
+            $this->conn->beginTransaction();
+        }
+        $this->conn->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['before-flush']));
+        $uow = new UnitOfWork();
+        $uow->recordQuery(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['first']));
+        $attempts = 0;
+        $uow->record(function (ConnectionInterface $c) use (&$attempts): void {
+            ++$attempts;
+            $c->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['second']));
+            if ($attempts === 1) {
+                throw $this->makePdoException('lock wait timeout', '1205');
+            }
+        });
+
+        self::assertSame(2, $uow->flushRetrying($this->conn, new UnitOfWorkRetryPolicy(initialDelayMs: 0)));
+        self::assertSame(2, $attempts);
+        self::assertSame(0, $uow->pending());
+        self::assertSame($depth, $this->conn->transactionLevel());
+        for ($level = 0; $level < $depth; ++$level) {
+            $this->conn->commit();
+        }
+        self::assertSame(
+            [['name' => 'before-flush'], ['name' => 'first'], ['name' => 'second']],
+            $this->conn->fetchAll(SqlQuery::raw('SELECT name FROM t ORDER BY id')),
+        );
+    }
+
+    #[DataProvider('transactionDepths')]
+    public function testExhaustionRollsBackAttemptAndRetainsQueue(int $depth): void
+    {
+        for ($level = 0; $level < $depth; ++$level) {
+            $this->conn->beginTransaction();
+        }
+        $this->conn->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['before-flush']));
+        $uow = new UnitOfWork();
+        $uow->recordQuery(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['attempt-write']));
+        $failure = $this->makePdoException('lock wait timeout', '1205');
+        $attempts = 0;
+        $uow->record(static function (ConnectionInterface $c) use (&$attempts, $failure): never {
+            ++$attempts;
+
+            throw $failure;
+        });
+
+        try {
+            $uow->flushRetrying($this->conn, new UnitOfWorkRetryPolicy(maxAttempts: 2, initialDelayMs: 0));
+            self::fail('Expected retry exhaustion.');
+        } catch (\PDOException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame(2, $attempts);
+        self::assertSame(2, $uow->pending());
+        self::assertSame($depth, $this->conn->transactionLevel());
+        self::assertSame([['name' => 'before-flush']], $this->conn->fetchAll(SqlQuery::raw('SELECT name FROM t')));
+        self::assertSame(2, $uow->discard(), 'caller can explicitly abort the retained queue');
+        $uow->recordQuery(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['reused']));
+        self::assertSame(1, $uow->flushRetrying($this->conn, new UnitOfWorkRetryPolicy()), 'flushing guard resets');
+        for ($level = 0; $level < $depth; ++$level) {
+            $this->conn->rollBack();
+        }
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function transactionDepths(): iterable
+    {
+        yield 'standalone' => [0];
+
+        yield 'transaction' => [1];
+
+        yield 'nested transaction' => [2];
+    }
+
+    public function testNonRetryableFailureRollsBackPartialWrites(): void
+    {
+        $uow = new UnitOfWork();
+        $uow->recordQuery(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['partial-write']));
+        $failure = new \LogicException('not retryable');
+        $uow->record(static function (ConnectionInterface $c) use ($failure): never {
+            throw $failure;
+        });
+
+        try {
+            $uow->flushRetrying($this->conn, new UnitOfWorkRetryPolicy(initialDelayMs: 0));
+            self::fail('Expected failure.');
+        } catch (\LogicException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame([], $this->conn->fetchAll(SqlQuery::raw('SELECT name FROM t')));
+        self::assertSame(0, $this->conn->transactionLevel());
+        self::assertSame(2, $uow->pending());
+    }
+
+    public function testRetryableRollbackFailureIsNeverRetried(): void
+    {
+        $conn = $this->createMock(ConnectionInterface::class);
+        $failure = $this->makePdoException('rollback failed', '1205');
+        $conn->expects(self::once())->method('beginTransaction');
+        $conn->expects(self::once())->method('rollBack')->willThrowException($failure);
+        $conn->expects(self::never())->method('commit');
+        $attempts = 0;
+        $uow = new UnitOfWork();
+        $uow->record(function (ConnectionInterface $c) use (&$attempts): never {
+            ++$attempts;
+
+            throw $this->makePdoException('lock wait timeout', '1205');
+        });
+
+        try {
+            $uow->flushRetrying($conn, new UnitOfWorkRetryPolicy(initialDelayMs: 0));
+            self::fail('Expected rollback failure.');
+        } catch (\PDOException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame(1, $attempts);
+        self::assertSame(1, $uow->pending());
+    }
+
+    public function testDestroyedOuterTransactionStopsRetrying(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $conn = new PdoConnection(ConnectionConfig::fromArray(['driver' => 'sqlite', 'dbname' => ':memory:']), $pdo);
+        $conn->execute(SqlQuery::raw('CREATE TABLE t (name TEXT)'));
+        $conn->beginTransaction();
+        $conn->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['handler-write']));
+        $attempts = 0;
+        $uow = new UnitOfWork();
+        $uow->record(function (ConnectionInterface $c) use ($pdo, &$attempts): void {
+            ++$attempts;
+            $c->execute(new SqlQuery('INSERT INTO t (name) VALUES (?)', ['attempt-write']));
+            if ($attempts === 1) {
+                // Simulate a driver aborting the entire transaction and its savepoints.
+                $pdo->rollBack();
+
+                throw $this->makePdoException('deadlock', '40001');
+            }
+        });
+
+        try {
+            $uow->flushRetrying($conn, new UnitOfWorkRetryPolicy(
+                initialDelayMs: 0,
+                retryableClassNames: [\Throwable::class],
+                retryableSqlStates: [],
+            ));
+            self::fail('A destroyed transaction must not be replayed.');
+        } catch (QueryException $e) {
+            self::assertStringContainsString('ROLLBACK TO SAVEPOINT', $e->getMessage());
+        }
+
+        self::assertSame(1, $attempts);
+        self::assertSame(1, $uow->pending());
+        self::assertFalse($pdo->inTransaction());
+        self::assertSame([], $conn->fetchAll(SqlQuery::raw('SELECT name FROM t')));
+    }
+
+    #[DataProvider('transactionBoundaryFailures')]
+    public function testTransactionBoundaryFailuresAreNeverRetried(string $method, int $expectedCalls): void
+    {
+        $conn = $this->createMock(ConnectionInterface::class);
+        $failure = $this->makePdoException('transaction boundary failed', '1205');
+        $conn->expects(self::once())->method($method)->willThrowException($failure);
+        $conn->expects(self::never())->method('rollBack');
+        $calls = 0;
+        $uow = new UnitOfWork();
+        $uow->record(static function (ConnectionInterface $c) use (&$calls): void {
+            ++$calls;
+        });
+
+        try {
+            $uow->flushRetrying($conn, new UnitOfWorkRetryPolicy(initialDelayMs: 0));
+            self::fail('Expected transaction boundary failure.');
+        } catch (\PDOException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame($expectedCalls, $calls);
+        self::assertSame(1, $uow->pending());
+    }
+
+    /** @return iterable<string, array{string, int}> */
+    public static function transactionBoundaryFailures(): iterable
+    {
+        yield 'begin failure' => ['beginTransaction', 0];
+
+        yield 'uncertain commit' => ['commit', 1];
     }
 
     public function testFlushRetryingPropagatesNonRetryableThrowable(): void
