@@ -18,21 +18,20 @@ use Zef\Framework\Job\RetryPolicy;
  * The framework's standing contract is "the surrounding transaction
  * rollback is the failure story; a retried command re-records fresh
  * operations". This value object carves a narrow exception for
- * transient DB failures at the COMMIT/FLUSH boundary — deadlock,
- * lock-wait-timeout, serialization-failure — where retrying the same
- * writes on a fresh connection snapshot is safe and the alternative
- * is surfacing a 5xx to the caller for a problem that resolves itself
- * in milliseconds.
+ * transient DB failures during FLUSH. Each attempt uses a transaction
+ * or nested savepoint; retry requires a successful rollback of the
+ * failed attempt. Commit failures and loss of the transaction/savepoint
+ * propagate without replay.
  *
  * Design contract (see docs/TRANSACTION-HOOKS.md §"UoW retry strategy"):
  *
  * - Only the FLUSH phase is retried — never the command handler body.
  *   Side effects produced during dispatch (event publishes, log writes)
  *   cannot be re-run safely.
- * - The UnitOfWork queue is cleared on the FIRST flush attempt (existing
- *   v2.22.0 behaviour); a retry therefore records a fresh queue snapshot
- *   per attempt. Callers that need deterministic ordering should NOT
- *   enable retry.
+ * - The same queue snapshot is replayed FIFO after rolling back a failed
+ *   attempt. The queue is cleared only on success and retained on failure.
+ *   Callbacks must contain transactional DB writes only: external side
+ *   effects cannot be undone by rollback.
  * - Default is OFF: passing `null` to the {@see TransactionalCommandBus}
  *   preserves the v2.22.0 no-retry behaviour.
  *

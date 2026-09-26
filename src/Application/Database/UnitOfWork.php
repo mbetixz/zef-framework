@@ -113,9 +113,10 @@ final class UnitOfWork
      * until either the flush succeeds or the policy is exhausted. The
      * queue is cleared ONLY on a successful flush; when a throwable
      * escapes this method (non-retryable, or the policy exhausted), the
-     * queue is deliberately left populated for a potential replay by
-     * the caller, and the caller's transaction rollback is the failure
-     * story — the stale queue can never reach a commit path.
+     * queue is deliberately left populated. Each attempt uses its own
+     * transaction or nested savepoint, and failed writes are rolled back
+     * before retry. Callers must resolve a failed transaction or uncertain
+     * commit outcome before considering a manual replay.
      *
      * Contract (see docs/TRANSACTION-HOOKS.md §"UoW retry strategy"):
      * - Only the FLUSH phase is retried — never the command handler
@@ -123,7 +124,12 @@ final class UnitOfWork
      * - The policy decides retryability via
      *   {@see UnitOfWorkRetryPolicy::isRetryable()}; non-retryable
      *   throwables propagate immediately.
-     * - On exhaustion the last throwable propagates.
+     * - On exhaustion the last operation throwable propagates after rollback.
+     * - Begin, rollback and commit/savepoint-release failures propagate
+     *   without retry. In particular, losing the entire transaction must
+     *   never restart only the flush and silently discard handler writes.
+     * - Callbacks must only perform transactional DB writes; they must not
+     *   manage transaction boundaries or produce external side effects.
      *
      * @return int number of operations executed by the successful attempt
      */
@@ -144,6 +150,7 @@ final class UnitOfWork
             $attempt = 0;
             while (true) {
                 ++$attempt;
+                $connection->beginTransaction();
 
                 try {
                     $executed = 0;
@@ -151,17 +158,25 @@ final class UnitOfWork
                         $operation($connection);
                         ++$executed;
                     }
-                    // Success — drop the queue and return.
-                    $this->operations = [];
-
-                    return $executed;
                 } catch (\Throwable $e) {
+                    // A failed rollback (e.g. a driver-aborted transaction)
+                    // escapes immediately: replay is unsafe without it.
+                    $connection->rollBack();
                     if (!$policy->isRetryable($e) || !$policy->shouldRetry($attempt)) {
                         throw $e;
                     }
                     $delayMs = $policy->delayMs($attempt);
                     usleep($delayMs * 1_000);
+
+                    continue;
                 }
+
+                // Commit/release failures may have an uncertain outcome and
+                // must not enter the operation retry loop.
+                $connection->commit();
+                $this->operations = [];
+
+                return $executed;
             }
         } finally {
             $this->flushing = false;
