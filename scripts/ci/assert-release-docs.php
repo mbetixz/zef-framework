@@ -58,7 +58,11 @@ $fail = static function (string $reason, array $context = []) use ($asJson): nev
 };
 
 // 1. Source of truth: ZefVersion::VERSION.
-$versionSource = (string) file_get_contents($root . '/src/Domain/Foundation/ZefVersion.php');
+$versionFile = $root . '/src/Domain/Foundation/ZefVersion.php';
+if (!is_file($versionFile)) {
+    $fail('ZefVersion source file not found.', ['path' => $versionFile]);
+}
+$versionSource = (string) file_get_contents($versionFile);
 if (1 !== preg_match("/VERSION\s*=\s*'(\d+\.\d+\.\d+)'/", $versionSource, $m)) {
     $fail('Cannot extract ZefVersion::VERSION from the source of truth.', [
         'file' => 'src/Domain/Foundation/ZefVersion.php',
@@ -67,7 +71,11 @@ if (1 !== preg_match("/VERSION\s*=\s*'(\d+\.\d+\.\d+)'/", $versionSource, $m)) {
 $version = is_string($options['version'] ?? null) && '' !== $options['version'] ? (string) $options['version'] : $m[1];
 
 // 2. README.md references.
-$readme = (string) file_get_contents($root . '/README.md');
+$readmeFile = $root . '/README.md';
+if (!is_file($readmeFile)) {
+    $fail('README.md not found.', ['path' => $readmeFile]);
+}
+$readme = (string) file_get_contents($readmeFile);
 $readmeChecks = [
     'documented-release badge' => 'Rilis%20terdokumentasi-v' . $version,
     'release-history summary re-baselined' => 'Riwayat rilis selengkapnya (v2.8.0 → v' . $version . ')',
@@ -83,7 +91,11 @@ foreach ($readmeChecks as $label => $needle) {
 }
 
 // 3. SECURITY.md references.
-$security = (string) file_get_contents($root . '/SECURITY.md');
+$securityFile = $root . '/SECURITY.md';
+if (!is_file($securityFile)) {
+    $fail('SECURITY.md not found.', ['path' => $securityFile]);
+}
+$security = (string) file_get_contents($securityFile);
 $securityChecks = [
     'supported-versions row' => 'documented release **v' . $version . '**',
     'version-record link' => 'docs/CHANGELOG-v' . $version . '.md',
