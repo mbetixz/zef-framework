@@ -687,6 +687,10 @@ final class EdgeMatrixRouterKernelTest extends TestCase
         self::assertSame('', (string) $response->getBody(), 'A HEAD response must not carry a body even when the handler produced one');
     }
 
+    /**
+     * Verify handler exceptions are rethrown and counted as HTTP errors and
+     * failed request lifecycles, without recording a completed request.
+     */
     public function testHandlerExceptionIsRecordedThenRethrown(): void
     {
         $app = $this->booted(handlers: [
@@ -767,6 +771,10 @@ final class EdgeMatrixRouterKernelTest extends TestCase
         }
     }
 
+    /**
+     * Verify successful requests record the method/status counter, started and
+     * completed lifecycle counters, and a request duration histogram observation.
+     */
     public function testSuccessfulRequestRecordsExactMeterSeries(): void
     {
         $app = $this->booted();
