@@ -21,7 +21,7 @@ use Zef\Framework\Observability\MeterInterface;
  *   QueryException (prepare/execute phase), chaining the original;
  * - nested transactions use explicit SAVEPOINTs (`zef_sp2`, `zef_sp3`, …)
  *   tracked with an internal depth counter — PDO::inTransaction() cannot
- *   distinguish nesting and is never consulted;
+ *   distinguish nesting and is consulted only during failed cleanup;
  * - isolation levels are applied via `SET TRANSACTION ISOLATION LEVEL`
  *   before the outermost BEGIN; SQLite rejects the concept outright;
  * - isolation is a TRANSACTION-SCOPE property, not a SAVEPOINT one: a
@@ -40,6 +40,7 @@ final class PdoConnection implements ConnectionInterface
 
     private ?\PDO $handle = null;
     private int $level = 0;
+    private bool $unusable = false;
 
     public function __construct(
         private readonly ConnectionConfig $config,
@@ -184,14 +185,37 @@ final class PdoConnection implements ConnectionInterface
 
         try {
             $result = $fn($this);
+            $this->commit();
         } catch (\Throwable $e) {
-            $this->rollBack();
+            $this->rollbackAfterFailure();
 
             throw $e;
         }
-        $this->commit();
 
         return $result;
+    }
+
+    /** Preserve the original failure even when the driver cannot be cleaned up. */
+    private function rollbackAfterFailure(): void
+    {
+        if ($this->level === 0) {
+            return;
+        }
+
+        try {
+            if ($this->level === 1 && !$this->pdo()->inTransaction()) {
+                // The driver ended the transaction, but a failed commit does not
+                // tell us whether it committed. Do not reuse this connection.
+                $this->level = 0;
+                $this->unusable = true;
+
+                return;
+            }
+
+            $this->rollBack();
+        } catch (\Throwable) {
+            $this->unusable = true;
+        }
     }
 
     /**
@@ -241,6 +265,10 @@ final class PdoConnection implements ConnectionInterface
 
     private function pdo(): \PDO
     {
+        if ($this->unusable) {
+            throw new ConnectionException('Connection cannot be reused after failed transaction cleanup.');
+        }
+
         $this->handle ??= $this->connect();
 
         return $this->handle;

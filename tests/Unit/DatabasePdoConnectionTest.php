@@ -295,6 +295,94 @@ final class DatabasePdoConnectionTest extends TestCase
         self::assertSame(42, $result);
     }
 
+    public function testFailedCommitRollsBackDeferredConstraintViolation(): void
+    {
+        $this->conn->execute(SqlQuery::raw('PRAGMA foreign_keys = ON'));
+        $this->conn->execute(SqlQuery::raw('CREATE TABLE parent (id INTEGER PRIMARY KEY)'));
+        $this->conn->execute(SqlQuery::raw(
+            'CREATE TABLE child (parent_id INTEGER REFERENCES parent(id) DEFERRABLE INITIALLY DEFERRED)',
+        ));
+
+        try {
+            $this->conn->transaction(static function (ConnectionInterface $conn): void {
+                $conn->execute(SqlQuery::raw('INSERT INTO child (parent_id) VALUES (1)'));
+            });
+            self::fail('deferred foreign key must reject the commit');
+        } catch (TransactionException $e) {
+            self::assertStringContainsString('Failed to commit transaction:', $e->getMessage());
+            self::assertInstanceOf(\PDOException::class, $e->getPrevious());
+        }
+
+        self::assertSame(0, $this->conn->transactionLevel());
+        self::assertSame([], $this->conn->fetchAll(SqlQuery::raw('SELECT parent_id FROM child')));
+
+        $this->conn->transaction(static function (ConnectionInterface $conn): void {
+            $conn->execute(SqlQuery::raw('INSERT INTO parent (id) VALUES (1)'));
+            $conn->execute(SqlQuery::raw('INSERT INTO child (parent_id) VALUES (1)'));
+        });
+        self::assertSame(0, $this->conn->transactionLevel());
+        self::assertSame([['parent_id' => 1]], $this->conn->fetchAll(SqlQuery::raw('SELECT parent_id FROM child')));
+    }
+
+    public function testAmbiguousCommitMakesConnectionUnusable(): void
+    {
+        $pdo = new class('sqlite::memory:') extends \PDO {
+            public function commit(): bool
+            {
+                parent::commit();
+
+                throw new \PDOException('commit response lost');
+            }
+        };
+        $conn = new PdoConnection(
+            ConnectionConfig::fromArray(['driver' => 'sqlite', 'dbname' => ':memory:']),
+            $pdo,
+        );
+
+        try {
+            $conn->transaction(static fn (ConnectionInterface $connection): int => 42);
+            self::fail('commit failure must be reported');
+        } catch (TransactionException $e) {
+            self::assertStringContainsString('commit response lost', $e->getMessage());
+        }
+
+        self::assertSame(0, $conn->transactionLevel());
+        $this->expectException(ConnectionException::class);
+        $this->expectExceptionMessage('Connection cannot be reused after failed transaction cleanup.');
+        $conn->execute(SqlQuery::raw('SELECT 1'));
+    }
+
+    public function testFailedRollbackPreservesCommitErrorAndMakesConnectionUnusable(): void
+    {
+        $pdo = new class('sqlite::memory:') extends \PDO {
+            public function commit(): bool
+            {
+                throw new \PDOException('commit rejected');
+            }
+
+            public function rollBack(): bool
+            {
+                throw new \PDOException('rollback unavailable');
+            }
+        };
+        $conn = new PdoConnection(
+            ConnectionConfig::fromArray(['driver' => 'sqlite', 'dbname' => ':memory:']),
+            $pdo,
+        );
+
+        try {
+            $conn->transaction(static fn (ConnectionInterface $connection): int => 42);
+            self::fail('commit failure must be reported');
+        } catch (TransactionException $e) {
+            self::assertStringContainsString('commit rejected', $e->getMessage());
+            self::assertSame('commit rejected', $e->getPrevious()?->getMessage());
+        }
+
+        $this->expectException(ConnectionException::class);
+        $this->expectExceptionMessage('Connection cannot be reused after failed transaction cleanup.');
+        $conn->execute(SqlQuery::raw('SELECT 1'));
+    }
+
     public function testCommitRollbackOutsideTransactionRejected(): void
     {
         try {
