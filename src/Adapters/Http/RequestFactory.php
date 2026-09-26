@@ -17,6 +17,7 @@ use Zef\Framework\Exception\PayloadTooLargeException;
 use Zef\Framework\Foundation\Env;
 use Zef\Framework\Foundation\EnvInterface;
 use Zef\Framework\Validation\HeaderValidator;
+use Zef\Framework\Validation\TrustedHostValidator;
 
 final class RequestFactory
 {
@@ -101,6 +102,66 @@ final class RequestFactory
             $protocol,
             self::requestTarget($server, $uri),
         );
+    }
+
+    /**
+     * Apply application ingress policy to requests supplied by any adapter.
+     * Read through the byte budget before dispatch, even when the handler
+     * ignores the body or the transport cannot report its size.
+     *
+     * @param list<string> $trustedHosts
+     * @param list<string> $trustedProxies
+     */
+    public static function validateIngress(
+        ServerRequestInterface $request,
+        array $trustedHosts,
+        array $trustedProxies,
+        RequestBodyPolicy $bodyPolicy,
+    ): ServerRequestInterface {
+        $remote = $request->getServerParams()['REMOTE_ADDR'] ?? '';
+        $trusted = is_string($remote) && TrustedProxyMatcher::matches($remote, $trustedProxies);
+        $authority = $trusted && $request->hasHeader('X-Forwarded-Host')
+            ? self::firstForwardedValue($request->getHeaderLine('X-Forwarded-Host'))
+            : ($request->hasHeader('Host') ? $request->getHeaderLine('Host') : $request->getUri()->getHost());
+        [$host] = self::parseAuthority($authority);
+        if ($host === '' && $trustedHosts !== []) {
+            throw new \InvalidArgumentException('Missing request host.');
+        }
+        new TrustedHostValidator($trustedHosts)->assert($host);
+
+        $contentLength = trim($request->getHeaderLine('Content-Length'));
+        $body = $request->getBody();
+        if (
+            ($contentLength !== '' && ctype_digit($contentLength) && (int) $contentLength > $bodyPolicy->maxBytes)
+            || ($body->getSize() ?? 0) > $bodyPolicy->maxBytes
+        ) {
+            throw new PayloadTooLargeException('Request body exceeds configured size limit.');
+        }
+        $position = $body->isSeekable() ? $body->tell() : null;
+        if ($position !== null) {
+            $body->rewind();
+        }
+
+        try {
+            $contents = new LimitedInputStream($body, $bodyPolicy)->getContents();
+        } finally {
+            if ($position !== null) {
+                $body->seek($position);
+            }
+        }
+
+        // Non-seekable transport streams were consumed during validation;
+        // replace them with a bounded copy for middleware and handlers.
+        if ($position === null) {
+            $buffered = $request->withBody(Stream::fromString($contents));
+            if (!$buffered instanceof ServerRequestInterface) {
+                throw new \LogicException('Replacing a server request body must preserve the request type.');
+            }
+
+            return $buffered;
+        }
+
+        return $request;
     }
 
     public static function decodeJsonBody(ServerRequestInterface $request, bool $associative = true): mixed
