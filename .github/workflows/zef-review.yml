@@ -21,7 +21,12 @@
 #                               Kalau tidak, contents tetap "read".
 #    - permission-checks: write HANYA bila ZEF_REVIEW_ENABLE_BLOCK_ON_FINDINGS
 #                               aktif (butuh membuat/memperbarui check run).
-#    - pull-requests: write     selalu (memasang review & komentar).
+#    - pull-requests: write     HANYA bila ZEF_REVIEW_INLINE_COMMENTS aktif
+#                               (komentar menempel di baris diff). Komentar
+#                               ringkasan memakai issues: write, yang sudah
+#                               dimiliki App — jadi tidak perlu pull_requests.
+#                               Minta level yang TIDAK diberikan instalasi
+#                               akan menggagalkan langkah token dengan 422.
 #    Nilai input `permission-*` hanya bisa MEMPERSEMPIT token, tidak pernah
 #    menambah. Saat fitur mati, input dikirim sebagai string kosong supaya
 #    tidak meminta permission yang mungkin tidak dimiliki App.
@@ -105,9 +110,12 @@ jobs:
           permission-contents: >-
             ${{ (vars.ZEF_REVIEW_ENABLE_UPDATE_BRANCH == 'true'
                  || vars.ZEF_REVIEW_ENABLE_AUTO_MERGE == 'true') && 'write' || 'read' }}
-          # pull-requests → selalu write: membaca PR & diff, memasang review,
-          # komentar inline, dan komentar ringkasan.
-          permission-pull-requests: write
+          # pull-requests: default KOSONG (lihat catatan panjang di atas).
+          # Membaca PR & diff cukup dengan level instalasi. Komentar ringkasan
+          # memakai /issues/{n}/comments → butuh `issues: write`, bukan
+          # pull_requests. Isi 'write' hanya untuk komentar inline.
+          permission-pull-requests: >-
+            ${{ vars.ZEF_REVIEW_INLINE_COMMENTS == 'true' && 'write' || '' }}
           # checks → write HANYA bila Fase B dinyalakan. Saat mati dikirim
           # kosong supaya tidak meminta permission yang mungkin tidak dimiliki
           # App (permintaan yang tidak bisa dipenuhi akan menggagalkan langkah
@@ -250,7 +258,7 @@ jobs:
           # --- Variables: FASE B — check run (DEFAULT MATI) ---------------
           ZEF_REVIEW_ENABLE_BLOCK_ON_FINDINGS: ${{ vars.ZEF_REVIEW_ENABLE_BLOCK_ON_FINDINGS }}
           ZEF_REVIEW_CHECK_NAME: ${{ vars.ZEF_REVIEW_CHECK_NAME }}
-          ZEF_REVIEW_BLOCK_SEVERITY: ${{ vars.ZEF_REVIEW_BLOCK_SEVERITY }}
+          ZEF�VIEW_BLOCK_SEVERITY: ${{ vars.ZEF_REVIEW_BLOCK_SEVERITY }}
 
           # --- Variables: FASE C — auto-merge (DEFAULT MATI) --------------
           ZEF_REVIEW_ENABLE_AUTO_MERGE: ${{ vars.ZEF_REVIEW_ENABLE_AUTO_MERGE }}
