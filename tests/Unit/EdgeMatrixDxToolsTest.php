@@ -139,6 +139,28 @@ final class EdgeMatrixDxToolsTest extends TestCase
         self::assertFileExists($ws . '/sib/composer.json');
     }
 
+    /**
+     * POSIX mutation pin (issue #110): a backslash is a legal FILENAME
+     * character on Unix, never a separator — the scaffold target `../we\ird`
+     * must create a directory literally named `we\ird`, not `we/ird`. Kills
+     * the platform-gate mutant that would swap separators on POSIX.
+     */
+    public function testMakeAppKeepsBackslashLiteralOnPosix(): void
+    {
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            self::markTestSkipped('Windows treats backslash as the path separator.');
+        }
+        $ws = $this->workspace();
+        $root = $ws . '/framework';
+        $io = $this->io();
+
+        $exit = new AppGenerator($root, $io, new ScaffoldWriter($io))->generate('../we\ird', ['--name=demo']);
+
+        self::assertSame(0, $exit, $this->streamContents(1));
+        self::assertFileExists($ws . '/we\ird/composer.json');
+        self::assertFileDoesNotExist($ws . '/we/ird/composer.json');
+    }
+
     /** `sub/../modules/x` yang setelah normalisasi TETAP di dalam root → ditolak. */
     public function testMakeAppRejectsDisguisedInsideRootTargets(): void
     {

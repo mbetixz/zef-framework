@@ -15,9 +15,15 @@ declare(strict_types=1);
  *     FRAMEWORK root (deterministic, independent of the caller's cwd) and
  *     are lexically normalized (`..` segments are collapsed, so `../demo`
  *     escapes the framework root instead of being misread as nested);
+ *     "absolute" follows the HOST platform: `/`-rooted on POSIX, drive or
+ *     UNC roots on Windows, where both separator styles are accepted
+ *     (issue #110: sys_get_temp_dir() returns backslash-separated paths);
  *   - the target must not exist, or must be an empty directory;
  *   - the target must live OUTSIDE the framework root (a standalone app
- *     nested inside the framework would break composer/path-repo layout);
+ *     nested inside the framework would break composer/path-repo layout) —
+ *     checked against BOTH the lexical and the realpath'd form of the root,
+ *     because Windows realpath() expands 8.3 short names (RUNNER~1 ->
+ *     runneradmin) and a POSIX symlinked root aliases the same way;
  *   - the generated composer.json references the framework through a path
  *     repository computed from the LONGEST COMMON ANCESTOR of target and
  *     framework root (not merely `basename`), so deeply nested checkouts
@@ -105,12 +111,35 @@ final readonly class AppGenerator implements GeneratorInterface
     /**
      * Lexically normalize a path: collapse `.`, `..` and duplicate slashes
      * WITHOUT touching the filesystem (the target may not exist yet). An
-     * absolute path never escapes above `/`; a relative path keeps leading
-     * `..` segments.
+     * absolute path never escapes above its root — `/` on POSIX, the drive
+     * or UNC prefix on Windows; a relative path keeps leading `..` segments.
+     * On Windows both separator styles are accepted (PHP itself mixes them:
+     * sys_get_temp_dir() returns backslashes); on POSIX a backslash stays a
+     * legal filename character, so the swap is platform-gated.
      */
     private function normalize(string $path): string
     {
-        $absolute = str_starts_with($path, '/');
+        $windows = DIRECTORY_SEPARATOR === '\\';
+        if ($windows) {
+            $path = str_replace('\\', '/', $path);
+        }
+
+        $prefix = '';
+        if ($windows && preg_match('#^([A-Za-z]:)(/|$)#', $path) === 1) {
+            // Drive root (C:/): the `..` walk must never pop past it.
+            $prefix = substr($path, 0, 2);
+            $path = substr($path, 2);
+        } elseif ($windows && str_starts_with($path, '//') && strlen($path) > 2) {
+            // UNC root (//server/share): the server+share pair is the root.
+            $segments = explode('/', substr($path, 2), 3);
+            if ($segments[0] !== '') {
+                $prefix = '//' . $segments[0]
+                    . (isset($segments[1]) && $segments[1] !== '' ? '/' . $segments[1] : '');
+                $path = substr($path, strlen($prefix));
+            }
+        }
+
+        $absolute = $prefix !== '' || str_starts_with($path, '/');
         $parts = [];
         foreach (explode('/', $path) as $segment) {
             if ($segment === '' || $segment === '.') {
@@ -130,29 +159,53 @@ final readonly class AppGenerator implements GeneratorInterface
 
         $normalized = implode('/', $parts);
         if ($absolute) {
-            return '/' . $normalized;
+            return $prefix . '/' . $normalized;
         }
 
         return $normalized === '' ? '.' : $normalized;
     }
 
+    /**
+     * Absolute in the HOST's terms: `/`-rooted on POSIX; on Windows a drive
+     * letter or a UNC `//` root (a `C:/...` argument is relative on POSIX,
+     * where `C:` is a legal directory name).
+     */
+    private function isAbsolute(string $normalizedPath): bool
+    {
+        if (str_starts_with($normalizedPath, '/')) {
+            return true;
+        }
+
+        return DIRECTORY_SEPARATOR === '\\'
+            && (preg_match('#^[A-Za-z]:/#', $normalizedPath) === 1
+                || str_starts_with($normalizedPath, '//'));
+    }
+
     /** Resolve + validate the scaffold target; null means "error already reported". */
     private function resolveTarget(string $raw): ?string
     {
-        $target = str_starts_with($raw, '/')
-            ? $this->normalize($raw)
-            : $this->normalize(rtrim($this->root, '/') . '/' . ltrim($raw, '/'));
+        $normalized = $this->normalize($raw);
+        $target = $this->isAbsolute($normalized)
+            ? $normalized
+            : $this->normalize(rtrim($this->root, '/') . '/' . ltrim($normalized, '/'));
 
+        // Both the LEXICAL and the realpath'd root forms must reject the
+        // target: on Windows realpath() expands 8.3 short names
+        // (RUNNER~1 -> runneradmin) so a lexically-inside target would
+        // otherwise compare unequal to the canonicalized root; on POSIX a
+        // symlinked root aliases the same way (the reverse of #110).
+        $rootForms = [$this->normalize($this->root)];
         $canonicalRoot = (string) realpath($this->root);
-        if ($canonicalRoot === '') {
-            $canonicalRoot = $this->root;
+        if ($canonicalRoot !== '') {
+            $rootForms[] = $this->normalize($canonicalRoot);
         }
-        $canonicalRoot = $this->normalize($canonicalRoot);
 
-        if ($target === $canonicalRoot || str_starts_with($target, $canonicalRoot . '/')) {
-            $this->io->err("Refusing to scaffold INSIDE the framework root ({$target}). Choose a path outside it.");
+        foreach ($rootForms as $rootForm) {
+            if ($target === $rootForm || str_starts_with($target, $rootForm . '/')) {
+                $this->io->err("Refusing to scaffold INSIDE the framework root ({$target}). Choose a path outside it.");
 
-            return null;
+                return null;
+            }
         }
 
         if (is_dir($target)) {
@@ -181,13 +234,14 @@ final readonly class AppGenerator implements GeneratorInterface
      */
     private function relativeFrameworkRef(string $target): string
     {
-        $canonicalRoot = (string) realpath($this->root);
-        if ($canonicalRoot === '') {
-            $canonicalRoot = $this->root;
-        }
+        // LEXICAL root, deliberately: $target itself is lexical, and the
+        // climb must stay in ONE namespace — on Windows realpath() expands
+        // 8.3 short names (RUNNER~1 -> runneradmin), which would break the
+        // common-ancestor arithmetic mid-path (issue #110).
+        $rootForm = $this->normalize($this->root);
 
         $fromParts = $this->pathSegments($this->normalize($target));
-        $toParts = $this->pathSegments($this->normalize($canonicalRoot));
+        $toParts = $this->pathSegments($rootForm);
 
         $common = 0;
         $max = min(count($fromParts), count($toParts));
