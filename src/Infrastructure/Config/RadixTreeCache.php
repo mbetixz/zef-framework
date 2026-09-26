@@ -166,7 +166,12 @@ final readonly class RadixTreeCache
         if (@file_put_contents($tmp, $entry) === false) {
             throw new InvalidConfigurationException("Failed to write radix cache temp file '{$tmp}'.");
         }
-        @chmod($tmp, $this->fileMode);
+        // POSIX-only mode contract — mirrors ConfigCompiler::export(): PHP's
+        // Windows DACL emulation breaks the atomic rename publish for masks
+        // without owner-write (issue #110).
+        if (DIRECTORY_SEPARATOR === '/') {
+            @chmod($tmp, $this->fileMode);
+        }
         if (!@rename($tmp, $cacheFile)) {
             // Cleanup of $tmp, a name this method generated itself
             // ('.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp'). No

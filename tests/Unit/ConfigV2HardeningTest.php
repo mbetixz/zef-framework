@@ -382,6 +382,14 @@ final class ConfigV2HardeningTest extends TestCase
     {
         $target = $this->workspace . '/compiled.php';
         new ConfigCompiler()->export(new Config(['a' => 1]), $target);
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // Windows has no Unix file modes (issue #110): the mode contract
+            // is POSIX-only, so the boundary assertion here degrades to
+            // "the publish is atomic and the file exists".
+            self::assertFileExists($target);
+
+            return;
+        }
         self::assertSame('0600', substr(sprintf('%o', (int) fileperms($target)), -4));
     }
 
@@ -389,6 +397,12 @@ final class ConfigV2HardeningTest extends TestCase
     {
         $target = $this->workspace . '/compiled.php';
         new ConfigCompiler(0o660)->export(new Config(['a' => 1]), $target);
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // Same Windows degradation as the default-mode test (issue #110).
+            self::assertFileExists($target);
+
+            return;
+        }
         self::assertSame('0660', substr(sprintf('%o', (int) fileperms($target)), -4));
     }
 
@@ -427,6 +441,14 @@ final class ConfigV2HardeningTest extends TestCase
         $target = $this->workspace . '/open.php';
         new ConfigCompiler(0)->export(new Config(['a' => 1]), $target);
         new ConfigCompiler(0o777)->export(new Config(['a' => 1]), $target);
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // On Windows the boundary contract is "both extremes publish
+            // atomically" — the 0 mask must not break the rename publish
+            // (issue #110); the permission bits themselves are POSIX-only.
+            self::assertFileExists($target);
+
+            return;
+        }
         self::assertSame('0777', substr(sprintf('%o', (int) fileperms($target)), -4));
     }
 

@@ -155,12 +155,17 @@ final class ConfigV2RadixCacheTest extends TestCase
         new RadixTreeCache()->store($this->sampleValues(), $file);
 
         self::assertFileExists($file);
+        $residue = glob($this->workspace . '/.*.tmp');
+        self::assertSame([], $residue, 'atomic publish must leave no temp files');
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // Windows has no Unix file modes (issue #110): the residue check
+            // above carries the atomicity contract; the permission bits are
+            // POSIX-only.
+            return;
+        }
         clearstatcache(true, $file);
         $mode = fileperms($file) & 0o777;
         self::assertSame(0o600, $mode);
-
-        $residue = glob($this->workspace . '/.*.tmp');
-        self::assertSame([], $residue, 'atomic publish must leave no temp files');
     }
 
     public function testCustomFileModeIsHonoured(): void
@@ -168,6 +173,12 @@ final class ConfigV2RadixCacheTest extends TestCase
         $file = $this->workspace . '/radix.cache';
         new RadixTreeCache(0o640)->store($this->sampleValues(), $file);
 
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // Mode contract is POSIX-only on Windows (issue #110).
+            self::assertFileExists($file);
+
+            return;
+        }
         clearstatcache(true, $file);
         self::assertSame(0o640, fileperms($file) & 0o777);
     }
