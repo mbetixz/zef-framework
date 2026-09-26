@@ -157,7 +157,7 @@ final class ZefCliDispatchTest extends TestCase
 
             $lines = [];
             $exitCode = 0;
-            \exec($cmd, $lines, $exitCode); // nosemgrep: exec-use
+            exec($cmd, $lines, $exitCode); // nosemgrep: exec-use
 
             return [$exitCode, \implode("\n", $lines)];
         } finally {
