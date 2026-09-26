@@ -149,6 +149,9 @@ final class MiddlewareMutationDebtTest extends TestCase
 
     public function testUnreachableRedisStoreWarnsWithFullDetailAndFallsBackToInMemory(): void
     {
+        if (!class_exists(\Redis::class)) {
+            self::markTestSkipped('ext-redis not loaded — the Redis-backed fallback paths need the client (Windows smoke profile).');
+        }
         $env = new MiddlewareDebtEnv([
             'ZEF_RATE_LIMIT_STORE' => 'redis',
             'ZEF_REDIS_URL' => 'redis://127.0.0.1:1/0',
@@ -162,7 +165,7 @@ final class MiddlewareMutationDebtTest extends TestCase
         self::assertNotNull($warning, 'The store failure must reach the logger.');
         self::assertStringContainsString('Rate-limit store "redis" unavailable', $warning);
         self::assertMatchesRegularExpression(
-            '/unavailable \(Connection refused\); falling back to in-memory per-process limiter\.$/',
+            '/unavailable \(Connection refused\); falling back to in-memory per-process limiter\.\r?$/u',
             $warning,
             'The failure detail must sit INSIDE the parentheses, before the fallback note — operand order is part of the contract.',
         );
@@ -170,6 +173,9 @@ final class MiddlewareMutationDebtTest extends TestCase
 
     public function testWrongRedisCredentialsWarnAndFallBackToInMemory(): void
     {
+        if (!class_exists(\Redis::class)) {
+            self::markTestSkipped('ext-redis not loaded — the Redis-backed fallback paths need the client (Windows smoke profile).');
+        }
         $env = new MiddlewareDebtEnv([
             'ZEF_RATE_LIMIT_STORE' => 'redis',
             'ZEF_REDIS_URL' => 'redis://:definitely-wrong-password@127.0.0.1:6399/0',
@@ -183,7 +189,7 @@ final class MiddlewareMutationDebtTest extends TestCase
         self::assertNotNull($warning);
         self::assertStringContainsString('Rate-limit store "redis" unavailable', $warning);
         self::assertMatchesRegularExpression(
-            '/unavailable \(WRONGPASS[^)]*\); falling back to in-memory per-process limiter\.$/',
+            '/unavailable \(WRONGPASS[^)]*\); falling back to in-memory per-process limiter\.\r?$/u',
             $warning,
             'The RedisException detail must sit INSIDE the parentheses, before the fallback note.',
         );
@@ -191,6 +197,9 @@ final class MiddlewareMutationDebtTest extends TestCase
 
     public function testStoreFallbackWithoutALoggerRoutesToErrorLog(): void
     {
+        if (!class_exists(\Redis::class)) {
+            self::markTestSkipped('ext-redis not loaded — the Redis-backed fallback paths need the client (Windows smoke profile).');
+        }
         $logFile = (string) tempnam(sys_get_temp_dir(), 'zef-errlog-store-fallback-');
         $previous = ini_set('error_log', $logFile);
 
@@ -228,7 +237,7 @@ final class MiddlewareMutationDebtTest extends TestCase
 
         $raw = (string) file_get_contents($logFile);
         self::assertMatchesRegularExpression(
-            '/Rate-limit store "redis" unavailable \(Connection refused\); falling back to in-memory per-process limiter\./m',
+            '/Rate-limit store "redis" unavailable \(Connection refused\); falling back to in-memory per-process limiter\.\r?$/mu',
             $raw,
             'Without a logger the store-fallback warning must reach error_log with the full ordered message.',
         );
@@ -550,9 +559,9 @@ final class MiddlewareMutationDebtTest extends TestCase
 
         $raw = (string) file_get_contents($logFile);
         self::assertMatchesRegularExpression(
-            '/ZEF logging failure: RuntimeException$/m',
+            '/ZEF logging failure: RuntimeException\r?$/mu',
             $raw,
-            'The failure line must LEAD with the fixed prefix and TRAIL with the failure class — operand order is part of the contract.',
+            'The failure line must LEAD with the fixed prefix and TRAIL with the failure class — operand order is part of the contract (CRLF tolerated: error_log line endings are platform-native).',
         );
         self::assertStringContainsString('ZEF logging failure: ', $raw);
         self::assertStringContainsString('RuntimeException', $raw, 'The failure CLASS must be part of the error_log line.');
