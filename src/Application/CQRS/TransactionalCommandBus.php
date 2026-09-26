@@ -24,18 +24,18 @@ use Zef\Framework\Database\UnitOfWorkRetryPolicy;
  * - the handler chain executes, then the optional {@see UnitOfWork}
  *   flushes its deferred writes ON THE SAME CONNECTION — both succeed or
  *   the whole command rolls back;
- * - when the inner bus was wired with the SAME TransactionManager, its
- *   event fan-out is queued via afterCommit() and fires only after the
- *   commit — a rolled-back command emits nothing, and listeners observe
- *   committed data;
+ * - a CommandBus inner bus uses this decorator's TransactionManager for
+ *   event fan-out, so a rolled-back command emits nothing and listeners
+ *   observe committed data;
  * - nested dispatches (a handler dispatching another command through the
  *   same decorator) become savepoints — the outermost command owns the
  *   commit.
  *
- * Ordering with idempotency: the inner bus caches the result before the
- * commit, so a replay never re-executes the handler; events still fire
- * only for the FIRST successful commit (the inner bus defers fan-out to
- * afterCommit hooks, which a replay never registers).
+ * With a CommandBus inner bus, idempotency encloses the transaction:
+ * results are cached only after commit, before event fan-out. A replay
+ * skips the handler, flush and transaction. Keyed dispatches must own the
+ * outermost managed transaction; the store port cannot safely prepare a
+ * nested result for a later commit. Unkeyed dispatches may still nest.
  *
  * v2.22.1 (issue #65, item 2 — UoW retry strategy): when an optional
  * {@see UnitOfWorkRetryPolicy} is injected, the FLUSH phase is wrapped in
@@ -70,6 +70,16 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
     #[\Override]
     public function dispatch(object $command, ?CqrsContext $context = null): mixed
     {
+        if ($this->inner instanceof CommandBus) {
+            return $this->inner->dispatchTransactional(
+                $command,
+                $context,
+                $this->transactions,
+                $this->flushWithRetry(...),
+                $this->isolation,
+            );
+        }
+
         return $this->transactions->withTransaction(function (ConnectionInterface $connection) use ($command, $context): mixed {
             $result = $this->inner->dispatch($command, $context);
             $this->flushWithRetry($connection);

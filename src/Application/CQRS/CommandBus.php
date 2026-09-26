@@ -10,6 +10,8 @@ declare(strict_types=1);
 
 namespace Zef\Framework\CQRS;
 
+use Zef\Framework\Database\ConnectionInterface;
+use Zef\Framework\Database\IsolationLevel;
 use Zef\Framework\Database\TransactionManagerInterface;
 use Zef\Framework\Event\EventBusInterface;
 
@@ -51,7 +53,91 @@ final class CommandBus implements CommandBusInterface
     #[\Override]
     public function dispatch(object $command, ?CqrsContext $context = null): mixed
     {
+        return $this->dispatchInScope($command, $context);
+    }
+
+    /**
+     * Keep the store's entire remember operation around handler, flush and
+     * commit. A store's producer lock therefore also covers the transaction.
+     *
+     * @internal used by TransactionalCommandBus
+     *
+     * @param \Closure(ConnectionInterface): void $flush
+     */
+    public function dispatchTransactional(
+        object $command,
+        ?CqrsContext $context,
+        TransactionManagerInterface $transactions,
+        \Closure $flush,
+        ?IsolationLevel $isolation = null,
+    ): mixed {
+        $hookFailure = null;
+        $scope = static function (\Closure $execute) use ($transactions, $flush, $isolation, &$hookFailure): mixed {
+            $committed = false;
+            $result = null;
+
+            try {
+                return $transactions->withTransaction(
+                    static function (ConnectionInterface $connection) use ($transactions, $execute, $flush, &$committed, &$result): mixed {
+                        // Register before user hooks: their failures happen after
+                        // the write succeeded and must not permit re-execution.
+                        $transactions->afterCommit(static function () use (&$committed): void {
+                            $committed = true;
+                        });
+                        $result = $execute();
+                        $flush($connection);
+
+                        return $result;
+                    },
+                    $isolation,
+                );
+            } catch (\Throwable $error) {
+                if (!$committed) {
+                    throw $error;
+                }
+                $hookFailure = $error;
+
+                return $result;
+            }
+        };
+        $result = $this->dispatchInScope($command, $context, $scope, $transactions);
+        if ($hookFailure instanceof \Throwable) {
+            throw $hookFailure;
+        }
+
+        return $result;
+    }
+
+    #[\Override]
+    public function freeze(): void
+    {
+        $this->frozen = true;
+    }
+
+    #[\Override]
+    public function isFrozen(): bool
+    {
+        return $this->frozen;
+    }
+
+    /** @param null|\Closure(\Closure(): mixed): mixed $scope */
+    private function dispatchInScope(
+        object $command,
+        ?CqrsContext $context,
+        ?\Closure $scope = null,
+        ?TransactionManagerInterface $transactions = null,
+    ): mixed {
         $context ??= CqrsContext::create();
+        $transactions ??= $this->transactions;
+        if ($context->idempotencyKey !== null
+            && $this->idempotencyStore instanceof IdempotencyStoreInterface
+            && $transactions instanceof TransactionManagerInterface
+            && $transactions->inTransaction()
+        ) {
+            // remember() has no prepare/commit protocol. A nested savepoint
+            // cannot publish a result safely before its owner commits.
+            throw new \LogicException('Idempotent commands must own the outermost managed transaction.');
+        }
         $pendingEvents = [];
         $execute = function () use ($command, $context, &$pendingEvents): mixed {
             $handler = $this->resolveHandler($command, 'command');
@@ -71,6 +157,10 @@ final class CommandBus implements CommandBusInterface
 
             return $result;
         };
+        if ($scope instanceof \Closure) {
+            $handlerExecution = $execute;
+            $execute = static fn (): mixed => $scope($handlerExecution);
+        }
         $result = $this->guardDispatchDepth(
             function () use ($command, $context, $execute): mixed {
                 if ($context->idempotencyKey !== null && $this->idempotencyStore instanceof IdempotencyStoreInterface) {
@@ -99,8 +189,8 @@ final class CommandBus implements CommandBusInterface
             $fanOut = function () use ($event, $context): void {
                 $this->eventBus?->dispatchWithContext($event, $context->toEventContext());
             };
-            if ($this->transactions instanceof TransactionManagerInterface) {
-                $this->transactions->afterCommit($fanOut);
+            if ($transactions instanceof TransactionManagerInterface) {
+                $transactions->afterCommit($fanOut);
 
                 continue;
             }
@@ -108,17 +198,5 @@ final class CommandBus implements CommandBusInterface
         }
 
         return $result;
-    }
-
-    #[\Override]
-    public function freeze(): void
-    {
-        $this->frozen = true;
-    }
-
-    #[\Override]
-    public function isFrozen(): bool
-    {
-        return $this->frozen;
     }
 }
