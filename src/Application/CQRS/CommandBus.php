@@ -51,6 +51,26 @@ final class CommandBus implements CommandBusInterface
     #[\Override]
     public function dispatch(object $command, ?CqrsContext $context = null): mixed
     {
+        return $this->dispatchInScope($command, $context, static fn (\Closure $execute): mixed => $execute(), $this->transactions);
+    }
+
+    /**
+     * Execute the handler through a scope owned by a decorator. The store's
+     * producer covers the entire scope, including its commit; event fan-out
+     * follows publication of the result.
+     *
+     * @internal used by TransactionalCommandBus
+     *
+     * @param \Closure(\Closure(): mixed): mixed $scope
+     * @param null|\Closure(): void $afterPublication propagate scope hook failures after caching
+     */
+    public function dispatchInScope(
+        object $command,
+        ?CqrsContext $context,
+        \Closure $scope,
+        ?TransactionManagerInterface $transactions,
+        ?\Closure $afterPublication = null,
+    ): mixed {
         $context ??= CqrsContext::create();
         $pendingEvents = [];
         $execute = function () use ($command, $context, &$pendingEvents): mixed {
@@ -72,18 +92,29 @@ final class CommandBus implements CommandBusInterface
             return $result;
         };
         $result = $this->guardDispatchDepth(
-            function () use ($command, $context, $execute): mixed {
+            function () use ($command, $context, $execute, $scope, $transactions): mixed {
                 if ($context->idempotencyKey !== null && $this->idempotencyStore instanceof IdempotencyStoreInterface) {
                     return $this->idempotencyStore->remember(
                         hash('sha256', $command::class . '|' . $context->idempotencyKey),
-                        $execute,
+                        static function () use ($execute, $scope, $transactions): mixed {
+                            // remember() cannot hold publication until a caller-owned
+                            // transaction commits. Reject a miss before any effects.
+                            if ($transactions?->inTransaction() === true) {
+                                throw new \LogicException('Idempotent command cache misses require an outermost TransactionalCommandBus dispatch.');
+                            }
+
+                            return $scope($execute);
+                        },
                         $this->idempotencyTtlSeconds,
                     );
                 }
 
-                return $execute();
+                return $scope($execute);
             },
         );
+        if ($afterPublication instanceof \Closure) {
+            $afterPublication();
+        }
         // Fan out only for THIS invocation: $pendingEvents stays empty on
         // an idempotent replay, so events are never re-fired. The first
         // caller observes EventDispatchException; all listeners already
@@ -99,8 +130,8 @@ final class CommandBus implements CommandBusInterface
             $fanOut = function () use ($event, $context): void {
                 $this->eventBus?->dispatchWithContext($event, $context->toEventContext());
             };
-            if ($this->transactions instanceof TransactionManagerInterface) {
-                $this->transactions->afterCommit($fanOut);
+            if ($transactions instanceof TransactionManagerInterface) {
+                $transactions->afterCommit($fanOut);
 
                 continue;
             }

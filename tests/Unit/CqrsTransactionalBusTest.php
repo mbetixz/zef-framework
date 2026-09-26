@@ -6,17 +6,22 @@ namespace Zef\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Zef\Framework\CQRS\CommandBus;
+use Zef\Framework\CQRS\CommandBusInterface;
 use Zef\Framework\CQRS\CommandHandlerInterface;
 use Zef\Framework\CQRS\CqrsContext;
 use Zef\Framework\CQRS\CqrsEventResult;
 use Zef\Framework\CQRS\CqrsMiddlewareInterface;
+use Zef\Framework\CQRS\IdempotencyStoreInterface;
+use Zef\Framework\CQRS\InMemoryIdempotencyStore;
 use Zef\Framework\CQRS\TransactionalCommandBus;
 use Zef\Framework\Database\ConnectionConfig;
 use Zef\Framework\Database\ConnectionException;
 use Zef\Framework\Database\ConnectionInterface;
 use Zef\Framework\Database\IsolationLevel;
 use Zef\Framework\Database\PdoConnection;
+use Zef\Framework\Database\QueryException;
 use Zef\Framework\Database\SqlQuery;
+use Zef\Framework\Database\TransactionException;
 use Zef\Framework\Database\TransactionManager;
 use Zef\Framework\Database\UnitOfWork;
 use Zef\Framework\Event\EventBusInterface;
@@ -51,6 +56,302 @@ final class CqrsTransactionalBusTest extends TestCase
         $this->tx = new TransactionManager($this->conn);
         $this->firedEvents = [];
         $this->eventBus = $this->recordingBus($this->firedEvents);
+    }
+
+    public function testFailedFlushDoesNotCacheResultOrEmitEvents(): void
+    {
+        $uow = new UnitOfWork();
+        $bus = new TransactionalCommandBus(
+            new CommandBus(new InMemoryIdempotencyStore(), eventBus: $this->eventBus),
+            $this->tx,
+            $uow,
+        );
+        $calls = 0;
+        $bus->register(\stdClass::class, function () use ($uow, &$calls): CqrsEventResult {
+            ++$calls;
+            $this->conn->execute(SqlQuery::raw("INSERT INTO t (name) VALUES ('direct')"));
+            $uow->recordQuery(SqlQuery::raw($calls === 1
+                ? 'INSERT INTO missing_table VALUES (1)'
+                : "INSERT INTO t (name) VALUES ('deferred')"));
+
+            return new CqrsEventResult('ok', [new \stdClass()]);
+        });
+        $context = CqrsContext::create(idempotencyKey: 'flush-retry');
+
+        try {
+            $bus->dispatch(new \stdClass(), $context);
+            self::fail('Expected flush failure.');
+        } catch (QueryException) {
+        }
+        self::assertSame([], $this->names());
+        self::assertSame([], $this->firedEvents);
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(2, $calls);
+        self::assertSame(['direct', 'deferred'], $this->names());
+        self::assertCount(1, $this->firedEvents);
+    }
+
+    public function testFailedCommitDoesNotCacheResult(): void
+    {
+        $connection = $this->createMock(ConnectionInterface::class);
+        $failCommit = true;
+        $connection->method('transaction')->willReturnCallback(function (callable $fn) use (&$failCommit): mixed {
+            // Inject a failure after the complete handler/flush callback,
+            // with the connection rolling back the real SQLite writes.
+            return $this->conn->transaction(static function (ConnectionInterface $conn) use ($fn, &$failCommit): mixed {
+                $result = $fn($conn);
+                if ($failCommit) {
+                    $failCommit = false;
+
+                    throw new \RuntimeException('commit failed');
+                }
+
+                return $result;
+            });
+        });
+        $tx = new TransactionManager($connection);
+        $bus = new TransactionalCommandBus(
+            new CommandBus(new InMemoryIdempotencyStore(), eventBus: $this->eventBus, transactions: $tx),
+            $tx,
+        );
+        $calls = 0;
+        $bus->register(\stdClass::class, function () use (&$calls): CqrsEventResult {
+            ++$calls;
+            $this->conn->execute(SqlQuery::raw("INSERT INTO t (name) VALUES ('committed')"));
+
+            return new CqrsEventResult(null, [new \stdClass()]);
+        });
+        $context = CqrsContext::create(idempotencyKey: 'commit-retry');
+
+        try {
+            $bus->dispatch(new \stdClass(), $context);
+            self::fail('Expected commit failure.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+        self::assertSame([], $this->names());
+        self::assertSame([], $this->firedEvents);
+        self::assertNull($bus->dispatch(new \stdClass(), $context));
+        self::assertNull($bus->dispatch(new \stdClass(), $context));
+        self::assertSame(2, $calls);
+        self::assertSame(['committed'], $this->names());
+        self::assertCount(1, $this->firedEvents);
+    }
+
+    public function testRealCommitFailureRollsBackAndSameKeyCanRetry(): void
+    {
+        $this->conn->execute(SqlQuery::raw('PRAGMA foreign_keys = ON'));
+        $this->conn->execute(SqlQuery::raw('CREATE TABLE child (parent_id INTEGER REFERENCES t(id) DEFERRABLE INITIALLY DEFERRED)'));
+        $bus = new TransactionalCommandBus(new CommandBus(new InMemoryIdempotencyStore()), $this->tx);
+        $calls = 0;
+        $bus->register(\stdClass::class, function () use (&$calls): string {
+            ++$calls;
+            $this->conn->execute(SqlQuery::raw("INSERT INTO t (id, name) VALUES (1, 'committed')"));
+            $this->conn->execute(new SqlQuery('INSERT INTO child (parent_id) VALUES (?)', [$calls === 1 ? 999 : 1]));
+
+            return 'ok';
+        });
+        $context = CqrsContext::create(idempotencyKey: 'real-commit-failure');
+
+        try {
+            $bus->dispatch(new \stdClass(), $context);
+            self::fail('Expected deferred constraint to fail at commit.');
+        } catch (TransactionException $e) {
+            self::assertStringContainsString('Failed to commit transaction', $e->getMessage());
+        }
+        self::assertSame(0, $this->conn->transactionLevel());
+        self::assertSame(0, $this->tx->level());
+        self::assertSame([], $this->names());
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(2, $calls);
+        self::assertSame(['committed'], $this->names());
+        self::assertSame([['parent_id' => 1]], $this->conn->fetchAll(SqlQuery::raw('SELECT parent_id FROM child')));
+    }
+
+    public function testAfterCommitHookFailureStillCachesCommittedResult(): void
+    {
+        $bus = new TransactionalCommandBus(new CommandBus(new InMemoryIdempotencyStore(), eventBus: $this->eventBus), $this->tx);
+        $calls = 0;
+        $bus->register(\stdClass::class, function () use (&$calls): CqrsEventResult {
+            ++$calls;
+            $this->conn->execute(SqlQuery::raw("INSERT INTO t (name) VALUES ('committed')"));
+            $this->tx->afterCommit(static function (): never {
+                throw new \RuntimeException('hook failed');
+            });
+
+            return new CqrsEventResult('ok', [new \stdClass()]);
+        });
+        $context = CqrsContext::create(idempotencyKey: 'hook-failure');
+
+        try {
+            $bus->dispatch(new \stdClass(), $context);
+            self::fail('Expected hook failure.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('hook failed', $e->getMessage());
+        }
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(1, $calls);
+        self::assertSame([], $this->firedEvents, 'hook failure stops later event fan-out');
+        self::assertSame(['committed'], $this->names());
+    }
+
+    public function testListenerFailureStillCachesCommittedResult(): void
+    {
+        $calls = 0;
+        $listenerCalls = 0;
+        $bus = new TransactionalCommandBus(new CommandBus(
+            new InMemoryIdempotencyStore(),
+            eventBus: $this->recordingBus($this->firedEvents, function () use (&$listenerCalls): never {
+                ++$listenerCalls;
+                self::assertSame(0, $this->conn->transactionLevel());
+                self::assertSame(['committed'], $this->names());
+
+                throw new \RuntimeException('listener failed');
+            }),
+        ), $this->tx);
+        $bus->register(\stdClass::class, function () use (&$calls): CqrsEventResult {
+            ++$calls;
+            $this->conn->execute(SqlQuery::raw("INSERT INTO t (name) VALUES ('committed')"));
+
+            return new CqrsEventResult('ok', [new \stdClass()]);
+        });
+        $context = CqrsContext::create(idempotencyKey: 'listener-failure');
+
+        try {
+            $bus->dispatch(new \stdClass(), $context);
+            self::fail('Expected listener failure.');
+        } catch (\RuntimeException $e) {
+            self::assertSame('listener failed', $e->getMessage());
+        }
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(1, $calls);
+        self::assertSame(1, $listenerCalls);
+    }
+
+    public function testNestedIdempotentMissIsRejectedBeforeHandlerRuns(): void
+    {
+        $bus = new TransactionalCommandBus(new CommandBus(new InMemoryIdempotencyStore()), $this->tx);
+        $calls = 0;
+        $bus->register(\stdClass::class, static function () use (&$calls): string {
+            ++$calls;
+
+            return 'ok';
+        });
+        $context = CqrsContext::create(idempotencyKey: 'nested-command');
+
+        try {
+            $this->tx->withTransaction(static fn (): mixed => $bus->dispatch(new \stdClass(), $context));
+            self::fail('Cannot publish an uncommitted result from a nested scope.');
+        } catch (\LogicException $e) {
+            self::assertStringContainsString('outermost', $e->getMessage());
+        }
+        self::assertSame(0, $calls);
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame('ok', $this->tx->withTransaction(static fn (): mixed => $bus->dispatch(new \stdClass(), $context)));
+        self::assertSame(1, $calls);
+    }
+
+    public function testReentrantDispatchDuringCommitHooksDoesNotRepeatHandler(): void
+    {
+        $bus = new TransactionalCommandBus(new CommandBus(new InMemoryIdempotencyStore()), $this->tx);
+        $context = CqrsContext::create(idempotencyKey: 'reentrant-hook');
+        $calls = 0;
+        $bus->register(\stdClass::class, function () use ($bus, $context, &$calls): string {
+            ++$calls;
+            $this->conn->execute(SqlQuery::raw("INSERT INTO t (name) VALUES ('committed')"));
+            $this->tx->afterCommit(static function () use ($bus, $context): void {
+                $bus->dispatch(new \stdClass(), $context);
+            });
+
+            return 'ok';
+        });
+
+        try {
+            $bus->dispatch(new \stdClass(), $context);
+            self::fail('An in-flight key must not execute again.');
+        } catch (\LogicException $e) {
+            self::assertStringContainsString('in progress', $e->getMessage());
+        }
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(1, $calls);
+        self::assertSame(['committed'], $this->names());
+    }
+
+    public function testPlainBusRejectsCacheMissInsideManagedTransaction(): void
+    {
+        $bus = new CommandBus(new InMemoryIdempotencyStore(), transactions: $this->tx);
+        $calls = 0;
+        $bus->register(\stdClass::class, static function () use (&$calls): string {
+            ++$calls;
+
+            return 'ok';
+        });
+        $context = CqrsContext::create(idempotencyKey: 'plain-managed');
+
+        try {
+            $this->tx->withTransaction(static fn (): mixed => $bus->dispatch(new \stdClass(), $context));
+            self::fail('Cannot cache an uncommitted result.');
+        } catch (\LogicException $e) {
+            self::assertStringContainsString('outermost', $e->getMessage());
+        }
+        self::assertSame(0, $calls);
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(1, $calls);
+    }
+
+    public function testStoreProducerIncludesCommitAndReplaySkipsFlush(): void
+    {
+        $store = $this->createMock(IdempotencyStoreInterface::class);
+        $memory = new InMemoryIdempotencyStore();
+        $producerCalls = 0;
+        $key = 'producer-scope';
+        $store->expects(self::exactly(2))->method('remember')
+            ->with(hash('sha256', \stdClass::class . '|' . $key), self::isType('callable'), 123)
+            ->willReturnCallback(function (string $key, callable $producer, int $ttl) use ($memory, &$producerCalls): mixed {
+                return $memory->remember($key, function () use ($producer, &$producerCalls): mixed {
+                    ++$producerCalls;
+                    $result = $producer();
+                    self::assertSame(0, $this->conn->transactionLevel(), 'publication must follow commit');
+                    self::assertSame(['committed'], $this->names());
+
+                    return $result;
+                }, $ttl);
+            })
+        ;
+        $uow = new UnitOfWork();
+        $bus = new TransactionalCommandBus(new CommandBus($store, 123), $this->tx, $uow);
+        $bus->register(\stdClass::class, static function () use ($uow): string {
+            $uow->recordQuery(SqlQuery::raw("INSERT INTO t (name) VALUES ('committed')"));
+
+            return 'ok';
+        });
+        $context = CqrsContext::create(idempotencyKey: $key);
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        $uow->recordQuery(SqlQuery::raw("INSERT INTO t (name) VALUES ('unrelated')"));
+        self::assertSame('ok', $bus->dispatch(new \stdClass(), $context));
+        self::assertSame(1, $producerCalls);
+        self::assertSame(1, $uow->pending(), 'replay must not flush unrelated work');
+        self::assertSame(['committed'], $this->names());
+    }
+
+    public function testCustomBusStillRunsInsideTransactionAndFlushes(): void
+    {
+        $inner = $this->createMock(CommandBusInterface::class);
+        $uow = new UnitOfWork();
+        $inner->expects(self::once())->method('dispatch')->willReturnCallback(function () use ($uow): string {
+            self::assertSame(1, $this->conn->transactionLevel());
+            $uow->recordQuery(SqlQuery::raw("INSERT INTO t (name) VALUES ('custom')"));
+
+            return 'ok';
+        });
+        $bus = new TransactionalCommandBus($inner, $this->tx, $uow);
+
+        self::assertSame('ok', $bus->dispatch(new \stdClass()));
+        self::assertSame(['custom'], $this->names());
+        self::assertSame(0, $this->conn->transactionLevel());
     }
 
     public function testHandlerWritesAndUowFlushCommitAtomically(): void

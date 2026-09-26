@@ -206,6 +206,37 @@ behavioural coverage.
 
 ---
 
+## CQRS idempotency and transactions
+
+For the built-in `CommandBus` wrapped by `TransactionalCommandBus`, the
+idempotency store's `remember()` producer includes handler execution, UoW
+flush, and the outermost commit. Failed handlers, flushes, or commits do
+not publish a cached success. A retry with the same key executes again.
+A committed replay skips the handler, flush, and transaction entirely.
+The decorator supplies its transaction manager to the built-in bus, so
+this ordering also works without wiring a manager into the inner bus.
+
+CQRS events run after the result is cached and the transaction commits.
+Listener failures and other after-commit hook failures still propagate,
+but retain the committed result so a retry cannot repeat the writes.
+The in-memory store rejects concurrent/reentrant use of an in-flight key
+with `LogicException`; it releases that guard on success or failure.
+Other stores retain their own `remember()` locking/atomicity semantics:
+the entire transaction stays inside the producer's protected scope.
+
+The current store interface cannot hold publication until a caller-owned
+transaction commits. Therefore a **cache miss with an idempotency key and
+store configured inside an already-open managed transaction** throws
+`LogicException` before the handler runs. Dispatch the keyed command at
+the outermost `TransactionalCommandBus` boundary instead. Committed cache
+hits and nested commands without idempotency caching remain supported.
+A plain `CommandBus` wired to a manager also rejects such misses while
+that manager has an open scope. Raw connection transactions are outside
+this managed contract; custom `CommandBusInterface` implementations must
+coordinate their own idempotency with transaction completion.
+
+---
+
 ## Further reading
 
 - `src/Domain/Database/TransactionManagerInterface.php` — the

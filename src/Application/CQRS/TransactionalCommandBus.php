@@ -18,24 +18,25 @@ use Zef\Framework\Database\UnitOfWorkRetryPolicy;
 /**
  * Transactional decorator over a {@see CommandBusInterface}.
  *
- * Every dispatch runs inside a managed transaction
+ * Every uncached dispatch runs inside a managed transaction
  * ({@see TransactionManagerInterface::withTransaction()}):
  *
  * - the handler chain executes, then the optional {@see UnitOfWork}
  *   flushes its deferred writes ON THE SAME CONNECTION — both succeed or
  *   the whole command rolls back;
- * - when the inner bus was wired with the SAME TransactionManager, its
- *   event fan-out is queued via afterCommit() and fires only after the
- *   commit — a rolled-back command emits nothing, and listeners observe
- *   committed data;
+ * - the built-in CommandBus uses this decorator's TransactionManager for
+ *   event fan-out: a rolled-back command emits nothing, and listeners
+ *   observe committed data;
  * - nested dispatches (a handler dispatching another command through the
  *   same decorator) become savepoints — the outermost command owns the
  *   commit.
  *
- * Ordering with idempotency: the inner bus caches the result before the
- * commit, so a replay never re-executes the handler; events still fire
- * only for the FIRST successful commit (the inner bus defers fan-out to
- * afterCommit hooks, which a replay never registers).
+ * With the built-in CommandBus, idempotency wraps the whole transaction:
+ * a result is cached only after commit, before event fan-out. A cache hit
+ * skips both the handler and transaction/UoW work. A keyed cache miss in
+ * an existing managed transaction is rejected before the handler runs:
+ * the store's remember() contract cannot defer publication to that owner.
+ * Other CommandBusInterface implementations own their caching semantics.
  *
  * v2.22.1 (issue #65, item 2 — UoW retry strategy): when an optional
  * {@see UnitOfWorkRetryPolicy} is injected, the FLUSH phase is wrapped in
@@ -70,12 +71,53 @@ final readonly class TransactionalCommandBus implements CommandBusInterface
     #[\Override]
     public function dispatch(object $command, ?CqrsContext $context = null): mixed
     {
-        return $this->transactions->withTransaction(function (ConnectionInterface $connection) use ($command, $context): mixed {
-            $result = $this->inner->dispatch($command, $context);
-            $this->flushWithRetry($connection);
+        if (!$this->inner instanceof CommandBus) {
+            return $this->transactions->withTransaction(function (ConnectionInterface $connection) use ($command, $context): mixed {
+                $result = $this->inner->dispatch($command, $context);
+                $this->flushWithRetry($connection);
 
-            return $result;
-        }, $this->isolation);
+                return $result;
+            }, $this->isolation);
+        }
+
+        $hookFailure = null;
+        $scope = function (\Closure $execute) use (&$hookFailure): mixed {
+            $committed = false;
+            $result = null;
+
+            try {
+                return $this->transactions->withTransaction(function (ConnectionInterface $connection) use ($execute, &$committed, &$result): mixed {
+                    // Register first: later hook failures must not make a
+                    // committed command look like a failed cache producer.
+                    $this->transactions->afterCommit(static function () use (&$committed): void {
+                        $committed = true;
+                    });
+                    $result = $execute();
+                    $this->flushWithRetry($connection);
+
+                    return $result;
+                }, $this->isolation);
+            } catch (\Throwable $e) {
+                if (!$committed) {
+                    throw $e;
+                }
+                $hookFailure = $e;
+
+                return $result;
+            }
+        };
+
+        return $this->inner->dispatchInScope(
+            $command,
+            $context,
+            $scope,
+            $this->transactions,
+            static function () use (&$hookFailure): void {
+                if ($hookFailure instanceof \Throwable) {
+                    throw $hookFailure;
+                }
+            },
+        );
     }
 
     #[\Override]

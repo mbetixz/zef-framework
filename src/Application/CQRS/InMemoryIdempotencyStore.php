@@ -16,6 +16,9 @@ final class InMemoryIdempotencyStore implements IdempotencyStoreInterface
 {
     use IdempotencyTrait;
 
+    /** @var array<string, true> */
+    private array $inFlight = [];
+
     public function __construct(private readonly int $maxEntries = 10000)
     {
         if ($maxEntries < 1) {
@@ -32,6 +35,15 @@ final class InMemoryIdempotencyStore implements IdempotencyStoreInterface
             throw new \InvalidArgumentException('Invalid idempotency key.');
         }
 
-        return $this->idempotencyRemember($key, $producer, $ttlSeconds);
+        if (isset($this->inFlight[$key])) {
+            throw new \LogicException('Idempotent command is already in progress.');
+        }
+        $this->inFlight[$key] = true;
+
+        try {
+            return $this->idempotencyRemember($key, $producer, $ttlSeconds);
+        } finally {
+            unset($this->inFlight[$key]);
+        }
     }
 }
