@@ -115,7 +115,7 @@ final class RuntimeSecMutationDebtTest extends TestCase
 {
     private static bool $shadowsLoaded = false;
 
-    /** @var array<string, string|false> */
+    /** @var array<string, false|string> */
     private array $savedEnv = [];
 
     protected function setUp(): void
