@@ -70,7 +70,14 @@ final readonly class ConfigCompiler
         if (@file_put_contents($tmp, $code) === false) {
             throw new InvalidConfigurationException("Failed to write compiled config temp file '{$tmp}'.");
         }
-        @chmod($tmp, $this->fileMode);
+        // The Unix mode contract is POSIX-only: PHP's Windows emulation
+        // rewrites the DACL and masks without owner-write (e.g. the boundary
+        // mode 0) revoke the DELETE right, which breaks the atomic rename
+        // publish itself (issue #110). On Windows the compiled file keeps
+        // the process default ACL and the publish stays atomic.
+        if (DIRECTORY_SEPARATOR === '/') {
+            @chmod($tmp, $this->fileMode);
+        }
         if (!@rename($tmp, $targetFile)) {
             // Cleanup of $tmp, a name this method generated itself
             // ('.' . $basename . '.' . bin2hex(random_bytes(6)) . '.tmp', line 48). No

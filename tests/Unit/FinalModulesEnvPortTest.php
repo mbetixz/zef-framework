@@ -35,6 +35,12 @@ final class FinalModulesEnvPortTest extends TestCase
     public function testNoStaticEnvFacadeCallsRemainAnywhereInProductionSource(): void
     {
         $root = dirname(__DIR__, 2) . '/src/';
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // RecursiveDirectoryIterator yields backslash-separated pathnames
+            // on Windows while $root stays forward-slashed — normalize both
+            // sides so the Env.php exclusion below can match (issue #110).
+            $root = \str_replace('\\', '/', $root);
+        }
         $offenders = [];
 
         $iterator = new \RecursiveIteratorIterator(
@@ -44,7 +50,11 @@ final class FinalModulesEnvPortTest extends TestCase
             if (!$file instanceof \SplFileInfo || $file->getExtension() !== 'php') {
                 continue;
             }
-            $relative = str_replace($root, '', $file->getPathname());
+            $pathname = $file->getPathname();
+            if (\DIRECTORY_SEPARATOR === '\\') {
+                $pathname = \str_replace('\\', '/', $pathname);
+            }
+            $relative = \str_replace($root, '', $pathname);
             // Env.php sendiri mendefinisikan facade statis (keputusan penghapusan
             // menunggu issue #55 step 4) — definisi bukan pemanggilan.
             if ($relative === 'Domain/Foundation/Env.php') {
