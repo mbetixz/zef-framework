@@ -19,7 +19,13 @@ jobs:
   build:
     name: Build release artifact
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Must exceed the tag-triggered mutation gate it WAITS for, not just the
+    # own-build time: Infection measured 69 min on the v2.30.0 tag, so 45 min
+    # killed the push-triggered release run before the verify step could see
+    # the mutation verdict (run 36199788068, same death as v2.29.0's push run
+    # 36171241865). 200 min = mutation's own 120-min timeout + the 90-min
+    # verify deadline cannot both be exceeded by this ceiling first.
+    timeout-minutes: 200
     permissions:
       contents: read
       id-token: write # required for keyless (OIDC) build-provenance attestation
@@ -66,7 +72,7 @@ jobs:
           # timeout-minutes (120) plus the CI job's (45), otherwise a tag pushed
           # while the suite is in flight would trip the deadline instead of
           # waiting for the verdict. 5400s = 90 min covers them in sequence.
-          deadline=$((SECONDS + 5400))
+          deadline=$((SECONDS + 10800))
           for workflow in "ci.yml" "mutation.yml" "secret-scan.yml" "phpbench.yml"; do
             status=""
             conclusion=""
