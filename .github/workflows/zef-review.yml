@@ -258,7 +258,7 @@ jobs:
           # --- Variables: FASE B — check run (DEFAULT MATI) ---------------
           ZEF_REVIEW_ENABLE_BLOCK_ON_FINDINGS: ${{ vars.ZEF_REVIEW_ENABLE_BLOCK_ON_FINDINGS }}
           ZEF_REVIEW_CHECK_NAME: ${{ vars.ZEF_REVIEW_CHECK_NAME }}
-          ZEF�VIEW_BLOCK_SEVERITY: ${{ vars.ZEF_REVIEW_BLOCK_SEVERITY }}
+          ZEF_REVIEW_BLOCK_SEVERITY: ${{ vars.ZEF_REVIEW_BLOCK_SEVERITY }}
 
           # --- Variables: FASE C — auto-merge (DEFAULT MATI) --------------
           ZEF_REVIEW_ENABLE_AUTO_MERGE: ${{ vars.ZEF_REVIEW_ENABLE_AUTO_MERGE }}
