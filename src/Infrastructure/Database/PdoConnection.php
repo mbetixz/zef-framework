@@ -20,8 +20,11 @@ use Zef\Framework\Observability\MeterInterface;
  * - maps every \PDOException onto ConnectionException (connect phase) or
  *   QueryException (prepare/execute phase), chaining the original;
  * - nested transactions use explicit SAVEPOINTs (`zef_sp2`, `zef_sp3`, …)
- *   tracked with an internal depth counter — PDO::inTransaction() cannot
- *   distinguish nesting and is never consulted;
+ *   tracked with an internal depth counter — PDO::inTransaction() is
+ *   consulted only during failure cleanup, not to determine nesting;
+ * - transaction() preserves the primary failure if cleanup fails or the
+ *   driver has already ended the transaction; that connection instance
+ *   becomes unusable because its transaction outcome is uncertain;
  * - isolation levels are applied via `SET TRANSACTION ISOLATION LEVEL`
  *   before the outermost BEGIN; SQLite rejects the concept outright;
  * - isolation is a TRANSACTION-SCOPE property, not a SAVEPOINT one: a
@@ -40,6 +43,7 @@ final class PdoConnection implements ConnectionInterface
 
     private ?\PDO $handle = null;
     private int $level = 0;
+    private bool $unusable = false;
 
     public function __construct(
         private readonly ConnectionConfig $config,
@@ -145,7 +149,9 @@ final class PdoConnection implements ConnectionInterface
         }
         if ($this->level === 1) {
             try {
-                $this->pdo()->commit();
+                if (!$this->pdo()->commit()) {
+                    throw new TransactionException('Failed to commit transaction: driver returned false.');
+                }
             } catch (\PDOException $e) {
                 throw new TransactionException('Failed to commit transaction: ' . $e->getMessage(), 0, $e);
             }
@@ -162,7 +168,9 @@ final class PdoConnection implements ConnectionInterface
         }
         if ($this->level === 1) {
             try {
-                $this->pdo()->rollBack();
+                if (!$this->pdo()->rollBack()) {
+                    throw new TransactionException('Failed to roll back transaction: driver returned false.');
+                }
             } catch (\PDOException $e) {
                 throw new TransactionException('Failed to roll back transaction: ' . $e->getMessage(), 0, $e);
             }
@@ -184,12 +192,25 @@ final class PdoConnection implements ConnectionInterface
 
         try {
             $result = $fn($this);
+            $this->commit();
         } catch (\Throwable $e) {
-            $this->rollBack();
+            try {
+                if (!$this->pdo()->inTransaction()) {
+                    // The driver already ended the transaction. Its outcome
+                    // cannot be established by attempting another rollback.
+                    throw new TransactionException('Transaction outcome is unknown.', 0, $e);
+                }
+                $this->rollBack();
+            } catch (\Throwable) {
+                // Preserve the primary failure and prevent a persistent worker
+                // from reusing (or silently reconnecting) an uncertain session.
+                $this->unusable = true;
+                $this->handle = null;
+                $this->level = 0;
+            }
 
             throw $e;
         }
-        $this->commit();
 
         return $result;
     }
@@ -241,6 +262,9 @@ final class PdoConnection implements ConnectionInterface
 
     private function pdo(): \PDO
     {
+        if ($this->unusable) {
+            throw new ConnectionException('Connection is unusable after transaction cleanup failed; create a new connection.');
+        }
         $this->handle ??= $this->connect();
 
         return $this->handle;
