@@ -391,6 +391,9 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * mutan && mengevaluasi count() non-array → TypeError, bukan RuntimeException). */
     public function testIncrementRejectsNonArrayEvalResult(): void
     {
+        if (!class_exists(\Redis::class)) {
+            self::markTestSkipped('ext-redis not loaded in this environment (the F8 fake extends \Redis).');
+        }
         $store = new RedisSharedRateLimitStore(self::fakeRedis(evalResult: 'scalar-not-array'));
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Redis rate-limit store returned an unexpected result.');
@@ -403,6 +406,9 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * Ternary swap, dan CastString/CastInt pada jalur cast. */
     public function testIncrementElementSanitizationMatrix(): void
     {
+        if (!class_exists(\Redis::class)) {
+            self::markTestSkipped('ext-redis not loaded in this environment (the F8 fake extends \Redis).');
+        }
         $make = static fn (array $eval): RedisSharedRateLimitStore => new RedisSharedRateLimitStore(self::fakeRedis(evalResult: $eval));
 
         // keduanya non-numerik → fallback penuh (count 0, reset = now + window)
@@ -419,6 +425,9 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
      * (membunuh LogicalOr:58 ×3 + CastInt:66 — asersi assertSame(int) membedakan). */
     public function testPeekBucketMatrixReturnsNullOrPureInts(): void
     {
+        if (!class_exists(\Redis::class)) {
+            self::markTestSkipped('ext-redis not loaded in this environment (the F8 fake extends \Redis).');
+        }
         $fakes = [
             'skalar' => self::fakeRedis(hMGetResult: false), // false → !is_array → null
             'tanpa-reset' => self::fakeRedis(hMGetResult: ['count' => '5']),
@@ -502,6 +511,9 @@ final class EdgeMatrixF8SecInfraTest extends TestCase
 
     private static function fakeRedis(mixed $evalResult = null, mixed $hMGetResult = null): F8FakeRedis
     {
+        if (!class_exists(\Redis::class)) {
+            self::fail('fakeRedis() requires ext-redis: the fake extends \Redis (guards live at each call site).');
+        }
         $fake = new F8FakeRedis();
         $fake->evalResult = $evalResult;
         $fake->hMGetResult = $hMGetResult;
@@ -533,25 +545,32 @@ final class F8FakeSharedStore implements SharedRateLimitStoreInterface
     }
 }
 
-/**
+/*
  * @internal — \Redis palsu: eval()/hMGet() mengembalikan hasil terjadwal.
  * \Redis tidak final sehingga bisa diperluas; tidak ada koneksi jaringan.
+ *
+ * Deklarasi bersyarat: file test ini dimuat phpunit pada profil TANPA
+ * ext-redis (sel smoke Windows, issue #92) — extends di luar guard akan
+ * menjadi dependensi load-time yang mematikan seluruh suite, melanggar
+ * desain skip-graceful (guard runtime + markTestSkipped di call site).
  */
-final class F8FakeRedis extends \Redis
-{
-    public mixed $evalResult = null;
-
-    public mixed $hMGetResult = null;
-
-    #[\Override] // @phpstan-ignore-line
-    public function eval(string $script, array $args = [], int $numkeys = 0): mixed
+if (class_exists(\Redis::class)) {
+    final class F8FakeRedis extends \Redis
     {
-        return $this->evalResult;
-    }
+        public mixed $evalResult = null;
 
-    #[\Override] // @phpstan-ignore-line
-    public function hMGet(string $key, array $fields): array|false|\Redis
-    {
-        return $this->hMGetResult; // @phpstan-ignore-line
+        public mixed $hMGetResult = null;
+
+        #[\Override] // @phpstan-ignore-line
+        public function eval(string $script, array $args = [], int $numkeys = 0): mixed
+        {
+            return $this->evalResult;
+        }
+
+        #[\Override] // @phpstan-ignore-line
+        public function hMGet(string $key, array $fields): array|false|\Redis
+        {
+            return $this->hMGetResult; // @phpstan-ignore-line
+        }
     }
 }
