@@ -612,6 +612,12 @@ final class ObservabilityTest extends TestCase
      */
     private function runOtlpServerSession(int $requests, callable $test): void
     {
+        if (!\function_exists('pcntl_fork')) {
+            // The fork-based OTLP transport tests are POSIX-only (issue #110):
+            // Windows has no pcntl, and the server side of the session cannot
+            // run in-process without forking.
+            self::markTestSkipped('pcntl_fork is unavailable on this platform.');
+        }
         $buildDir = \dirname(__DIR__, 2) . '/build';
         if (!is_dir($buildDir)) {
             \mkdir($buildDir, 0o777, true);

@@ -141,17 +141,29 @@ final class ZefCliDispatchTest extends TestCase
 
         self::assertFileExists($bin);
 
-        $prefix = '';
+        // `VAR=value cmd` is a POSIX-only shell prefix — cmd.exe parses it as
+        // a command NAME ("'ZEF_ENV' is not recognized..."). Inject the env
+        // through putenv() instead: the child inherits the current process
+        // environment, which is portable, and the previous values are
+        // restored on the way out (issue #110).
+        $restore = [];
         foreach ($extraEnv as $name => $value) {
-            $prefix .= $name . '=' . \escapeshellarg($value) . ' ';
+            $restore[$name] = \getenv($name);
+            \putenv("{$name}={$value}");
         }
 
-        $cmd = $prefix . \escapeshellarg(\PHP_BINARY) . ' ' . \escapeshellarg($bin) . ' ' . $arguments . ' 2>&1';
+        try {
+            $cmd = \escapeshellarg(\PHP_BINARY) . ' ' . \escapeshellarg($bin) . ' ' . $arguments . ' 2>&1';
 
-        $lines = [];
-        $exitCode = 0;
-        exec($cmd, $lines, $exitCode); // nosemgrep: exec-use
+            $lines = [];
+            $exitCode = 0;
+            \exec($cmd, $lines, $exitCode); // nosemgrep: exec-use
 
-        return [$exitCode, \implode("\n", $lines)];
+            return [$exitCode, \implode("\n", $lines)];
+        } finally {
+            foreach ($restore as $name => $previous) {
+                \putenv($previous === false ? $name : "{$name}={$previous}");
+            }
+        }
     }
 }

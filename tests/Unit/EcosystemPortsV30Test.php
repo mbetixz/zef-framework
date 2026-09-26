@@ -217,12 +217,17 @@ final class EcosystemPortsV30Test extends TestCase
         mkdir($base . '/store', 0o777, true);
         file_put_contents($base . '/store/blocked', 'x'); // a FILE where a directory is needed
         $storage = new LocalStorage($base . '/store');
+        // LocalStorage canonicalises its root through realpath(), which on
+        // Windows expands 8.3 short names (RUNNER~1 -> runneradmin) and
+        // returns backslash separators — the expected message must be built
+        // from the same canonical form (issue #110).
+        $canonicalRoot = (string) realpath($base . '/store');
 
         try {
             $storage->put('blocked/nested.txt', 'v');
             self::fail('mkdir over a file must fail.');
         } catch (StorageException $error) {
-            self::assertSame("Unable to create object directory '{$base}/store/blocked'.", $error->getMessage());
+            self::assertSame("Unable to create object directory '{$canonicalRoot}/blocked'.", $error->getMessage());
         } finally {
             @unlink($base . '/store/blocked'); // nosemgrep: php.lang.security.unlink-use
             @rmdir($base . '/store');
@@ -232,6 +237,13 @@ final class EcosystemPortsV30Test extends TestCase
 
     public function testLocalStorageWriteFailureIsMapped(): void
     {
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // chmod-based failure injection is a POSIX contract (issue #110):
+            // the test exercises LocalStorage's ERROR MAPPING, not the happy
+            // path, and Windows' ACL emulation does not honor 0o555 on a
+            // directory as "tmp write fails".
+            self::markTestSkipped('chmod failure injection is POSIX-only.');
+        }
         $base = sys_get_temp_dir() . '/zef-v30-' . bin2hex(random_bytes(4));
         mkdir($base . '/store', 0o777, true);
         chmod($base . '/store', 0o555); // read-only directory: tmp write fails
@@ -270,6 +282,10 @@ final class EcosystemPortsV30Test extends TestCase
 
     public function testLocalStorageReadFailureIsMapped(): void
     {
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // chmod-based failure injection is a POSIX contract (issue #110).
+            self::markTestSkipped('chmod failure injection is POSIX-only.');
+        }
         $base = sys_get_temp_dir() . '/zef-v30-' . bin2hex(random_bytes(4));
         mkdir($base . '/store', 0o777, true);
         file_put_contents($base . '/store/secret.txt', 'v');
@@ -291,6 +307,10 @@ final class EcosystemPortsV30Test extends TestCase
 
     public function testLocalStorageDeleteFailureIsMapped(): void
     {
+        if (\DIRECTORY_SEPARATOR === '\\') {
+            // chmod-based failure injection is a POSIX contract (issue #110).
+            self::markTestSkipped('chmod failure injection is POSIX-only.');
+        }
         $base = sys_get_temp_dir() . '/zef-v30-' . bin2hex(random_bytes(4));
         mkdir($base . '/store', 0o777, true);
         file_put_contents($base . '/store/stuck.txt', 'v');
