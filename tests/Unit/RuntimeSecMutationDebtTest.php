@@ -115,11 +115,23 @@ final class RuntimeSecMutationDebtTest extends TestCase
 {
     private static bool $shadowsLoaded = false;
 
+    /** @var array<string, string|false> */
+    private array $savedEnv = [];
+
+    protected function setUp(): void
+    {
+        // Restore rather than unset: a variable that was already set when
+        // this suite started must survive the run (coderabbit, PR #121).
+        foreach (['ZEF_RUNTIME_CONTROL_PLANE', 'ZEF_RUNTIME_SATURATION_PERCENT', 'ZEF_OTEL_ENABLED'] as $name) {
+            $this->savedEnv[$name] = getenv($name);
+        }
+    }
+
     protected function tearDown(): void
     {
-        putenv('ZEF_RUNTIME_CONTROL_PLANE');
-        putenv('ZEF_RUNTIME_SATURATION_PERCENT');
-        putenv('ZEF_OTEL_ENABLED');
+        foreach ($this->savedEnv as $name => $value) {
+            putenv($value === false ? $name : "{$name}={$value}");
+        }
         unset($GLOBALS['__zef_fake_memory'], $GLOBALS['__zef_usleep_calls']);
     }
 
