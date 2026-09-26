@@ -3,24 +3,20 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-# A sample workflow which sets up Snyk to analyze the full Snyk platform (Snyk Open Source, Snyk Code,
-# Snyk Container and Snyk Infrastructure as Code)
-# The setup installs the Snyk CLI - for more details on the possible commands
-# check https://docs.snyk.io/snyk-cli/cli-reference
-# The results of Snyk Code are then uploaded to GitHub Security Code Scanning
+# Snyk security scanning: Open Source (SCA), Code (SAST), IaC and Container.
+# SARIF produced by Snyk Code is uploaded to the GitHub Code Scanning tab.
 #
-# In order to use the Snyk Action you will need to have a Snyk API token.
-# More details in https://github.com/snyk/actions#getting-your-snyk-token
-# or you can signup for free at https://snyk.io/login
+# Requires the repository secret SNYK_TOKEN
+# (https://github.com/snyk/actions#getting-your-snyk-token).
 #
-# For more examples, including how to limit scans to only high-severity issues
-# and fail PR checks, see https://github.com/snyk/actions/
+# All actions are pinned to a full commit SHA, matching the convention used in
+# .github/workflows/ci.yml.
 
 name: Snyk Security
 
 on:
   push:
-    branches: ["main" ]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -29,51 +25,77 @@ permissions:
 
 jobs:
   snyk:
-    permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    name: snyk
+    # Credentialed scans must never run against an untrusted fork pull request:
+    # GitHub withholds secrets and downgrades the job token there, so the scan
+    # cannot authenticate. Skipping keeps the check honest instead of reporting
+    # a green-but-empty result. Never use pull_request_target to work around it.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # actions/checkout to fetch code
+      security-events: write # github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    env:
+      # Scoped to the job (not the workflow) so every Snyk step is
+      # authenticated and no unrelated job can ever receive it.
+      # Never echo, log, or print this value.
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Set up Snyk CLI to check for security issues
-        # Snyk can be used to break the build when it detects security issues.
-        # In this case we want to upload the SAST issues to GitHub Code Scanning
-        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb
+        # Pinned commit from snyk/actions (no version tag moves with it).
+        uses: snyk/actions/setup@806182742461562b67788a64410098c9d9b96adb # pinned (snyk/actions)
 
-        # For Snyk Open Source you must first set up the development environment for your application's dependencies
-        # For example for Node
-        #- uses: actions/setup-node@v4
-        #  with:
-        #    node-version: 20
+      # Snyk exits with code 1 when it finds issues, which would otherwise abort
+      # the job and skip the SARIF upload. Exit 1 is treated as "findings" and
+      # allowed through; any higher code is a genuine scan error and still fails.
+      - name: Snyk Code test (SAST, SARIF output)
+        id: snyk_code
+        run: |
+          rc=0
+          snyk code test --sarif > snyk-code.sarif || rc=$?
+          echo "snyk code test exit code: ${rc} (0=clean, 1=findings, >1=error)"
+          if [ "${rc}" -gt 1 ]; then
+            echo "::error::snyk code test failed with exit code ${rc} (scan error, not findings)"
+            exit "${rc}"
+          fi
 
-        env:
-          # This is where you will need to introduce the Snyk API token created with your Snyk account
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # Upload runs even when the scan above reported findings.
+      - name: Upload Snyk Code results to GitHub Code Scanning
+        if: always() && hashFiles('snyk-code.sarif') != ''
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code
 
-        # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
-        # Use || true to not fail the pipeline
-      - name: Snyk Code test
-        run: snyk code test --sarif > snyk-code.sarif # || true
-
-        # Runs Snyk Open Source (SCA) analysis and uploads result to Snyk.
+      # Snyk Open Source (SCA). `monitor` uploads the dependency graph to Snyk;
+      # it exits non-zero only on a real error, so it is deliberately not masked.
       - name: Snyk Open Source monitor
         run: snyk monitor --all-projects
 
-        # Runs Snyk Infrastructure as Code (IaC) analysis and uploads result to Snyk.
-        # Use || true to not fail the pipeline.
+      # Same exit-code-1 contract as the Code step: findings (1) must not abort
+      # the job, a real error (>1) must.
       - name: Snyk IaC test and report
-        run: snyk iac test --report # || true
+        id: snyk_iac
+        run: |
+          rc=0
+          snyk iac test --report || rc=$?
+          echo "snyk iac test exit code: ${rc} (0=clean, 1=findings, >1=error)"
+          if [ "${rc}" -gt 1 ]; then
+            echo "::error::snyk iac test failed with exit code ${rc} (scan error, not findings)"
+            exit "${rc}"
+          fi
 
-        # Build the docker image for testing
+      # The repository's Dockerfile lives at deploy/Dockerfile; the build
+      # context stays the repository root because the Dockerfile does `COPY . .`.
       - name: Build a Docker image
-        run: docker build -t your/image-to-test .
-        # Runs Snyk Container (Container and SCA) analysis and uploads result to Snyk.
-      - name: Snyk Container monitor
-        run: snyk container monitor your/image-to-test --file=Dockerfile
+        run: docker build -f deploy/Dockerfile -t zef-framework:scan .
 
-        # Push the Snyk Code results into GitHub Code Scanning tab
-      - name: Upload result to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: snyk-code.sarif
+      # Snyk Container (Container and SCA) analysis, uploaded to Snyk.
+      - name: Snyk Container monitor
+        run: snyk container monitor zef-framework:scan --file=deploy/Dockerfile
